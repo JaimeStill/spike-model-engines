@@ -23,9 +23,21 @@ its stack was recorded; the stack is the one running.
 
 ## The pinned image on the GPU
 
-`docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669 --version`:
+```sh
+docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669 --version
+docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669 --list-devices
+```
 
-| Host | CUDA device found | Build printed |
+| Host | Build printed | CUDA device found |
 |---|---|---|
-| gb10-1 | _pending_ | _pending_ |
+| gb10-1 | 0.7.0-dev (build 11669, commit 620d2225c) | CUDA0: NVIDIA GB10 (124544 MiB, 119719 MiB free) |
 | gb10-2 | _pending_ | _pending_ |
+
+The image's CUDA 13.4.1 runtime runs on the hosts' 580.178.04 driver, which reports CUDA 13.0.
+
+On gb10-1 the first GPU run failed with `failed to fulfil mount request: open
+/usr/lib/aarch64-linux-gnu/libnvidia-egl-wayland.so.1.1.21: no such file or directory`. The
+upgrade had moved `libnvidia-egl-wayland1` from 1.1.21 to 1.1.23, and the toolkit's CDI spec,
+`/var/run/cdi/nvidia.yaml`, generated at the last boot, still named 1.1.21. Regenerating the spec
+with `sudo nvidia-ctk cdi generate --output=/var/run/cdi/nvidia.yaml` fixed it; a reboot would
+have regenerated it too.
