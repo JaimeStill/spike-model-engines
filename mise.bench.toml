@@ -1,0 +1,10 @@
+# The load tool the spike measures with from the laptop, GuideLLM, and the runtimes it needs. It
+# lives in its own environment, not mise.toml, so `mise run check` never installs it. Activate it
+# with MISE_ENV=bench: `MISE_ENV=bench mise install`, then `MISE_ENV=bench mise exec -- guidellm`.
+[tools]
+# Held on 3.14: torch, which GuideLLM requires, publishes no wheels for Python 3.15 yet, so
+# currency reports Python behind its latest until it does.
+python = "3.14.9"
+# mise's pipx backend installs GuideLLM through uv.
+uv = "0.13.5"
+"pipx:guidellm" = "0.8.1"

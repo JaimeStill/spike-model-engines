@@ -58,9 +58,13 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
 
 ## Capabilities
 
-- **Engine guides:** setup, models, APIs, updates, and uninstall, per engine.
-- **The `engines` suite:** the scripted install, update, and uninstall steps.
-- **Served-load findings:** GuideLLM runs by shape, quantization, and concurrency.
+- **Engine guides:** setup, models, APIs, updates, and uninstall, per engine, under
+  `docs/engines/<engine>/`; llama.cpp's is written, vLLM's is planned.
+- **The `engines` suite:** the scripted install, update, and uninstall steps, under `engines/`;
+  llama.cpp's are written.
+- **Served-load findings:** GuideLLM runs by shape, quantization, and concurrency, under
+  `docs/findings/`. The anchor cells later tasks rerun are in `llama-gb10-container.md`, with the
+  commands that run them.
 - **Raw backend findings:** llama-bench pp/tg per llama.cpp backend.
 - **API surface:** the matrix of what each engine serves.
 - **Hosting method:** container against bare metal.
@@ -72,7 +76,7 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
 The tasks, in the order they run; each cites the evidence it proves.
 
 1. `llama-gb10-container`: llama.cpp in ggml's CUDA 13 image on both GB10s, the `engines` suite,
-   the llama.cpp guide, one agreed GuideLLM cell (evidence 1, 2).
+   the llama.cpp guide, two GuideLLM anchor cells (evidence 1, 2).
 2. `vllm-gb10-container`: vLLM's CUDA 13.0 arm64 image on both GB10s, NVFP4 served, the vLLM guide
    (evidence 1, 3).
 3. `bench-gb10-container`: the agreed cells on gb10-1, cross-checked on gb10-2, and the
@@ -87,6 +91,24 @@ The tasks, in the order they run; each cites the evidence it proves.
 8. `strix-native`: a native ROCm build, only when task 6 shows ROCm leading or the GB10 native
    tasks show bare metal winning (evidence 6).
 9. `answer`: the evidence, README "The answer", and the answer section.
+
+## Running on the GB10s
+
+The practices every task on the GB10s follows, each with its reason:
+
+- **CDI spec.** An `apt upgrade` without a reboot can leave the NVIDIA Container Toolkit's CDI spec
+  naming a library that is gone, and every GPU container then fails to start. Regenerate it after
+  each upgrade ([setup](../docs/engines/llama.cpp/setup.md#1-bring-the-host-current)).
+- **Models.** Download a model once, on gb10-1, and copy it to gb10-2 over QSFP
+  ([models](../docs/engines/llama.cpp/models.md#copying-a-model-to-the-other-gb10)).
+- **Network path.** When the architect is remote, the laptop can reach the GB10s through a
+  Tailscale DERP relay. The relay adds its round trip to TTFT and request latency, but not to ITL
+  or the server's `/metrics` figures, so every served run records its path with `tailscale ping`.
+- **Model state.** The prompt cache changes TTFT and the prompt tokens the server processes: cell
+  B's rerun, on a freshly loaded model, had a higher TTFT than its first run after cell A. Start
+  each cell from the same model state, warmed or freshly loaded, so TTFT compares like with like.
+- **GuideLLM's Python.** `mise.bench.toml` holds Python at 3.14, because torch publishes no 3.15
+  wheels, so `mise run currency` reports Python behind until it does.
 
 ## References
 

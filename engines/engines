@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# The engines dispatcher: `engines <group> <verb> [args...]` runs engines-<group>-<verb> from this
+# directory with the remaining arguments. With no arguments it lists the commands, each with the
+# summary from its `# engines:summary=` line. Run from the clone; a new command is a new
+# engines-<group>-<verb> file here, with nothing to register.
+set -euo pipefail
+
+dir=$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")
+
+if (($# < 2)); then
+  echo "usage: engines <group> <verb> [args...]"
+  for script in "$dir"/engines-*-*; do
+    name=${script##*/engines-}
+    printf '  engines %-18s %s\n' "${name/-/ }" "$(sed -n 's/^# engines:summary=//p' "$script")"
+  done
+  exit $(($# > 0))
+fi
+
+target="$dir/engines-$1-$2"
+if [[ ! -x $target ]]; then
+  echo "engines: no command '$1 $2'; run engines with no arguments to list them" >&2
+  exit 1
+fi
+shift 2
+exec "$target" "$@"
