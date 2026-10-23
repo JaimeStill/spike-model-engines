@@ -194,8 +194,8 @@ do not depend on the path: cell A's ITL of 18.3 ms is 54.5 tok/s, against the se
   (`JSONDecodeError('Unterminated string starting at: line 1 column 64 (char 63)')`). The server
   generated 240 of its 256 tokens (8,176 generated against 31 × 256 = 7,936), so the engine kept
   serving; the error is between the stream and the client, over the relay.
-- Cell B was rerun the same day on the same build, after the walkthrough and a fresh install of the
-  reviewed scripts, over the same relay (DERP nyc, about 55 ms): 32 of 32 completed, so the parse
+- Cell B was rerun the same day on the same build, after the walkthrough and a fresh install,
+  over the same relay (DERP nyc, about 55 ms): 32 of 32 completed, so the parse
   error did not recur. Output tok/s, ITL, and latency agree with the first run within 3%. TTFT is
   higher (median 1420 against 1239 ms) and the server processed 16,792 prompt tokens against
   12,448: the rerun started on a freshly loaded model, with no prompt cache from cell A.
@@ -215,3 +215,10 @@ gpt-oss-120b, so no step downloaded it.
 | Model reloaded from the store, `/props` build_info | `b11669-620d2225c` | `b11669-620d2225c` |
 | Chat completion at b11669 | "Hello! I’m glad you’re here." | "Hello, I hope your day is going spectacularly well!" |
 | `engines/engines llama uninstall`, images left, store | container and b11669 image removed; none left; model kept | container and b11669 image removed; none left; model kept |
+
+After the walkthrough, the standards review changed the scripts (a preflight before any pull or
+removal, Docker errors passed up, and the container found by an exact name filter). The cell B
+rerun's install still ran the earlier scripts, so gb10-1 then ran the final scripts against its
+running container: `install` and `update` each said `llama already runs …b11669; nothing changed`,
+`uninstall` removed the container and the b11669 image, and a second `uninstall` said `llama is not
+installed; nothing changed`.
