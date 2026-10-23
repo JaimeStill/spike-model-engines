@@ -14,8 +14,12 @@ trailing=$(MISE_ENV=bench MISE_LOG_LEVEL=error mise outdated --bump --local --js
 source engines/llama.env
 release=$(curl -fsSL https://api.github.com/repos/ggml-org/llama.cpp/releases/latest)
 latest=$(jq -r '.body | capture("Nightly build:[^b]*(?<b>b[0-9]+)").b' <<<"$release")
+tag=$(jq -r .tag_name <<<"$release")
+if [[ -z $latest ]]; then
+  echo "currency: llama.cpp $tag's notes name no b-build (\"Nightly build:\")" >&2
+  exit 2
+fi
 if [[ $latest != "$LLAMA_BUILD" ]]; then
-  tag=$(jq -r .tag_name <<<"$release")
   trailing+="${trailing:+$'\n'}engines/llama.env: llama.cpp $LLAMA_BUILD -> $latest ($tag)"
 fi
 

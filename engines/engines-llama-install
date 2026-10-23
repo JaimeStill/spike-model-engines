@@ -17,6 +17,7 @@ elif [[ -n $running ]]; then
   exit 1
 fi
 
+llama_preflight
 docker pull "$image"
 llama_run "$image" >/dev/null
-echo "llama runs $image on $(tailscale ip -4):8080"
+echo "llama runs $image on $LLAMA_ADDR:8080"

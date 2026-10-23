@@ -14,6 +14,7 @@ fi
 
 changed=
 if [[ $running != "$LLAMA_IMAGE" ]]; then
+  llama_preflight
   docker pull "$LLAMA_IMAGE"
   docker rm --force "$LLAMA_CONTAINER" >/dev/null
   llama_run "$LLAMA_IMAGE" >/dev/null

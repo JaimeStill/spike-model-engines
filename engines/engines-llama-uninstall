@@ -6,7 +6,8 @@ set -euo pipefail
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
 
 changed=
-if [[ -n $(llama_running_image) ]]; then
+running=$(llama_running_image)
+if [[ -n $running ]]; then
   docker rm --force "$LLAMA_CONTAINER" >/dev/null
   echo "removed container $LLAMA_CONTAINER"
   changed=yes
