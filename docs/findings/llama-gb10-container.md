@@ -193,3 +193,19 @@ do not depend on the path: cell A's ITL of 18.3 ms is 54.5 tok/s, against the se
   (`JSONDecodeError('Unterminated string starting at: line 1 column 64 (char 63)')`). The server
   generated 240 of its 256 tokens (8,176 generated against 31 × 256 = 7,936), so the engine kept
   serving; the error is between the stream and the client, over the relay.
+
+## Walkthrough
+
+The architect ran the whole procedure on each GB10 from the guide alone: install at v0.6.0's
+b11429, serve, update to v0.7.0's b11669, serve again, and uninstall. Both stores already held
+gpt-oss-120b, so no step downloaded it.
+
+| Step | gb10-2 | gb10-1 |
+|---|---|---|
+| `engines/engines llama install b11429`, `/props` build_info | `b11429-d81235049` | _pending_ |
+| Chat completion at b11429 | "Hello! I hope your day is wonderful." | _pending_ |
+| `engines/engines llama update`, images left | `server-cuda13-b11669` only | _pending_ |
+| Second `engines/engines llama update` | nothing changed | _pending_ |
+| Model reloaded from the store, `/props` build_info | `b11669-620d2225c` | _pending_ |
+| Chat completion at b11669 | "Hello! I’m glad you’re here." | _pending_ |
+| `engines/engines llama uninstall`, images left, store | container and b11669 image removed; none left; model kept | _pending_ |
