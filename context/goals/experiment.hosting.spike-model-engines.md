@@ -200,8 +200,9 @@ memory on integrated GPUs), owed only once the finding records vLLM's startup me
 - llama-gb10-container: every served run records the laptop's path to the host with `tailscale
   ping`; the cells ran over a DERP relay, which inflates TTFT and latency but not ITL or /metrics.
 
-- vllm-gb10-container: image `vllm/vllm-openai:v<release>`, the default CUDA 13.0 multi-arch tag;
-  rejected `-ubuntu2404`, since v0.31.0 has no such tag and the update walk needs both releases.
+- vllm-gb10-container: image `vllm/vllm-openai:v<release>`, the default CUDA 13.0 multi-arch tag,
+  vLLM's primary image; rejected `-ubuntu2404`, which changes only the container's base OS. (Round
+  1 claimed v0.31.0 had no `-ubuntu2404` tag; it has one, and the architect kept the default.)
 - vllm-gb10-container: NVFP4 model nvidia/Gemma-4-26B-A4B-NVFP4. It is 18.8 GB, within 0.7 pt of
   BF16 on its card's evals, recipe-validated on GB10, and the same model as the Framework
   baseline's Gemma 4 26B-A4B. Rejected Nemotron-3-Super-120B-A12B-NVFP4 (three evals more than
