@@ -1,7 +1,8 @@
 # Project kind: this spike holds shell scripts and engine guides, checked by `mise run check`. Its
 # goals live in the coordinator's roadmap (standards-lab/context/roadmap.toml). `mise run currency`
-# reports every mise tool pinned behind its latest; the first install task extends it to the
-# llama.cpp semver release and the vLLM release. No gate.
+# reports every mise tool pinned behind its latest, and the llama.cpp build (engines/llama.env)
+# behind the b-build named by llama.cpp's latest semver release; vLLM's release joins in its own
+# task. No gate.
 [project]
 kind = "code"
 check = "mise run check"
