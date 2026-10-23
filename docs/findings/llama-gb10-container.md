@@ -8,16 +8,18 @@ from `ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669` (`engines/llama.env`).
 
 ## Host stack
 
-Each host was brought current (`apt full-upgrade`, then a reboot) before its stack was recorded.
+Each host was brought current with `sudo apt update && sudo apt upgrade`, without a reboot, before
+its stack was recorded; the stack is the one running.
 
 | Item | gb10-1 | gb10-2 |
 |---|---|---|
-| DGX OS | _pending_ | _pending_ |
-| Driver | _pending_ | _pending_ |
-| CUDA | _pending_ | _pending_ |
-| Kernel | _pending_ | _pending_ |
-| Docker | _pending_ | _pending_ |
-| NVIDIA Container Toolkit | _pending_ | _pending_ |
+| DGX OS | 7.6.0 | _pending_ |
+| Driver | 580.178.04 | _pending_ |
+| CUDA | 13.0 | _pending_ |
+| Kernel | 7.0.0-1019-nvidia | _pending_ |
+| Reboot pending | no | _pending_ |
+| Docker | 29.6.2 | _pending_ |
+| NVIDIA Container Toolkit | 1.20.1 | _pending_ |
 
 ## The pinned image on the GPU
 
