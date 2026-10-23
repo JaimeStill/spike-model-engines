@@ -130,6 +130,8 @@ slices 4/4 committed · standards — · spec — · editor —
   rsync (63.4 GB in 1m50s); rejected a second download.
 - llama-gb10-container: held python at 3.14.9 in mise.bench.toml: GuideLLM 0.8.1 needs torch, and
   torch 2.14.1 has no cp315 wheels; latest 3.15.1.
+- llama-gb10-container: hosts go by short name (`gb10-1`, `gb10-qsfp` names); only tailnet
+  addresses and the MagicDNS suffix stay out, matching ai-hosting.md "Visibility".
 - llama-gb10-container: currency gains the llama.cpp line only; vLLM's waits for its task.
 
 ## Pending edits
