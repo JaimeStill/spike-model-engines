@@ -24,7 +24,9 @@ docker inspect --format '{{.Config.Image}}' llama
 docker image ls ghcr.io/ggml-org/llama.cpp
 ```
 
-The first prints the pinned image; the second lists it alone.
+The first prints the pinned image; the second lists it alone. Once the model is loaded, the
+laptop confirms the build the model itself runs ([API](api.md#build)), which reads
+`b11669-620d2225c` at the pin.
 
 ## Rehearsing an update
 

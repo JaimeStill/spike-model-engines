@@ -76,6 +76,16 @@ docker logs --tail 20 llama
 The model's files land in `/srv/models/models--ggml-org--gpt-oss-120b-GGUF`, in Hugging Face's
 cache layout.
 
+## Cancelling a download
+
+A load that is still downloading stops when the container restarts, and the restarted router
+loads nothing. On the host, restart it, then delete the model's partial files:
+
+```sh
+docker restart llama
+rm -rf /srv/models/models--ggml-org--gpt-oss-120b-GGUF
+```
+
 ## Copying a model to the other GB10
 
 Download a model once, on gb10-1, and copy it to gb10-2 over the QSFP link instead of downloading

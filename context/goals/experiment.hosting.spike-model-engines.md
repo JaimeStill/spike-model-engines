@@ -43,7 +43,8 @@ steps, its first guide, and the anchor cells later tasks rerun.
 8. gpt-oss-120b MXFP4 is fetched by the container into the model store and answers an OpenAI
    chat completion sent from the laptop.
 9. The llama.cpp guide (README, setup, models, api, update, uninstall) holds every command the
-   architect types, exactly as typed, with no host name or tailnet identifier.
+   architect types, exactly as typed, with no tailnet identifier (hosts by short name, per
+   Decisions).
 10. GuideLLM 0.8.1 runs from the laptop through the spike's own pinned env. The two anchor cells
     run against gb10-1 at b11669, each under 10 minutes, and a dated finding records the build,
     the host stack, and the client and server figures.
@@ -132,6 +133,10 @@ slices 4/4 committed · standards — · spec — · editor —
   torch 2.14.1 has no cp315 wheels; latest 3.15.1.
 - llama-gb10-container: hosts go by short name (`gb10-1`, `gb10-2-qsfp`); only tailnet
   addresses and the MagicDNS suffix stay out, matching ai-hosting.md "Visibility".
+- llama-gb10-container: the preset turns on `metrics = true` so each cell differences the server's
+  own /metrics counters; the guide gains /metrics and the /props build check.
+- llama-gb10-container: bench commands (GuideLLM env, cells, read-outs) live in the finding's
+  method, not the engine guide: they are behavior 10's measurement, not how the engine runs.
 - llama-gb10-container: currency gains the llama.cpp line only; vLLM's waits for its task.
 
 ## Pending edits

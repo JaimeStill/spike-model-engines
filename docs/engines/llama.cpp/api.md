@@ -38,6 +38,15 @@ curl -s "http://$GB10:8080/v1/models" | jq '.data[] | {id, status: .status.value
 The OpenAI-compatible model list; in router mode it is the same list as `/models`: the ids clients
 send in `"model"`, each with its status.
 
+## Build
+
+```sh
+curl -sG "http://$GB10:8080/props" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false | jq -r .build_info
+```
+
+The build a loaded model runs, as `b<build>-<commit>`, such as `b11669-620d2225c`. In router mode
+`/props` names its model like `/metrics` below, and `autoload=false` keeps it from loading one.
+
 ## Metrics
 
 ```sh
