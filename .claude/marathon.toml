@@ -1,0 +1,15 @@
+# Project kind: this spike holds shell scripts and engine guides, checked by `mise run check`. Its
+# goals live in the coordinator's roadmap (standards-lab/context/roadmap.toml). `mise run currency`
+# reports every mise tool pinned behind its latest; the first install task extends it to the
+# llama.cpp semver release and the vLLM release. No gate.
+[project]
+kind = "code"
+check = "mise run check"
+currency = "mise run currency"
+
+# Remote platform and the commands that publish and merge a finished branch. The spike has no
+# CI, so the merge doesn't wait on pull-request checks.
+[remote]
+platform = "github"
+publish = "gh pr create"
+merge = "gh pr merge --merge --delete-branch"
