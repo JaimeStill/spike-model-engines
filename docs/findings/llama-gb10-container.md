@@ -202,10 +202,10 @@ gpt-oss-120b, so no step downloaded it.
 
 | Step | gb10-2 | gb10-1 |
 |---|---|---|
-| `engines/engines llama install b11429`, `/props` build_info | `b11429-d81235049` | _pending_ |
-| Chat completion at b11429 | "Hello! I hope your day is wonderful." | _pending_ |
-| `engines/engines llama update`, images left | `server-cuda13-b11669` only | _pending_ |
-| Second `engines/engines llama update` | nothing changed | _pending_ |
-| Model reloaded from the store, `/props` build_info | `b11669-620d2225c` | _pending_ |
-| Chat completion at b11669 | "Hello! I’m glad you’re here." | _pending_ |
-| `engines/engines llama uninstall`, images left, store | container and b11669 image removed; none left; model kept | _pending_ |
+| `engines/engines llama install b11429`, `/props` build_info | `b11429-d81235049` | `b11429-d81235049` |
+| Chat completion at b11429 | "Hello! I hope your day is wonderful." | "Hello! Hope you’re having a wonderful day." |
+| `engines/engines llama update`, images left | `server-cuda13-b11669` only | `server-cuda13-b11669` only; it printed `llama moved from …b11429 to …b11669` and `removed image …b11429` |
+| Second `engines/engines llama update` | nothing changed | nothing changed |
+| Model reloaded from the store, `/props` build_info | `b11669-620d2225c` | `b11669-620d2225c` |
+| Chat completion at b11669 | "Hello! I’m glad you’re here." | "Hello, I hope your day is going spectacularly well!" |
+| `engines/engines llama uninstall`, images left, store | container and b11669 image removed; none left; model kept | container and b11669 image removed; none left; model kept |

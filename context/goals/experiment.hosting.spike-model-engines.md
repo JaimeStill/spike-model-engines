@@ -73,7 +73,7 @@ the experiment's rules require them and the architect runs them as root steps.
 
 ## Progress
 
-slices 3/4 committed · standards — · spec — · editor —
+slices 4/4 committed · standards — · spec — · editor —
 
 ## Decisions
 
