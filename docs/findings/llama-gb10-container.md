@@ -72,7 +72,7 @@ llama.cpp image remained, and `/srv/models` kept the model.
 
 ## Anchor cells
 
-Run on _pending_, against gb10-1 at b11669, with the host stack [above](#host-stack). These are
+Run on 2026-10-23, against gb10-1 at b11669, with the host stack [above](#host-stack). These are
 the cells a later task reruns before it compares with this one.
 
 ### Method
@@ -174,5 +174,22 @@ awk '{ d[$1] += (NR == FNR ? -$2 : $2) } END { m = "llamacpp:"; printf "prompt %
 
 | Cell | Streams | Requests | Completed | Errored | Duration s | Output tok/s | TTFT median ms | TTFT p95 ms | ITL median ms | Latency median s | Latency p95 s | Server prompt tok/s | Server gen tok/s |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| A | 1 | 8 | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ |
-| B | 4 | 32 | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ |
+| A | 1 | 8 | 8 | 0 | 42.0 | 48.8 | 477 | 702 | 18.3 | 5.16 | 5.41 | 1485 | 54.0 |
+| B | 4 | 32 | 31 | 1 | 99.2 | 80.0 | 1239 | 1413 | 44.5 | 12.60 | 12.79 | 1348 | 22.1 |
+
+Run on 2026-10-23 from the laptop against gb10-1 at b11669 (`/props` build_info
+`b11669-620d2225c`), GuideLLM 0.8.1 on Python 3.14.9. The laptop reached gb10-1 through Tailscale's
+DERP relay in New York (`tailscale ping`: 92, 55, 57 ms; `tailscale netcheck`: UDP true), not
+directly, so TTFT and request latency include the relay's round trip. ITL and the server figures
+do not depend on the path: cell A's ITL of 18.3 ms is 54.5 tok/s, against the server's 54.0.
+
+- Each request carried 579 prompt tokens: the 512 synthetic tokens plus gpt-oss's chat template.
+  The server processed fewer prompt tokens than were sent (cell A 4,198 of 4,632), because it
+  reused the cached template prefix.
+- The server's generation rate is per request, since `tokens_predicted_seconds_total` adds up
+  each request's decode time: with 4 streams, 22.1 tok/s per stream, about 88 tok/s across the
+  four, against the client's 80.0 output tok/s.
+- Cell B's errored request failed in the client: GuideLLM could not parse one streamed chunk
+  (`JSONDecodeError('Unterminated string starting at: line 1 column 64 (char 63)')`). The server
+  generated 240 of its 256 tokens (8,176 generated against 31 × 256 = 7,936), so the engine kept
+  serving; the error is between the stream and the client, over the relay.
