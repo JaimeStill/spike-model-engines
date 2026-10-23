@@ -255,6 +255,9 @@ memory on integrated GPUs), owed only once the finding records vLLM's startup me
   Hugging Face cache.
 - vllm-gb10-container: the model's own parsers (`gemma4` reasoning and tool calls) and its
   shipped generation config (temperature 1.0, top_p 0.95, top_k 64).
+- vllm-gb10-container: laptop commands name hosts by short name (`http://gb10-1:8000`), which
+  MagicDNS resolves, in both guides and the anchor method; rejected a `GB10=<tailnet address>`
+  variable re-set per host. At the architect's request, during the gb10-1 walk.
 
 ## Pending edits
 

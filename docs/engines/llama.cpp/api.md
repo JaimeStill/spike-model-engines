@@ -4,17 +4,14 @@ The router serves llama.cpp's OpenAI-compatible API on port 8080 of the host's t
 Each request names its model in `"model"`, and the router forwards it to that model's process; a
 model must be loaded first ([Models](models.md)), since the router loads none by itself.
 
-These commands run on the laptop, with `GB10` set to the host's tailnet address as
-[Models](models.md#the-hosts-address-on-the-laptop) shows:
-
-```sh
-GB10=<tailnet address>
-```
+These commands run on the laptop and name the host by its short name, as
+[Models](models.md#the-hosts-address-on-the-laptop) shows; on gb10-2, put `gb10-2` in place of
+`gb10-1`.
 
 ## A chat completion
 
 ```sh
-curl -s "http://$GB10:8080/v1/chat/completions" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4", "messages": [{"role": "user", "content": "Say hello in one sentence."}]}' | jq '.choices[0].message'
+curl -s "http://gb10-1:8080/v1/chat/completions" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4", "messages": [{"role": "user", "content": "Say hello in one sentence."}]}' | jq '.choices[0].message'
 ```
 
 It prints the reply's message: its `content`, and gpt-oss's reasoning in `reasoning_content`.
@@ -23,7 +20,7 @@ When the model isn't loaded, the router answers with an error instead.
 ## Health
 
 ```sh
-curl -s "http://$GB10:8080/health"
+curl -s "http://gb10-1:8080/health"
 ```
 
 `{"status":"ok"}` means the router is up. It says nothing about the models; their status is in
@@ -32,7 +29,7 @@ curl -s "http://$GB10:8080/health"
 ## Models
 
 ```sh
-curl -s "http://$GB10:8080/v1/models" | jq '.data[] | {id, status: .status.value}'
+curl -s "http://gb10-1:8080/v1/models" | jq '.data[] | {id, status: .status.value}'
 ```
 
 The OpenAI-compatible model list; in router mode it is the same list as `/models`: the ids clients
@@ -41,7 +38,7 @@ send in `"model"`, each with its status.
 ## Build
 
 ```sh
-curl -sG "http://$GB10:8080/props" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false | jq -r .build_info
+curl -sG "http://gb10-1:8080/props" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false | jq -r .build_info
 ```
 
 The build a loaded model runs, as `b<build>-<commit>`, such as `b11669-620d2225c`. In router mode
@@ -51,7 +48,7 @@ from loading a model that isn't loaded.
 ## Metrics
 
 ```sh
-curl -sG "http://$GB10:8080/metrics" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false
+curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false
 ```
 
 A loaded model's Prometheus counters, which the preset's `metrics = true` turns on
