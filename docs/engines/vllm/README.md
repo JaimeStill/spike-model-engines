@@ -9,10 +9,29 @@ The spike follows vLLM's GitHub releases. The pin lives in `engines/vllm.env`: r
 image `vllm/vllm-openai:v0.32.0`, and the model it serves, `nvidia/Gemma-4-26B-A4B-NVFP4`, pinned
 beside the release. `mise run currency` reports the release when a newer one is out.
 
-The `engines vllm` commands that install, update, and uninstall it come later in this task.
+The `engines` commands install, update, and uninstall it. They run from a clone of this
+repository on each host, as `engines/engines vllm <verb>`:
+
+| Command | What it does |
+|---|---|
+| `engines/engines vllm install` | Runs the server on the pinned model, at the pinned release or the release given |
+| `engines/engines vllm update` | Moves the server to the pinned release and model, and removes every other vLLM image |
+| `engines/engines vllm uninstall` | Removes the server, every vLLM image, and the compile cache, keeping `/srv/models` |
+
+Each changes nothing, and says so, when run a second time. One engine serves per host at a time:
+vLLM's install and update refuse while llama.cpp's `llama` container runs, and llama.cpp's
+refuse while `vllm` runs.
+
+Every start of the container is a cold start: the server loads the model, compiles it, and
+captures its CUDA graphs before it answers. Each page that starts it says how to time the start,
+and each time is recorded in the task's finding.
 
 ## Pages
 
-- [Setup](setup.md): bring a host current, record its stack, and prove the image.
-
-To come in this task: Update (moving to the pinned release or model), Uninstall, API, and Models.
+- [Setup](setup.md): bring a host current, record its stack, prove the image, and install.
+- [Models](models.md): the pinned model, its first download into the store, copying it to the
+  other GB10, and changing the model.
+- [API](api.md): a chat completion from the laptop with its reasoning apart, `/health`,
+  `/v1/models`, `/version`, and `/metrics`.
+- [Update](update.md): moving to the pinned release or model, and how the pin moves.
+- [Uninstall](uninstall.md): removing vLLM, and deleting the model.

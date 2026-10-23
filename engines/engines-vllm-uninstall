@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# engines:summary=Remove vllm, every vLLM image, and the compile cache, keeping /srv/models
+# The model store stays; deleting models is a typed command (docs/engines/vllm/uninstall.md).
+set -euo pipefail
+# shellcheck source=engines/vllm.sh
+source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
+
+changed=
+running=$(vllm_running)
+if [[ -n $running ]]; then
+  docker rm --force "$VLLM_CONTAINER" >/dev/null
+  echo "removed container $VLLM_CONTAINER"
+  changed=yes
+fi
+removed=$(vllm_remove_images)
+[[ -n $removed ]] && echo "$removed"
+if [[ -d $VLLM_CACHE_DIR ]]; then
+  rm -rf "$VLLM_CACHE_DIR"
+  echo "removed compile cache $VLLM_CACHE_DIR"
+  changed=yes
+fi
+[[ -n $changed$removed ]] || echo "vllm is not installed; nothing changed"

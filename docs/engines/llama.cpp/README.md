@@ -20,7 +20,8 @@ repository on each host, as `engines/engines llama <verb>`:
 | `engines/engines llama update` | Moves the router to the pin and removes every other llama.cpp image |
 | `engines/engines llama uninstall` | Removes the router and every llama.cpp image, keeping `/srv/models` |
 
-Each changes nothing, and says so, when run a second time.
+Each changes nothing, and says so, when run a second time. One engine serves per host at a time:
+install and update refuse while vLLM's `vllm` container runs ([vLLM](../vllm/README.md)).
 
 ## Pages
 

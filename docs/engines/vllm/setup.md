@@ -29,3 +29,115 @@ docker run --rm --gpus all --entrypoint python3 vllm/vllm-openai:v0.32.0 -c \
 `--version` prints `0.32.0`. The second command prints the GB10's name and the memory CUDA sees
 on it, in MiB; an error that no CUDA device is available means the container didn't reach the
 GPU.
+
+### 3. Get the clone onto the host
+
+The `engines` commands run from the clone of this repository that llama.cpp's setup made in the
+home directory ([Get the clone onto the host](../llama.cpp/setup.md#4-get-the-clone-onto-the-host)).
+Bring it current:
+
+```sh
+cd spike-model-engines
+git pull
+```
+
+Every later command on the host runs from `spike-model-engines`.
+
+### 4. Check the model store
+
+vLLM shares llama.cpp's model store, `/srv/models`, as its Hugging Face cache. llama.cpp's setup
+creates it ([Create the model store](../llama.cpp/setup.md#5-create-the-model-store)); check that
+it is there and owned by your account:
+
+```sh
+ls -ld /srv/models
+```
+
+### 5. Install
+
+`install` refuses while llama.cpp's `llama` container runs, since one engine serves per host at
+a time. See whether it runs:
+
+```sh
+docker ps --filter name=llama
+```
+
+When it lists `llama`, stop it. `docker stop` keeps it stopped across a reboot, and `docker start
+llama` brings it back once `vllm` is stopped:
+
+```sh
+docker stop llama
+```
+
+Then install:
+
+```sh
+engines/engines vllm install
+```
+
+`install` pulls the pinned image and starts one container, `vllm`, running `vllm serve` on the
+pinned model, `nvidia/Gemma-4-26B-A4B-NVFP4`. It runs as your account, with `--restart
+unless-stopped`, so Docker starts it again after a reboot, and publishes port 8000 on the host's
+tailnet IPv4 address only. The server's flags are in `engines/vllm.sh`:
+
+| Flag | Value | Why |
+|---|---|---|
+| `--max-num-seqs` | `4` | 4 sequences decode at once, and a fifth waits, as llama.cpp's 4 slots. |
+| `--max-model-len` | `8192` | 8192 tokens a sequence, as each of llama.cpp's slots. |
+| `--gpu-memory-utilization` | `0.80` | vLLM reserves 0.80 of the GB10's memory for the weights and the KV cache, and leaves the rest to the host. |
+| `--kv-cache-dtype` | `bfloat16` | A BF16 KV cache, so only the weights' format differs from the BF16 model. The checkpoint asks for an FP8 cache, which `auto` would follow. |
+| `--reasoning-parser` | `gemma4` | The reply's reasoning comes back apart from its content ([API](api.md#a-chat-completion)). |
+| `--enable-auto-tool-choice`, `--tool-call-parser` | `gemma4` | Tool calls come back as OpenAI tool calls. |
+
+Gemma 4's vision encoder loads too, and the model's own generation config sets its sampling:
+temperature 1.0, top_p 0.95, top_k 64. Two directories are mounted:
+
+- `/srv/models`, as the Hugging Face cache (`HF_HUB_CACHE`), so the model lands in
+  `/srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4`, the layout llama.cpp's models use.
+- `~/.cache/vllm`, the compile cache, as the container's home. vLLM's torch.compile cache and the
+  kernels it builds land there, so a later start skips compiling them again.
+
+It prints the image, the model, and the address it serves on. A second run changes nothing and
+says so. It fails, changing nothing, while `llama` runs, when `/srv/models` is missing, when the
+host has no tailnet IPv4 address, or when `vllm` already runs another release or model;
+[Update](update.md) moves a running one. Given a release, such as `v0.31.0`, it installs that
+release instead of the pin.
+
+### 6. Watch the cold start, and record it
+
+The first start downloads the model into the store ([Models](models.md#the-first-download)),
+then loads and compiles it. Follow the log until the server is ready; it prints `Application
+startup complete.` once it answers. Stop following with Ctrl-C, which leaves the container
+running:
+
+```sh
+docker logs -f vllm
+```
+
+Then time the cold start, from the container's start to that line:
+
+```sh
+docker inspect --format '{{.State.StartedAt}}' vllm
+docker logs --timestamps vllm 2>&1 | grep -m 1 "Application startup complete"
+```
+
+The difference between the two times is the cold start. Record it, with the date, the release,
+and whether the start downloaded the model or compiled from an empty compile cache, in the
+task's finding. Record every cold start this way: each install, update, restart, or reboot.
+
+Check that the container is up and the server answers:
+
+```sh
+docker ps --filter name=vllm
+curl -s -o /dev/null -w '%{http_code}\n' "http://$(tailscale ip -4):8000/health"
+```
+
+`docker ps` shows `vllm` with status `Up`; `/health` prints `200` once the server is ready.
+
+### 7. Check that llama.cpp refuses
+
+While `vllm` runs, llama.cpp's install refuses, naming `docker stop vllm`, and changes nothing:
+
+```sh
+engines/engines llama install
+```

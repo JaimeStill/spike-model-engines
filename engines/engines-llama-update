@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # engines:summary=Move llama to the pinned build and remove every other llama.cpp image
 # Pulls the pinned image before replacing the container, so a failed pull leaves the old build
-# serving. When llama already runs the pin and no other image is left, it changes nothing.
+# serving. When llama already runs the pin and no other image is left, it changes nothing. It
+# refuses while the vllm container runs, since one engine serves per host at a time.
 set -euo pipefail
 # shellcheck source=engines/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
+
+engines_refuse_running vllm
 
 running=$(llama_running_image)
 if [[ -z $running ]]; then
