@@ -73,7 +73,7 @@ the experiment's rules require them and the architect runs them as root steps.
 
 ## Progress
 
-slices 2/4 committed · standards — · spec — · editor —
+slices 3/4 committed · standards — · spec — · editor —
 
 ## Decisions
 
@@ -128,6 +128,8 @@ slices 2/4 committed · standards — · spec — · editor —
   the walk adds one `git switch`.
 - llama-gb10-container: a model is downloaded once, on gb10-1, and copied to gb10-2 over QSFP with
   rsync (63.4 GB in 1m50s); rejected a second download.
+- llama-gb10-container: held python at 3.14.9 in mise.bench.toml: GuideLLM 0.8.1 needs torch, and
+  torch 2.14.1 has no cp315 wheels; latest 3.15.1.
 - llama-gb10-container: currency gains the llama.cpp line only; vLLM's waits for its task.
 
 ## Pending edits
