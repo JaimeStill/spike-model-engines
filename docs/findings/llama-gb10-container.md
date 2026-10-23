@@ -176,6 +176,7 @@ awk '{ d[$1] += (NR == FNR ? -$2 : $2) } END { m = "llamacpp:"; printf "prompt %
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | A | 1 | 8 | 8 | 0 | 42.0 | 48.8 | 477 | 702 | 18.3 | 5.16 | 5.41 | 1485 | 54.0 |
 | B | 4 | 32 | 31 | 1 | 99.2 | 80.0 | 1239 | 1413 | 44.5 | 12.60 | 12.79 | 1348 | 22.1 |
+| B, rerun | 4 | 32 | 32 | 0 | 101.3 | 80.9 | 1420 | 1974 | 43.2 | 12.51 | 12.85 | 1627 | 22.5 |
 
 Run on 2026-10-23 from the laptop against gb10-1 at b11669 (`/props` build_info
 `b11669-620d2225c`), GuideLLM 0.8.1 on Python 3.14.9. The laptop reached gb10-1 through Tailscale's
@@ -193,6 +194,11 @@ do not depend on the path: cell A's ITL of 18.3 ms is 54.5 tok/s, against the se
   (`JSONDecodeError('Unterminated string starting at: line 1 column 64 (char 63)')`). The server
   generated 240 of its 256 tokens (8,176 generated against 31 × 256 = 7,936), so the engine kept
   serving; the error is between the stream and the client, over the relay.
+- Cell B was rerun the same day on the same build, after the walkthrough and a fresh install of the
+  reviewed scripts, over the same relay (DERP nyc, about 55 ms): 32 of 32 completed, so the parse
+  error did not recur. Output tok/s, ITL, and latency agree with the first run within 3%. TTFT is
+  higher (median 1420 against 1239 ms) and the server processed 16,792 prompt tokens against
+  12,448: the rerun started on a freshly loaded model, with no prompt cache from cell A.
 
 ## Walkthrough
 
