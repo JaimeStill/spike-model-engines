@@ -15,18 +15,34 @@ Gemma 4 recipe lists it as validated on the GB10.
 ## The first download
 
 The container fetches the model when it first starts, into `/srv/models`, its Hugging Face cache,
-before it loads it. On the host, the model's directory grows to about 17.5 GiB as the files
-arrive, and the server's log shows the download and then the load:
+before it loads it. The server's log shows the download and then the load, and on the host the
+model grows to about 17.5 GiB as the files arrive:
 
 ```sh
-du -sh /srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4
+du -shL /srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4
 docker logs --tail 20 vllm
 ```
 
-The files land in `/srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4`, in Hugging Face's cache
-layout, beside llama.cpp's models. A later start reads them from the store. A start that
-downloads is the longest cold start; record it as one
-([Setup](setup.md#6-watch-the-cold-start-and-record-it)).
+The model's directory, `/srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4`, is in Hugging
+Face's cache layout, beside llama.cpp's models, but the Hugging Face client in vLLM's image keeps
+the large weight files out of it. They land in a store shared by every model this client fetches,
+at the cache's root: `/srv/models/blobs/<2 hex>/<sha256>`, named by their content. The model's
+own `blobs/` holds the small files and a link into the shared store for each large one, and its
+`snapshots/` link to its `blobs/`. A plain `du -sh` of the directory doesn't follow those links
+and shows a few MB; `du -L` follows them, and counts a file reached by two links once. The shared
+store also shows its size, `du -sh /srv/models/blobs`, and `readlink -f` shows where a weight
+file lives:
+
+```sh
+readlink -f /srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4/snapshots/*/model-00001-of-00002.safetensors
+```
+
+It prints a path under `/srv/models/blobs/`. The client also leaves `.locks/` and
+`CACHEDIR.TAG` at the cache's root. llama.cpp's downloads don't use the shared store:
+gpt-oss-120b keeps its files in its own `blobs/`.
+
+A later start reads the model from the store. A start that downloads is the longest cold start;
+record it as one ([Setup](setup.md#6-watch-the-cold-start-and-record-it)).
 
 ## Copying the model to the other GB10
 
@@ -36,14 +52,23 @@ the GB10 setup in dotfiles. Copy only once gb10-1's log shows `Application start
 so no partial file travels. On gb10-1:
 
 ```sh
-rsync -a --info=progress2 /srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4 gb10-2-qsfp:/srv/models/
+rsync -a --info=progress2 /srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4 /srv/models/blobs gb10-2-qsfp:/srv/models/
 ```
 
-`rsync -a` keeps the cache's links between `snapshots/` and `blobs/`, and both hosts run the
-container as the same user, so gb10-2 owns the copy. Then, on gb10-2, run vLLM's
-[Setup](setup.md) through its install; the container finds the model in the store and downloads
-none of its files. Its log shows no download, and its cold start is the load and the compile
-alone; record it.
+The model is two directories: its own, and the shared store its links point into
+([The first download](#the-first-download)), so both travel. This copies the whole shared store,
+any other vLLM model in it too; that is safe to repeat, since rsync skips the files gb10-2
+already holds. `rsync -a` keeps the cache's links, relative as the client wrote them, and both
+hosts run the container as the same user, so gb10-2 owns the copy. On gb10-2, check that every
+link in the model resolves; this prints nothing when they all do:
+
+```sh
+find /srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4/snapshots -xtype l
+```
+
+Then, on gb10-2, run vLLM's [Setup](setup.md) through its install; the container finds the model
+in the store and downloads none of its files. Its log shows no download, and its cold start is
+the load and the compile alone; record it.
 
 ## Changing the model
 

@@ -47,10 +47,10 @@ Every later command on the host runs from `spike-model-engines`.
 
 vLLM shares llama.cpp's model store, `/srv/models`, as its Hugging Face cache. llama.cpp's setup
 creates it ([Create the model store](../llama.cpp/setup.md#5-create-the-model-store)); check that
-it is there and owned by your account:
+it is there and owned by your account; this prints your account's name:
 
 ```sh
-ls -ld /srv/models
+stat -c %U /srv/models
 ```
 
 ### 5. Install
@@ -93,7 +93,8 @@ Gemma 4's vision encoder loads too, and the model's own generation config sets i
 temperature 1.0, top_p 0.95, top_k 64. Two directories are mounted:
 
 - `/srv/models`, as the Hugging Face cache (`HF_HUB_CACHE`), so the model lands in
-  `/srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4`, the layout llama.cpp's models use.
+  `/srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4`, with its weight files in the shared
+  store at `/srv/models/blobs` ([Models](models.md#the-first-download)).
 - `~/.cache/vllm`, the compile cache, as the container's home. vLLM's torch.compile cache and the
   kernels it builds land there, so a later start skips compiling them again.
 
