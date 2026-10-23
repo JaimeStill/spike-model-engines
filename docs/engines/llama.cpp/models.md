@@ -71,6 +71,21 @@ docker logs --tail 20 llama
 The model's files land in `/srv/models/models--ggml-org--gpt-oss-120b-GGUF`, in Hugging Face's
 cache layout.
 
+## Copying a model to the other GB10
+
+Download a model once, on gb10-1, and copy it to gb10-2 over the QSFP link instead of downloading
+it again. The `gb10-N-qsfp` names and passwordless SSH between the nodes come from the GB10 setup
+in dotfiles. Copy only once the model shows `loaded` on gb10-1, so no partial file travels. On
+gb10-1:
+
+```sh
+rsync -a --info=progress2 /srv/models/models--ggml-org--gpt-oss-120b-GGUF gb10-2-qsfp:/srv/models/
+```
+
+`rsync -a` keeps the cache's links between `snapshots/` and `blobs/`, and both hosts run the
+container as the same user, so gb10-2 owns the copy. Then load the model on gb10-2 as above; the
+router finds it in the store and downloads nothing.
+
 ## Listing models
 
 ```sh

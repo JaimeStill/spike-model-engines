@@ -42,3 +42,22 @@ upgrade had moved `libnvidia-egl-wayland1` from 1.1.21 to 1.1.23, and the toolki
 with `sudo nvidia-ctk cdi generate --output=/var/run/cdi/nvidia.yaml` fixed it; a reboot would
 have regenerated it too. gb10-2 ran the regeneration after its upgrade, from the guide, and
 started the image first time.
+
+## Serving and the model store
+
+`engines/engines llama install` started the router at b11669 on both hosts, bound to each host's
+tailnet address on port 8080; a second run changed nothing, and `/health` answered
+`{"status":"ok"}`. The server warns that it has no API key and that CORS allows every origin; the
+port is published on the tailnet address only, and access control belongs to spike-model-gateway.
+
+gpt-oss-120b MXFP4 (63,387,346,248 bytes) downloaded from Hugging Face into gb10-1's store and
+loaded on CUDA0, running as the architect's user. gb10-2's own download was cancelled with
+`docker restart llama` and its partial files deleted; the model was then copied from gb10-1 over
+QSFP and loaded on gb10-2 without a download:
+
+| Copy | Bytes | Time | Rate |
+|---|---|---|---|
+| `rsync -a` over SSH, gb10-1 to gb10-2-qsfp | 63,387,346,248 | 1m50.6s | 549 MB/s |
+
+The copy is one SSH stream, so it ran far below the link's RDMA bandwidth (about 185 Gb/s on
+both halves of the port, per dotfiles).
