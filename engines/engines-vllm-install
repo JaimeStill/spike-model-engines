@@ -32,4 +32,4 @@ fi
 vllm_preflight
 docker pull "$image"
 vllm_run "$image" >/dev/null
-echo "vllm runs $image with $VLLM_MODEL on $VLLM_ADDR:8000; docker logs -f vllm shows its start"
+echo "vllm runs $image with $VLLM_MODEL on port 8000 of the tailnet address; docker logs -f vllm shows its start"
