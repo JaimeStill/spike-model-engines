@@ -122,7 +122,8 @@ slices 1/4 committed · standards — · spec — · editor —
 - llama-gb10-container: two anchor cells, 512/256 synthetic, 1 stream x 8 and 4 streams x 32,
   with 4 slots; departs from the roadmap's one cell.
 - llama-gb10-container: hosts brought current with `sudo apt update && sudo apt upgrade`, no
-  reboot (the architect is remote) and no firmware update; a pending reboot is recorded.
+  reboot (the architect is remote) and no firmware update; a pending reboot is recorded; the CDI
+  spec is regenerated after each upgrade, since without a reboot it goes stale.
 - llama-gb10-container: currency gains the llama.cpp line only; vLLM's waits for its task.
 
 ## Pending edits
