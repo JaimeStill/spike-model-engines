@@ -61,3 +61,11 @@ QSFP and loaded on gb10-2 without a download:
 
 The copy is one SSH stream, so it ran far below the link's RDMA bandwidth (about 185 Gb/s on
 both halves of the port, per dotfiles).
+
+From the laptop, gb10-1 answered an OpenAI chat completion ("Say hello in one sentence.") with
+`content` "Hello!" and gpt-oss's reasoning in `reasoning_content`, and `/v1/models` listed the
+model `loaded`.
+
+`engines/engines llama update` on gb10-1, already at the pin, changed nothing. `engines/engines
+llama uninstall` on gb10-2 removed the container and its image, a second run changed nothing, no
+llama.cpp image remained, and `/srv/models` kept the model.

@@ -124,6 +124,10 @@ slices 2/4 committed · standards — · spec — · editor —
 - llama-gb10-container: hosts brought current with `sudo apt update && sudo apt upgrade`, no
   reboot (the architect is remote) and no firmware update; a pending reboot is recorded; the CDI
   spec is regenerated after each upgrade, since without a reboot it goes stale.
+- llama-gb10-container: the task branch is pushed to origin before its PR so the hosts can clone it;
+  the walk adds one `git switch`.
+- llama-gb10-container: a model is downloaded once, on gb10-1, and copied to gb10-2 over QSFP with
+  rsync (63.4 GB in 1m50s); rejected a second download.
 - llama-gb10-container: currency gains the llama.cpp line only; vLLM's waits for its task.
 
 ## Pending edits
