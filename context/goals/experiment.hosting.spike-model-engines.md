@@ -125,7 +125,7 @@ and the architect runs them as root steps.
 
 ## Progress
 
-- [ ] 1. Hosts current, image proven
+- [x] 1. Hosts current, image proven (dd99119; walked on both GB10s: stack unchanged from task 1, v0.32.0 digest befccf0e, NVIDIA GB10 124544 MiB)
 - [ ] 2. vLLM served, and the guide
 - [ ] 3. Anchor cells
 - [ ] 4. Walkthrough
