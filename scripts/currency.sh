@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Prints `<file>: <tool> <pin> -> <latest>` for each pin behind its latest, and exits 1 if any;
-# prints nothing when all are current. Covers the mise tools and the llama.cpp build, whose latest
-# is the b-build named in the notes of llama.cpp's latest semver release. Reads the network.
+# prints nothing when all are current. Covers the mise tools, those of mise.toml and of the bench
+# environment (mise.bench.toml, GuideLLM's), and the llama.cpp build, whose latest is the b-build
+# named in the notes of llama.cpp's latest semver release. Reads the network.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-trailing=$(MISE_LOG_LEVEL=error mise outdated --bump --local --json |
-  jq -r 'to_entries[] | "mise.toml: \(.key) \(.value.requested) -> \(.value.bump)"')
+trailing=$(MISE_ENV=bench MISE_LOG_LEVEL=error mise outdated --bump --local --json |
+  jq -r 'to_entries[] |
+    "\(.value.source.path | split("/") | last): \(.key) \(.value.requested) -> \(.value.bump)"')
 
 # shellcheck source=engines/llama.env
 source engines/llama.env

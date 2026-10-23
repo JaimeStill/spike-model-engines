@@ -69,3 +69,110 @@ model `loaded`.
 `engines/engines llama update` on gb10-1, already at the pin, changed nothing. `engines/engines
 llama uninstall` on gb10-2 removed the container and its image, a second run changed nothing, no
 llama.cpp image remained, and `/srv/models` kept the model.
+
+## Anchor cells
+
+Run on _pending_, against gb10-1 at b11669, with the host stack [above](#host-stack). These are
+the cells a later task reruns before it compares with this one.
+
+### Method
+
+GuideLLM 0.8.1 drives the router from the laptop, through the spike's bench environment
+(`mise.bench.toml`: Python 3.14.9, uv 0.13.5). Each cell is a scenario under `bench/`: streaming
+OpenAI chat completions to gpt-oss-120b MXFP4 (`ggml-org/gpt-oss-120b-GGUF:MXFP4`), each request
+512 synthetic prompt tokens and exactly 256 output tokens. The prompt is cut to its 512 by the
+model's upstream tokenizer, `openai/gpt-oss-120b`, fetched from Hugging Face, and gpt-oss's chat
+template adds its own tokens to what the server counts. GuideLLM sends `max_tokens` with
+`ignore_eos`, so every request generates its full 256, reasoning included, whatever the model
+would have said. Each stream sends its requests back to back:
+
+| Cell | Scenario | Streams | Requests |
+|---|---|---|---|
+| A | `bench/anchor-a.yaml` | 1 | 8 |
+| B | `bench/anchor-b.yaml` | 4 | 32 |
+
+Cell B runs one stream per slot of the preset's 4. The client figures are GuideLLM's: output
+throughput across the cell, all streams together; TTFT, to the first streamed token; ITL, between
+tokens after the first; and request latency, start to last token. The server figures are
+llama.cpp's own counters from the model's `/metrics` ([API](../engines/llama.cpp/api.md#metrics)),
+differenced over the cell: prompt tokens over prompt seconds, and generated tokens over generation
+seconds. The server sums those seconds per slot, so at 4 streams they are one request's rate, not
+the cell's; the client's output throughput is the aggregate.
+
+### Running the cells
+
+`/metrics` needs the preset's `metrics = true`, which a loaded model only takes when it is loaded
+again. On gb10-1, from `spike-model-engines`, take the preset and reload it, which unloads
+gpt-oss-120b:
+
+```sh
+git pull
+curl -s "http://$(tailscale ip -4):8080/models?reload=1" > /dev/null
+```
+
+The rest runs on the laptop, from the root of this repository's clone. Install the bench
+environment once; it downloads GuideLLM and its dependencies, torch among them:
+
+```sh
+MISE_ENV=bench mise install
+```
+
+Set `GB10` to gb10-1's tailnet address ([Models](../engines/llama.cpp/models.md#the-hosts-address-on-the-laptop)),
+load the model, and list the models until it shows `loaded`:
+
+```sh
+GB10=<tailnet address>
+curl -s -X POST "http://$GB10:8080/models/load" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4"}'
+curl -s "http://$GB10:8080/models" | jq '.data[] | {id, status: .status.value}'
+```
+
+Record the build the model runs and the network path to the host, since every client figure
+carries the round trip:
+
+```sh
+curl -sG "http://$GB10:8080/props" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false | jq -r .build_info
+tailscale ping -c 3 "$GB10"
+```
+
+Point GuideLLM at the router, which it reads from its environment, and make the directory the
+cells write to; `.state/` is untracked:
+
+```sh
+export GUIDELLM__SPEC__BACKEND__TARGET="http://$GB10:8080"
+mkdir -p .state/anchor
+```
+
+Run each cell with its letter in `cell`: first `cell=a`, then the same four commands with
+`cell=b`. Each takes a `/metrics` snapshot, runs the cell, which writes GuideLLM's JSON to
+`.state/anchor/$cell.json`, and takes a second snapshot:
+
+```sh
+cell=a
+curl -sG "http://$GB10:8080/metrics" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false > .state/anchor/$cell.before.metrics
+MISE_ENV=bench mise exec -- guidellm run -c bench/anchor-$cell.yaml
+curl -sG "http://$GB10:8080/metrics" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false > .state/anchor/$cell.after.metrics
+```
+
+`llamacpp:requests_processing` in the first snapshot is 0 when nothing else is using the model.
+
+### Reading the figures
+
+For each cell, with `cell` set to its letter, the client figures, with GuideLLM's and Python's
+versions and the cell's duration:
+
+```sh
+jq '.metadata as $v | .benchmarks[0] | .metrics as $m | {guidellm: $v.guidellm_version, python: $v.python_version, duration_s: .duration, requests: $m.request_totals, prompt_tokens: $m.prompt_token_count.successful.median, output_tokens: $m.output_token_count.successful.median, output_tok_s: $m.output_tokens_per_second.successful.mean, ttft_ms: ($m.time_to_first_token_ms.successful | {median, p95: .percentiles.p95}), itl_ms: ($m.inter_token_latency_ms.successful | {median, p95: .percentiles.p95}), latency_s: ($m.request_latency.successful | {median, p95: .percentiles.p95})}' .state/anchor/$cell.json
+```
+
+And the server figures, the counters differenced between the two snapshots:
+
+```sh
+awk '{ d[$1] += (NR == FNR ? -$2 : $2) } END { m = "llamacpp:"; printf "prompt %d tokens, %.1f tok/s; generated %d tokens, %.1f tok/s\n", d[m "prompt_tokens_total"], d[m "prompt_tokens_total"] / d[m "prompt_seconds_total"], d[m "tokens_predicted_total"], d[m "tokens_predicted_total"] / d[m "tokens_predicted_seconds_total"] }' .state/anchor/$cell.before.metrics .state/anchor/$cell.after.metrics
+```
+
+### Results
+
+| Cell | Streams | Requests | Completed | Errored | Duration s | Output tok/s | TTFT median ms | TTFT p95 ms | ITL median ms | Latency median s | Latency p95 s | Server prompt tok/s | Server gen tok/s |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A | 1 | 8 | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ |
+| B | 4 | 32 | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ |

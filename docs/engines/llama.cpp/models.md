@@ -12,6 +12,7 @@ and quantization the router downloads the model from.
 |---|---|---|
 | `n-gpu-layers` (`[*]`) | `all` | Every layer on the GB10's GPU. |
 | `dedup-cache-models` (`[*]`) | `true` | Once a model is downloaded, the router lists its preset alone, not the cache entry beside it. |
+| `metrics` (`[*]`) | `true` | Each model serves `/metrics`, its Prometheus counters ([API](api.md#metrics)), which the benchmarks read for the server's own figures. |
 | `hf-repo` | `ggml-org/gpt-oss-120b-GGUF:MXFP4` | gpt-oss-120b in its native MXFP4, 63.4 GB, ungated, so no token. |
 | `parallel` | `4` | 4 slots: four requests decode at once, and a fifth waits. |
 | `c` | `32768` | The context, split evenly across the slots: 8192 tokens each. |
@@ -28,6 +29,10 @@ The router re-reads the preset when asked, without a restart, after the clone is
 ```sh
 curl -s "http://$(tailscale ip -4):8080/models?reload=1" > /dev/null
 ```
+
+A model already loaded keeps the arguments it was started with. When the preset changes it, the
+reload unloads it, so load it again ([Loading a model](#loading-a-model)) to start it with the new
+arguments.
 
 ## The host's address on the laptop
 

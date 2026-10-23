@@ -37,3 +37,18 @@ curl -s "http://$GB10:8080/v1/models" | jq '.data[] | {id, status: .status.value
 
 The OpenAI-compatible model list; in router mode it is the same list as `/models`: the ids clients
 send in `"model"`, each with its status.
+
+## Metrics
+
+```sh
+curl -sG "http://$GB10:8080/metrics" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false
+```
+
+A loaded model's Prometheus counters, which the preset's `metrics = true` turns on
+([Models](models.md#the-preset)). In router mode `/metrics` names its model in the `model` query
+parameter, and `autoload=false` keeps the request from loading a model that isn't. The counters
+run from the model's load: `llamacpp:prompt_tokens_total` and `llamacpp:prompt_seconds_total`
+for the prompts the server processed, `llamacpp:tokens_predicted_total` and
+`llamacpp:tokens_predicted_seconds_total` for the tokens it generated, and
+`llamacpp:requests_processing` for the requests in flight. The seconds are summed per slot, so
+tokens over seconds is one request's rate, not the server's total when slots run together.
