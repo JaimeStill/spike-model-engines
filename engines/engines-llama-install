@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# engines:summary=Run llama-server in router mode, at the pinned build or the b-build given
+# Starts the llama container (llama.sh) from the pinned image, or from the b-build given, such as
+# b11429. When the container already exists it changes nothing and says which image it runs.
+set -euo pipefail
+# shellcheck source=engines/llama.sh
+source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
+
+image=$(llama_image "${1:-$LLAMA_BUILD}")
+running=$(llama_running_image)
+
+if [[ $running == "$image" ]]; then
+  echo "llama already runs $image; nothing changed"
+  exit 0
+elif [[ -n $running ]]; then
+  echo "llama runs $running, not $image; engines llama update moves it to the pin" >&2
+  exit 1
+fi
+
+docker pull "$image"
+llama_run "$image" >/dev/null
+echo "llama runs $image on $(tailscale ip -4):8080"

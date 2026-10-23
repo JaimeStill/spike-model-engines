@@ -58,3 +58,58 @@ docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669 --lis
 
 `--version` prints `version: 0.7.0-dev (build 11669, commit 620d2225c)`. `--list-devices` lists
 the GB10 as a CUDA device; an empty list means the container didn't reach the GPU.
+
+### 4. Get the clone onto the host
+
+The `engines` commands run from a clone of this repository, in the home directory; nothing is
+installed:
+
+```sh
+git clone https://github.com/JaimeStill/spike-model-engines.git
+cd spike-model-engines
+```
+
+Every later command on the host runs from `spike-model-engines`. With no arguments, `engines`
+lists its commands, each with what it does:
+
+```sh
+engines/engines
+```
+
+### 5. Create the model store
+
+The models live in `/srv/models`, outside the container, so they survive an update or an
+uninstall. Create it once, owned by your account; this is the one root step, and the container
+writes to the store as your account, not as root:
+
+```sh
+sudo install -d -o "$(id -un)" -g "$(id -gn)" /srv/models
+```
+
+### 6. Install
+
+```sh
+engines/engines llama install
+```
+
+`install` pulls the pinned image and starts one container, `llama`, running `llama-server` in
+router mode: no model on its command line, the models preset (`engines/llama-preset/models.ini`)
+mounted read-only, and `/srv/models` mounted as llama.cpp's download cache (`LLAMA_CACHE`). It
+runs with `--restart unless-stopped`, so Docker starts it again after a reboot, and publishes port
+8080 on the host's tailnet IPv4 address only. The router starts no model by itself
+(`--no-models-autoload`); [Models](models.md) loads one.
+
+It prints the image and the address it serves on. A second run changes nothing and says so. It
+fails, changing nothing, when `/srv/models` is missing, or when `llama` already runs another build;
+[Update](update.md) moves a running build. Given a b-build, such as `b11429`, it installs that
+build instead of the pin.
+
+Check that the container is up and the router answers:
+
+```sh
+docker ps --filter name=llama
+curl -s "http://$(tailscale ip -4):8080/health"
+```
+
+`docker ps` shows `llama` with status `Up`, and `(healthy)` once the image's health check passes;
+`/health` prints `{"status":"ok"}`.
