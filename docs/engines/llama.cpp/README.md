@@ -24,7 +24,9 @@ Each changes nothing, and says so, when run a second time.
 ## Pages
 
 - [Setup](setup.md): bring a host current, record its stack, prove the image, and install.
-- [Models](models.md): the preset, loading a model, watching its download, and listing models.
-- [API](api.md): a chat completion from the laptop, `/health`, `/v1/models`, and `/metrics`.
+- [Models](models.md): the preset, loading a model, watching or cancelling its download, copying
+  it to the other GB10, and listing models.
+- [API](api.md): a chat completion from the laptop, `/health`, `/v1/models`, the build a model
+  runs (`/props`), and `/metrics`.
 - [Update](update.md): moving to the pinned build, and how the pin moves.
 - [Uninstall](uninstall.md): removing llama.cpp, and deleting models.

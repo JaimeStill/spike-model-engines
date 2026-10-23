@@ -102,8 +102,8 @@ the cell's; the client's output throughput is the aggregate.
 ### Running the cells
 
 `/metrics` needs the preset's `metrics = true`, which a loaded model only takes when it is loaded
-again. On gb10-1, from `spike-model-engines`, take the preset and reload it, which unloads
-gpt-oss-120b:
+again. On gb10-1, from `spike-model-engines`, pull the preset and have the router reload it,
+which unloads gpt-oss-120b:
 
 ```sh
 git pull

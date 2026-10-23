@@ -79,8 +79,8 @@ engines/engines
 ### 5. Create the model store
 
 The models live in `/srv/models`, outside the container, so they survive an update or an
-uninstall. Create it once, owned by your account; this is the one root step, and the container
-writes to the store as your account, not as root:
+uninstall. Create it once, as a root step, owned by your account; the container writes to the
+store as your account, not as root:
 
 ```sh
 sudo install -d -o "$(id -un)" -g "$(id -gn)" /srv/models
@@ -101,8 +101,8 @@ runs with `--restart unless-stopped`, so Docker starts it again after a reboot, 
 
 It prints the image and the address it serves on. A second run changes nothing and says so. It
 fails, changing nothing, when `/srv/models` is missing, when the host has no tailnet IPv4 address,
-or when `llama` already runs another build; [Update](update.md) moves a running build. Given a b-build, such as `b11429`, it installs that
-build instead of the pin.
+or when `llama` already runs another build; [Update](update.md) moves a running build. Given a
+b-build, such as `b11429`, it installs that build instead of the pin.
 
 Check that the container is up and the router answers:
 

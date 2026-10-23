@@ -45,7 +45,8 @@ curl -sG "http://$GB10:8080/props" --data-urlencode "model=ggml-org/gpt-oss-120b
 ```
 
 The build a loaded model runs, as `b<build>-<commit>`, such as `b11669-620d2225c`. In router mode
-`/props` names its model like `/metrics` below, and `autoload=false` keeps it from loading one.
+`/props` names its model in the `model` query parameter, and `autoload=false` keeps the request
+from loading a model that isn't loaded.
 
 ## Metrics
 
@@ -54,8 +55,7 @@ curl -sG "http://$GB10:8080/metrics" --data-urlencode "model=ggml-org/gpt-oss-12
 ```
 
 A loaded model's Prometheus counters, which the preset's `metrics = true` turns on
-([Models](models.md#the-preset)). In router mode `/metrics` names its model in the `model` query
-parameter, and `autoload=false` keeps the request from loading a model that isn't. The counters
+([Models](models.md#the-preset)). It takes the same query parameters as `/props`. The counters
 run from the model's load: `llamacpp:prompt_tokens_total` and `llamacpp:prompt_seconds_total`
 for the prompts the server processed, `llamacpp:tokens_predicted_total` and
 `llamacpp:tokens_predicted_seconds_total` for the tokens it generated, and

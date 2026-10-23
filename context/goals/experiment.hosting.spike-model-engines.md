@@ -129,16 +129,32 @@ slices 4/4 committed · standards — · spec — · editor —
   the walk adds one `git switch`.
 - llama-gb10-container: a model is downloaded once, on gb10-1, and copied to gb10-2 over QSFP with
   rsync (63.4 GB in 1m50s); rejected a second download.
-- llama-gb10-container: held python at 3.14.9 in mise.bench.toml: GuideLLM 0.8.1 needs torch, and
-  torch 2.14.1 has no cp315 wheels; latest 3.15.1.
+- llama-gb10-container: Python held at 3.14.9 in mise.bench.toml, since GuideLLM 0.8.1 needs torch
+  and torch 2.14.1 has no cp315 wheels; the latest Python is 3.15.1.
 - llama-gb10-container: hosts go by short name (`gb10-1`, `gb10-2-qsfp`); only tailnet
   addresses and the MagicDNS suffix stay out, matching ai-hosting.md "Visibility".
 - llama-gb10-container: the preset turns on `metrics = true` so each cell differences the server's
   own /metrics counters; the guide gains /metrics and the /props build check.
 - llama-gb10-container: bench commands (GuideLLM env, cells, read-outs) live in the finding's
   method, not the engine guide: they are behavior 10's measurement, not how the engine runs.
+- llama-gb10-container: cell B rerun at the architect's request after one client-side parse error
+  over the relay; 32/32, both runs kept in the finding.
 - llama-gb10-container: currency gains the llama.cpp line only; vLLM's waits for its task.
+- llama-gb10-container: every served run records the laptop's path to the host with `tailscale
+  ping`; the cells ran over a DERP relay, which inflates TTFT and latency but not ITL or /metrics.
 
 ## Pending edits
 
-(none)
+- coordinator · ai-hosting.md, the GB10 host class, "Stack": replace "DGX OS reports 7.4.0 but
+  carries a newer stack: driver 580.178.04, CUDA 13.0, kernel 7.0, Docker 29.6.2, and
+  nvidia-container-toolkit 1.20.1" with "DGX OS 7.6.0, driver 580.178.04, CUDA 13.0, kernel
+  7.0.0-1019-nvidia, Docker 29.6.2, and nvidia-container-toolkit 1.20.1"
+  (spike-model-engines, docs/findings/llama-gb10-container.md).
+- coordinator · ai-hosting.md, the GB10 host class: add "**CDI spec**: an apt upgrade without a
+  reboot can leave the container toolkit's CDI spec (`/var/run/cdi/nvidia.yaml`) naming a moved
+  driver library, and GPU containers then fail to start until `sudo nvidia-ctk cdi generate
+  --output=/var/run/cdi/nvidia.yaml` regenerates it."
+- coordinator · ai-hosting.md, "Experiment: experiment.hosting", "Hosts and access": extend the
+  last sentence to "every measurement records the engine version, the host's stack, and the
+  laptop's network path to the host (`tailscale ping`): a DERP relay adds its round trip to TTFT
+  and request latency, but not to inter-token latency or the server's own counters."
