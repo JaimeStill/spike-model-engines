@@ -85,7 +85,7 @@ tailnet IPv4 address only. The server's flags are in `engines/vllm.sh`:
 | `--max-num-seqs` | `4` | 4 sequences decode at once, and a fifth waits, as llama.cpp's 4 slots. |
 | `--max-model-len` | `8192` | 8192 tokens a sequence, as each of llama.cpp's slots. |
 | `--gpu-memory-utilization` | `0.80` | vLLM reserves 0.80 of the GB10's memory for the weights and the KV cache, and leaves the rest to the host. |
-| `--kv-cache-dtype` | `auto` | The KV cache the checkpoint ships: its quantization config asks for FP8, which `auto` follows, so the model is served as its publisher evaluated it. |
+| `--kv-cache-dtype` | `bfloat16` | A BF16 KV cache. The checkpoint declares a static FP8 KV cache but ships no calibrated k/v scales, so vLLM would quantize it with a scale of 1.0 (it warns `Using KV cache scaling factor 1.0 for fp8_e4m3`); BF16 avoids that. |
 | `--reasoning-parser` | `gemma4` | The reply's reasoning comes back apart from its content ([API](api.md#a-chat-completion)). |
 | `--enable-auto-tool-choice`, `--tool-call-parser` | `gemma4` | Tool calls come back as OpenAI tool calls. |
 
@@ -99,8 +99,8 @@ temperature 1.0, top_p 0.95, top_k 64. Two directories are mounted:
 
 It prints the image, the model, and the address it serves on. A second run changes nothing and
 says so. It fails, changing nothing, while `llama` runs, when `/srv/models` is missing, when the
-host has no tailnet IPv4 address, or when `vllm` already runs another release or model;
-[Update](update.md) moves a running one. Given a release, such as `v0.31.0`, it installs that
+host has no tailnet IPv4 address, or when `vllm` already runs another release, another model,
+or other server flags; [Update](update.md) moves a running one. Given a release, such as `v0.31.0`, it installs that
 release instead of the pin.
 
 ### 6. Watch the cold start, and record it

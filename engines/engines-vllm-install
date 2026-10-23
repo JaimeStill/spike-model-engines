@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # engines:summary=Run vllm serve on the pinned model, at the pinned release or the release given
 # Starts the vllm container (vllm.sh) from the pinned image, or from the release given, such as
-# v0.31.0, serving the pinned model either way. When the container already runs that image and
-# the pinned model it changes nothing; when it runs another it says which. It refuses while the
-# llama container runs, since one engine serves per host at a time.
+# v0.31.0, serving the pinned model either way. When the container already serves exactly that
+# (image, model, and server flags) it changes nothing; when it serves anything else it refuses,
+# saying what it runs, and points at update. It refuses while the llama container runs, since one
+# engine serves per host at a time.
 set -euo pipefail
 # shellcheck source=engines/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
@@ -11,14 +12,20 @@ source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 engines_refuse_running llama
 
 image=$(vllm_image "${1:-$VLLM_RELEASE}")
+served=$(vllm_served "$image")
 running=$(vllm_running)
 
-if [[ $running == "$image $VLLM_MODEL" ]]; then
+if [[ $running == "$served" ]]; then
   echo "vllm already runs $image with $VLLM_MODEL; nothing changed"
   exit 0
 elif [[ -n $running ]]; then
-  echo "vllm runs ${running/ / with }, not $image with $VLLM_MODEL;" \
-    "engines vllm update moves it to the pin" >&2
+  if [[ $(vllm_describe "$running") == "$(vllm_describe "$served")" ]]; then
+    echo "vllm runs $image with $VLLM_MODEL under other server flags;" \
+      "engines vllm update moves it to the pin" >&2
+  else
+    echo "vllm runs $(vllm_describe "$running"), not $image with $VLLM_MODEL;" \
+      "engines vllm update moves it to the pin" >&2
+  fi
   exit 1
 fi
 

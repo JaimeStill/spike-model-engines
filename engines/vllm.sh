@@ -13,10 +13,11 @@
 # passwd entry. This is what the image's own non-root variant does in its entrypoint.
 #
 # The server flags: 4 sequences of 8192 tokens, mirroring llama.cpp's 4 slots of 8192; 0.80 of
-# the GB10's memory, which leaves the rest to the host it shares it with; the KV cache the
-# checkpoint ships, FP8 per its quantization config, which `auto` follows, so the model is served
-# as its publisher evaluated it; and Gemma 4's own reasoning and tool-call parsers. The vision encoder loads (no
-# --language-model-only), and the model's shipped generation config sets its sampling.
+# the GB10's memory, which leaves the rest to the host it shares it with; a BF16 KV cache, since
+# the checkpoint declares a static FP8 KV cache but ships no calibrated k/v scales, so vLLM would
+# quantize it with a scale of 1.0; and Gemma 4's own reasoning and tool-call parsers. The vision
+# encoder loads (no --language-model-only), and the model's shipped generation config sets its
+# sampling.
 
 # shellcheck source=engines/engines.sh
 source "$(dirname "${BASH_SOURCE[0]}")/engines.sh"
@@ -28,18 +29,44 @@ VLLM_STORE=$ENGINES_STORE
 VLLM_CACHE_DIR=$HOME/.cache/vllm
 VLLM_HOME=/home/vllm
 
+# What the container serves, after its image: the pinned model and the server flags. vllm_run
+# starts the container with them, and vllm_running's comparison reads them back from the
+# container's command, so the two can't drift. No element holds a space, so the command joined
+# with spaces reads back unambiguously.
+VLLM_ARGS=(
+  "$VLLM_MODEL" --host 0.0.0.0 --port 8000
+  --max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.80
+  --kv-cache-dtype bfloat16
+  --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
+)
+
+# What a container serves the pin as, from the image given: "<image> <model> <flags...>", in the
+# form vllm_running prints, so a container serving exactly the pin compares equal.
+vllm_served() {
+  echo "$1 ${VLLM_ARGS[*]}"
+}
+
 # The image for a release: the pinned image with its release swapped.
 vllm_image() {
   echo "${VLLM_IMAGE%"$VLLM_RELEASE"}$1"
 }
 
-# The image and the model the container runs, as "<image> <model>", or nothing when there is no
-# container. Fails when Docker does, so an unreachable daemon is never read as "not installed".
+# What the container serves, as "<image> <model> <flags...>" (vllm_served's form), or nothing when
+# there is no container. Fails when Docker does, so an unreachable daemon is never read as "not
+# installed". The whole command is read, not only the model, so a changed server flag shows.
 vllm_running() {
   local id
   id=$(docker container ls --all --quiet --filter "name=^$VLLM_CONTAINER\$") || return
   [[ -z $id ]] ||
-    docker container inspect --format '{{.Config.Image}} {{index .Config.Cmd 0}}' "$id"
+    docker container inspect --format '{{.Config.Image}} {{join .Config.Cmd " "}}' "$id"
+}
+
+# The image and the model of what vllm_served or vllm_running printed, as "<image> with <model>",
+# for messages.
+vllm_describe() {
+  local image model
+  read -r image model _ <<<"$1"
+  echo "$image with $model"
 }
 
 # Checks what vllm_run needs before anything is pulled or removed (engines_preflight), and sets
@@ -57,10 +84,7 @@ vllm_run() {
     --publish "$VLLM_ADDR:8000:8000" \
     --volume "$VLLM_STORE:$VLLM_STORE" --env "HF_HUB_CACHE=$VLLM_STORE" \
     --volume "$VLLM_CACHE_DIR:$VLLM_HOME" --env "HOME=$VLLM_HOME" --env "USER=$(id -un)" \
-    "$1" "$VLLM_MODEL" --host 0.0.0.0 --port 8000 \
-    --max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.80 \
-    --kv-cache-dtype auto \
-    --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
+    "$1" "${VLLM_ARGS[@]}"
 }
 
 # Removes every vLLM image but the one given (none when given nothing), printing each. Stops at

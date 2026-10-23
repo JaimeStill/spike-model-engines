@@ -10,10 +10,12 @@ engines/engines vllm update
 ```
 
 `update` pulls the pinned image, replaces the `vllm` container with one running it on the pinned
-model, and removes every other vLLM image, so only the pinned image remains. It moves the
-container when either its image or its model differs from the pin. It pulls before it removes
-anything, so a failed pull leaves the old release serving. When `vllm` already runs the pinned
-release and model, and no other vLLM image is left, it changes nothing and says so. It fails,
+model, and removes every other vLLM image, so only the pinned image remains. It compares the
+container's whole command with the pin's, so it replaces the container when its image, its model,
+or any server flag differs; when only a flag differs, the image is already the pin's, and it
+replaces the container without pulling. It pulls before it removes anything, so a failed pull
+leaves the old release serving. When `vllm` already runs the pinned release, model, and flags,
+and no other vLLM image is left, it changes nothing and says so. It fails,
 changing nothing, when vLLM isn't installed or while llama.cpp's `llama` runs, and, before it
 pulls, when `/srv/models` is missing or the host has no tailnet IPv4 address.
 
@@ -29,11 +31,11 @@ docker logs --timestamps vllm 2>&1 | grep -m 1 "Application startup complete"
 Then check the release it runs:
 
 ```sh
-docker inspect --format '{{.Config.Image}} {{index .Config.Cmd 0}}' vllm
+docker inspect --format '{{.Config.Image}} {{join .Config.Cmd " "}}' vllm
 docker image ls vllm/vllm-openai
 ```
 
-The first prints the pinned image and model; the second lists the pinned image alone. The laptop
+The first prints the pinned image, then the model and the server flags the container serves; the second lists the pinned image alone. The laptop
 confirms the version the server itself runs ([API](api.md#version)), which reads `0.32.0` at the
 pin.
 

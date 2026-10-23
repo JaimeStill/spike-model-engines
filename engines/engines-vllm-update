@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # engines:summary=Move vllm to the pinned release and model and remove every other vLLM image
 # Pulls the pinned image before replacing the container, so a failed pull leaves the old release
-# serving. The container moves when either its image or its model differs from the pin. When it
-# already runs both and no other image is left, it changes nothing. It refuses while the llama
-# container runs, since one engine serves per host at a time.
+# serving. The container moves when anything it serves differs from the pin: its image, its
+# model, or a server flag. When only flags differ the image is already the pin's, so it replaces
+# the container without pulling. When it already serves the pin exactly and no other image is
+# left, it changes nothing. It refuses while the llama container runs, since one engine serves
+# per host at a time.
 set -euo pipefail
 # shellcheck source=engines/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
@@ -16,13 +18,18 @@ if [[ -z $running ]]; then
   exit 1
 fi
 
+served=$(vllm_served "$VLLM_IMAGE")
 changed=
-if [[ $running != "$VLLM_IMAGE $VLLM_MODEL" ]]; then
+if [[ $running != "$served" ]]; then
   vllm_preflight
-  docker pull "$VLLM_IMAGE"
+  [[ ${running%% *} == "$VLLM_IMAGE" ]] || docker pull "$VLLM_IMAGE"
   docker rm --force "$VLLM_CONTAINER" >/dev/null
   vllm_run "$VLLM_IMAGE" >/dev/null
-  echo "vllm moved from ${running/ / with } to $VLLM_IMAGE with $VLLM_MODEL"
+  if [[ $(vllm_describe "$running") == "$(vllm_describe "$served")" ]]; then
+    echo "vllm restarted $VLLM_IMAGE with $VLLM_MODEL under the pinned server flags"
+  else
+    echo "vllm moved from $(vllm_describe "$running") to $VLLM_IMAGE with $VLLM_MODEL"
+  fi
   changed=yes
 fi
 removed=$(vllm_remove_images "$VLLM_IMAGE")
