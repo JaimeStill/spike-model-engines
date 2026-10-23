@@ -25,5 +25,6 @@ The architecture pages that apply, in the architecture repository:
   method adds a section, not a file.
 - A guide says how the engine runs now; a finding, under `docs/findings/<task>.md`, says what was
   measured, when, on which engine version and host stack, and stays dated.
-- Every command the architect runs appears in the guide exactly as it is typed. No tailnet identifier is
-  committed, neither an address nor the MagicDNS suffix; hosts go by short name, such as `gb10-1`.
+- Every command the architect runs appears in the guide exactly as it is typed. No tailnet
+  identifier is committed, neither an address nor the MagicDNS suffix; hosts go by short name,
+  such as `gb10-1`.
