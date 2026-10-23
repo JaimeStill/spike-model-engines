@@ -127,7 +127,7 @@ and the architect runs them as root steps.
 
 - [x] 1. Hosts current, image proven (dd99119; walked on both GB10s: stack unchanged from task 1, v0.32.0 digest befccf0e, NVIDIA GB10 124544 MiB)
 - [x] 2. vLLM served, and the guide (a7f635e, f20ac3a, 37b9374, 0bb63bb; walked on gb10-1 and gb10-2: cold start ~27 min with 23 min download, warm ~4 min; strict copy-without-download proof falls to slice 4)
-- [ ] 3. Anchor cells
+- [x] 3. Anchor cells (b4318cf; run on gb10-1: A' 30.0 tok/s, TTFT 237 ms, ITL 32.4 ms; B' 106.0 tok/s, TTFT 426 ms, ITL 36.3 ms; results table still to fill in the finding)
 - [ ] 4. Walkthrough
 
 Held: a pending edit to ai-hosting.md, GB10 "Memory reporting" (vLLM reads the OS's available
