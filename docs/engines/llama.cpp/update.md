@@ -11,8 +11,10 @@ engines/engines llama update
 
 `update` pulls the pinned image, replaces the `llama` container with one running it, and removes
 every other llama.cpp image, so only the pinned image remains. It pulls before it removes
-anything, so a failed pull leaves the old build serving. When `llama` already runs the pin, it
-changes nothing and says so. It fails, changing nothing, when llama.cpp isn't installed.
+anything, so a failed pull leaves the old build serving. When `llama` already runs the pin and no
+other llama.cpp image is left, it changes nothing and says so. It fails, changing nothing, when
+llama.cpp isn't installed, and, before it pulls, when `/srv/models` is missing or the host has no
+tailnet IPv4 address.
 
 The new container starts with no model loaded; load the model again ([Models](models.md)), and
 check the build it runs:
@@ -48,6 +50,7 @@ mise run currency
 ```
 
 A line beginning `engines/llama.env: llama.cpp` means the pin is behind, and names the new build
-and its release.
-Edit `LLAMA_RELEASE` and `LLAMA_BUILD` in `engines/llama.env` to the release and build it names,
-commit, and push; then, on each host, `git pull` and `engines/engines llama update`.
+and its release. Edit `LLAMA_RELEASE` and `LLAMA_BUILD` in `engines/llama.env` to the release
+and build it names, and the pin this guide quotes to match: the [README](README.md), and the
+image and its `--version` output in [Setup](setup.md#3-prove-the-pinned-image-runs-on-the-gpu).
+Commit and push; then, on each host, `git pull` and `engines/engines llama update`.
