@@ -73,7 +73,7 @@ the experiment's rules require them and the architect runs them as root steps.
 
 ## Progress
 
-slices 0/4 committed · standards — · spec — · editor —
+slices 1/4 committed · standards — · spec — · editor —
 
 ## Decisions
 
@@ -121,6 +121,8 @@ slices 0/4 committed · standards — · spec — · editor —
 - llama-gb10-container: anchor model gpt-oss-120b MXFP4; rejected gpt-oss-20b.
 - llama-gb10-container: two anchor cells, 512/256 synthetic, 1 stream x 8 and 4 streams x 32,
   with 4 slots; departs from the roadmap's one cell.
+- llama-gb10-container: hosts brought current with `sudo apt update && sudo apt upgrade`, no
+  reboot (the architect is remote) and no firmware update; a pending reboot is recorded.
 - llama-gb10-container: currency gains the llama.cpp line only; vLLM's waits for its task.
 
 ## Pending edits

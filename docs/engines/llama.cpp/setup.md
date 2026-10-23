@@ -8,16 +8,15 @@ needs no `sudo`, because the account is in the `docker` group.
 ### 1. Bring the host current
 
 DGX OS is Ubuntu with NVIDIA's apt repositories, so the driver, CUDA, Docker, and the NVIDIA
-Container Toolkit all update through apt. Upgrade everything, then reboot so a new kernel or
-driver takes effect:
+Container Toolkit all update through apt:
 
 ```sh
-sudo apt update
-sudo apt full-upgrade
-sudo reboot
+sudo apt update && sudo apt upgrade
 ```
 
-Reconnect once the host is back.
+A new kernel or driver takes effect only after a reboot, so the stack recorded next is the one
+running. When the upgrade leaves `/var/run/reboot-required`, record that the host is waiting on a
+reboot.
 
 ### 2. Record the host stack
 
