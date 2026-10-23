@@ -43,7 +43,7 @@ Proof: The architect installs, serves, updates, and uninstalls vLLM on both GB10
    - serves nvidia/Gemma-4-26B-A4B-NVFP4, the model pinned beside the release, with:
      - 4 concurrent sequences of 8192 tokens;
      - GPU memory utilization 0.80;
-     - a BF16 KV cache;
+     - the checkpoint's FP8 KV cache;
      - the vision encoder loaded;
      - the model's own reasoning and tool-call parsing;
    - uses the shared model store as its Hugging Face cache, and keeps its compile cache in a
@@ -223,8 +223,9 @@ memory on integrated GPUs), owed only once the finding records vLLM's startup me
   vLLM's defaults. bench-gb10-container widens it.
 - vllm-gb10-container: GPU memory utilization 0.80 (about 97 of 121 GiB); rejected the default
   0.92.
-- vllm-gb10-container: BF16 KV cache; rejected the GB10 recipe's FP8 cache, so the cells measure
-  only the weights' format.
+- vllm-gb10-container: the checkpoint's own FP8 KV cache (`--kv-cache-dtype auto`), the format its
+  publisher evaluated; rejected BF16 (`bfloat16`). Round 2 chose BF16 on the belief that the card's
+  evals used an unquantized cache; the checkpoint ships FP8 KV, and the architect reopened it.
 - vllm-gb10-container: Gemma 4's vision encoder loaded; rejected `--language-model-only`, since
   task 3 probes vision.
 - vllm-gb10-container: compile cache bind-mounted from the architect's home and removed by

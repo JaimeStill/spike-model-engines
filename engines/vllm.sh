@@ -13,9 +13,9 @@
 # passwd entry. This is what the image's own non-root variant does in its entrypoint.
 #
 # The server flags: 4 sequences of 8192 tokens, mirroring llama.cpp's 4 slots of 8192; 0.80 of
-# the GB10's memory, which leaves the rest to the host it shares it with; a BF16 KV cache, named
-# outright since the checkpoint's quantization config asks for FP8, which `auto` would follow;
-# and Gemma 4's own reasoning and tool-call parsers. The vision encoder loads (no
+# the GB10's memory, which leaves the rest to the host it shares it with; the KV cache the
+# checkpoint ships, FP8 per its quantization config, which `auto` follows, so the model is served
+# as its publisher evaluated it; and Gemma 4's own reasoning and tool-call parsers. The vision encoder loads (no
 # --language-model-only), and the model's shipped generation config sets its sampling.
 
 # shellcheck source=engines/engines.sh
@@ -59,7 +59,7 @@ vllm_run() {
     --volume "$VLLM_CACHE_DIR:$VLLM_HOME" --env "HOME=$VLLM_HOME" --env "USER=$(id -un)" \
     "$1" "$VLLM_MODEL" --host 0.0.0.0 --port 8000 \
     --max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.80 \
-    --kv-cache-dtype bfloat16 \
+    --kv-cache-dtype auto \
     --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
 }
 
