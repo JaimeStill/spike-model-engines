@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # engines:summary=Move llama to the pinned build and remove every other llama.cpp image
 # Pulls the pinned image before replacing the container, so a failed pull leaves the old build
-# serving. When llama already runs the pin and no other image is left, it changes nothing. It
+# serving. When llama already runs the pin and no other image is left, it changes nothing; when the
+# pin's container is stopped, it says docker start starts it, and never starts it itself. It
 # refuses while the vllm container runs, since one engine serves per host at a time.
 set -euo pipefail
 # shellcheck source=engines/llama.sh
@@ -26,4 +27,10 @@ if [[ $running != "$LLAMA_IMAGE" ]]; then
 fi
 removed=$(llama_remove_images "$LLAMA_IMAGE")
 [[ -n $removed ]] && echo "$removed"
-[[ -n $changed$removed ]] || echo "llama already runs $LLAMA_IMAGE; nothing changed"
+stopped=
+[[ -n $changed ]] || stopped=$(engines_stopped "$LLAMA_CONTAINER")
+if [[ -n $stopped ]]; then
+  echo "llama is installed with $LLAMA_IMAGE but stopped; docker start llama starts it"
+elif [[ -z $changed$removed ]]; then
+  echo "llama already runs $LLAMA_IMAGE; nothing changed"
+fi

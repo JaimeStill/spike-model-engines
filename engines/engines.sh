@@ -18,6 +18,15 @@ engines_refuse_running() {
   fi
 }
 
+# Prints the ID of the container named when it exists but is stopped (exited, or created and never
+# started), and nothing otherwise, so install and update can say "stopped" rather than "already
+# runs" after a docker stop. Fails when Docker does, so an unreachable daemon is never read as
+# "not stopped".
+engines_stopped() {
+  docker container ls --all --quiet --filter "name=^$1\$" \
+    --filter status=exited --filter status=created
+}
+
 # Checks what an engine's container needs before anything is pulled or removed: the model store,
 # and the host's tailnet IPv4 address, which it sets in ENGINES_ADDR. Without the address, docker
 # would publish the port given on every interface.

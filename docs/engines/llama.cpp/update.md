@@ -12,7 +12,8 @@ engines/engines llama update
 `update` pulls the pinned image, replaces the `llama` container with one running it, and removes
 every other llama.cpp image, so only the pinned image remains. It pulls before it removes
 anything, so a failed pull leaves the old build serving. When `llama` already runs the pin and no
-other llama.cpp image is left, it changes nothing and says so. It fails, changing nothing, when
+other llama.cpp image is left, it changes nothing and says so; when that `llama` is stopped, it
+says `docker start llama` starts it, and leaves it stopped. It fails, changing nothing, when
 llama.cpp isn't installed or while vLLM's `vllm` container runs (`docker stop vllm` stops it),
 and, before it pulls, when `/srv/models` is missing or the host has no tailnet IPv4 address.
 

@@ -148,6 +148,9 @@
   bench-gb10-container's plan round (context/README.md, Path): a diagnostic A' rerun for vLLM's
   slow decode, `free -g` before a vLLM start for the memory edit, and install's "already runs"
   for a stopped container; A' reruns from a confirmed warm start, since its warm-up isn't confirmed.
+- vllm-gb10-container: install and update report a stopped container as stopped (docker start
+  <name>) instead of "already runs"; both engines, fixed at the architect's request after
+  acceptance; rejected starting it, which would change state on a check.
 
 ## Pending edits
 

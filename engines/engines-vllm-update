@@ -4,7 +4,8 @@
 # serving. The container moves when anything it serves differs from the pin: its image, its
 # model, or a server flag. When only flags differ the image is already the pin's, so it replaces
 # the container without pulling. When it already serves the pin exactly and no other image is
-# left, it changes nothing. It refuses while the llama container runs, since one engine serves
+# left, it changes nothing; when the pin's container is stopped, it says docker start starts it,
+# and never starts it itself. It refuses while the llama container runs, since one engine serves
 # per host at a time.
 set -euo pipefail
 # shellcheck source=engines/vllm.sh
@@ -34,4 +35,11 @@ if [[ $running != "$served" ]]; then
 fi
 removed=$(vllm_remove_images "$VLLM_IMAGE")
 [[ -n $removed ]] && echo "$removed"
-[[ -n $changed$removed ]] || echo "vllm already runs $VLLM_IMAGE with $VLLM_MODEL; nothing changed"
+stopped=
+[[ -n $changed ]] || stopped=$(engines_stopped "$VLLM_CONTAINER")
+if [[ -n $stopped ]]; then
+  echo "vllm is installed with $VLLM_IMAGE and $VLLM_MODEL but stopped;" \
+    "docker start vllm starts it"
+elif [[ -z $changed$removed ]]; then
+  echo "vllm already runs $VLLM_IMAGE with $VLLM_MODEL; nothing changed"
+fi

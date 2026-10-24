@@ -15,7 +15,8 @@ container's whole command with the pin's, so it replaces the container when its 
 or any server flag differs; when only a flag differs, the image is already the pin's, and it
 replaces the container without pulling. It pulls before it removes anything, so a failed pull
 leaves the old release serving. When `vllm` already runs the pinned release, model, and flags,
-and no other vLLM image is left, it changes nothing and says so. It fails,
+and no other vLLM image is left, it changes nothing and says so; when that `vllm` is stopped, it
+says `docker start vllm` starts it, and leaves it stopped. It fails,
 changing nothing, when vLLM isn't installed or while llama.cpp's `llama` runs, and, before it
 pulls, when `/srv/models` is missing or the host has no tailnet IPv4 address.
 
