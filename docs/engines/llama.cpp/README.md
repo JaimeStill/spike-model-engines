@@ -3,7 +3,8 @@
 llama.cpp serves GGUF models through `llama-server`, an OpenAI-compatible HTTP server. This spike
 runs it on the GB10s in ggml's CUDA 13 server image first, and natively later. In the container,
 one `llama-server` runs in router mode: it holds no model itself, and loads each model named in
-its models preset, as a child process, when asked over its API.
+its models preset, as a child process, when asked over its API. The router loads models on
+demand, so one server serves every model in the preset.
 
 The spike follows llama.cpp's semver releases and runs the b-build each one names. The pin lives
 in `engines/llama.env`: release v0.7.0, build b11669, image
@@ -19,7 +20,8 @@ repository on each host, as `engines/engines llama <verb>`:
 | `engines/engines llama update` | Moves the router to the pin and removes every other llama.cpp image |
 | `engines/engines llama uninstall` | Removes the router and every llama.cpp image, keeping `/srv/models` |
 
-Each changes nothing, and says so, when run a second time.
+Each changes nothing, and says so, when run a second time. One engine serves per host at a time:
+install and update refuse while vLLM's `vllm` container runs ([vLLM](../vllm/README.md)).
 
 ## Pages
 

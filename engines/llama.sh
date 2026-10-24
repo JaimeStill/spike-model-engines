@@ -5,11 +5,13 @@
 # (/srv/models) as llama.cpp's download cache. It runs as the invoking user, so the store's files
 # stay that user's, and publishes port 8080 on the host's tailnet IPv4 address only.
 
+# shellcheck source=engines/engines.sh
+source "$(dirname "${BASH_SOURCE[0]}")/engines.sh"
 # shellcheck source=engines/llama.env
 source "$(dirname "${BASH_SOURCE[0]}")/llama.env"
 
 LLAMA_CONTAINER=llama
-LLAMA_STORE=/srv/models
+LLAMA_STORE=$ENGINES_STORE
 LLAMA_PRESET_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/llama-preset" && pwd)
 
 # The image for a b-build: the pinned image with its build swapped.
@@ -25,18 +27,10 @@ llama_running_image() {
   [[ -z $id ]] || docker container inspect --format '{{.Config.Image}}' "$id"
 }
 
-# Checks what llama_run needs before anything is pulled or removed: the model store, and the
-# host's tailnet IPv4 address, which it sets in LLAMA_ADDR. Without the address, docker would
-# publish the port on every interface.
+# Checks what llama_run needs before anything is pulled or removed (engines_preflight), and sets
+# LLAMA_ADDR to the tailnet address it publishes port 8080 on.
 llama_preflight() {
-  if [[ ! -d $LLAMA_STORE ]]; then
-    echo "$LLAMA_STORE does not exist; create it first (docs/engines/llama.cpp/setup.md)" >&2
-    return 1
-  fi
-  if ! LLAMA_ADDR=$(tailscale ip -4) || [[ -z $LLAMA_ADDR ]]; then
-    echo "the host has no tailnet IPv4 address to publish port 8080 on; is Tailscale up?" >&2
-    return 1
-  fi
+  engines_preflight 8080 && LLAMA_ADDR=$ENGINES_ADDR
 }
 
 # Starts the container from the image given, after llama_preflight.

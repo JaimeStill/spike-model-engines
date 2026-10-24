@@ -36,26 +36,21 @@ arguments.
 
 ## The host's address on the laptop
 
-The commands below run on the laptop, against the host's tailnet IPv4 address. Print the address
-on the host:
+The commands below run on the laptop and name the host by its short name, `gb10-1` or `gb10-2`,
+which Tailscale's MagicDNS resolves to its tailnet address. Check that the name resolves:
 
 ```sh
-tailscale ip -4
+curl -s http://gb10-1:8080/health
 ```
 
-Then, on the laptop, set `GB10` to it, typing the address the host printed in place of
-`<tailnet address>`:
-
-```sh
-GB10=<tailnet address>
-```
+On gb10-2, put `gb10-2` in place of `gb10-1` in every command.
 
 ## Loading a model
 
 The router starts no model by itself. Load gpt-oss-120b through its API:
 
 ```sh
-curl -s -X POST "http://$GB10:8080/models/load" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4"}'
+curl -s -X POST "http://gb10-1:8080/models/load" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4"}'
 ```
 
 It answers `{"success":true}` at once and loads in the background. The first load downloads the
@@ -65,7 +60,7 @@ every model, so load it again after one.
 
 ## Watching the download
 
-On the host, the store grows to about 60 GiB as the files arrive, and the router's log shows the
+On the host, the store grows by about 60 GiB as the files arrive, and the router's log shows the
 download and then the load:
 
 ```sh
@@ -104,7 +99,7 @@ router finds it in the store and downloads nothing.
 ## Listing models
 
 ```sh
-curl -s "http://$GB10:8080/models" | jq '.data[] | {id, status: .status.value}'
+curl -s "http://gb10-1:8080/models" | jq '.data[] | {id, status: .status.value}'
 ```
 
 Each model the router knows is listed with its status: `unloaded`, `loading` (during the download

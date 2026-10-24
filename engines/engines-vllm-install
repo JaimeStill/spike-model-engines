@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# engines:summary=Run vllm serve on the pinned model, at the pinned release or the release given
+# Starts the vllm container (vllm.sh) from the pinned image, or from the release given, such as
+# v0.31.0, serving the pinned model either way. When the container already serves exactly that
+# (image, model, and server flags) it changes nothing, saying docker start starts it when it is
+# stopped (it never starts it itself); when it serves anything else it refuses,
+# saying what it runs, and points at update. It refuses while the llama container runs, since one
+# engine serves per host at a time.
+set -euo pipefail
+# shellcheck source=engines/vllm.sh
+source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
+
+engines_refuse_running llama
+
+image=$(vllm_image "${1:-$VLLM_RELEASE}")
+served=$(vllm_served "$image")
+running=$(vllm_running)
+
+if [[ $running == "$served" ]]; then
+  stopped=$(engines_stopped "$VLLM_CONTAINER")
+  if [[ -n $stopped ]]; then
+    echo "vllm is installed with $image and $VLLM_MODEL but stopped; docker start vllm starts it"
+  else
+    echo "vllm already runs $image with $VLLM_MODEL; nothing changed"
+  fi
+  exit 0
+elif [[ -n $running ]]; then
+  if [[ $(vllm_describe "$running") == "$(vllm_describe "$served")" ]]; then
+    echo "vllm runs $image with $VLLM_MODEL under other server flags;" \
+      "engines vllm update moves it to the pin" >&2
+  else
+    echo "vllm runs $(vllm_describe "$running"), not $image with $VLLM_MODEL;" \
+      "engines vllm update moves it to the pin" >&2
+  fi
+  exit 1
+fi
+
+vllm_preflight
+docker pull "$image"
+vllm_run "$image" >/dev/null
+echo "vllm runs $image with $VLLM_MODEL on port 8000 of the tailnet address;" \
+  "docker logs -f vllm shows its start"

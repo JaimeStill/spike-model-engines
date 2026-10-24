@@ -27,7 +27,12 @@ The container writes the store as your account, so this needs no `sudo`. List wh
 ls /srv/models
 ```
 
-To remove the store itself, with anything left in it, undo its creation with a root step:
+Once vLLM has fetched its model, the store also holds vLLM's model directory, the shared store
+its weight files live in, `blobs/`, and `CACHEDIR.TAG`; `ls` hides the client's `.locks/`
+([vLLM's Models](../vllm/models.md#the-first-download)).
+
+To remove the store itself, with anything left in it, undo its creation with a root step. This
+also deletes vLLM's model and the shared `/srv/models/blobs`:
 
 ```sh
 sudo rm -rf /srv/models

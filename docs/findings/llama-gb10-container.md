@@ -117,28 +117,28 @@ environment once; it downloads GuideLLM and its dependencies, torch among them:
 MISE_ENV=bench mise install
 ```
 
-Set `GB10` to gb10-1's tailnet address ([Models](../engines/llama.cpp/models.md#the-hosts-address-on-the-laptop)),
-load the model, and list the models until it shows `loaded`:
+Name gb10-1 by its short name, which MagicDNS resolves
+([Models](../engines/llama.cpp/models.md#the-hosts-address-on-the-laptop)), load the model, and
+list the models until it shows `loaded`:
 
 ```sh
-GB10=<tailnet address>
-curl -s -X POST "http://$GB10:8080/models/load" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4"}'
-curl -s "http://$GB10:8080/models" | jq '.data[] | {id, status: .status.value}'
+curl -s -X POST "http://gb10-1:8080/models/load" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4"}'
+curl -s "http://gb10-1:8080/models" | jq '.data[] | {id, status: .status.value}'
 ```
 
 Record the build the model runs and the network path to the host, since every client figure
 carries the round trip:
 
 ```sh
-curl -sG "http://$GB10:8080/props" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false | jq -r .build_info
-tailscale ping -c 3 "$GB10"
+curl -sG "http://gb10-1:8080/props" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false | jq -r .build_info
+tailscale ping -c 3 gb10-1
 ```
 
 Point GuideLLM at the router, which it reads from its environment, and make the directory the
 cells write to; `.state/` is untracked:
 
 ```sh
-export GUIDELLM__SPEC__BACKEND__TARGET="http://$GB10:8080"
+export GUIDELLM__SPEC__BACKEND__TARGET="http://gb10-1:8080"
 mkdir -p .state/anchor
 ```
 
@@ -148,9 +148,9 @@ Run each cell with its letter in `cell`: first `cell=a`, then the same four comm
 
 ```sh
 cell=a
-curl -sG "http://$GB10:8080/metrics" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false > .state/anchor/$cell.before.metrics
+curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false > .state/anchor/$cell.before.metrics
 MISE_ENV=bench mise exec -- guidellm run -c bench/anchor-$cell.yaml
-curl -sG "http://$GB10:8080/metrics" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false > .state/anchor/$cell.after.metrics
+curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false > .state/anchor/$cell.after.metrics
 ```
 
 `llamacpp:requests_processing` in the first snapshot is 0 when nothing else is using the model.

@@ -99,10 +99,13 @@ runs with `--restart unless-stopped`, so Docker starts it again after a reboot, 
 8080 on the host's tailnet IPv4 address only. The router starts no model by itself
 (`--no-models-autoload`); [Models](models.md) loads one.
 
-It prints the image and the address it serves on. A second run changes nothing and says so. It
-fails, changing nothing, when `/srv/models` is missing, when the host has no tailnet IPv4 address,
-or when `llama` already runs another build; [Update](update.md) moves a running build. Given a
-b-build, such as `b11429`, it installs that build instead of the pin.
+It prints the image and the port it serves on, without the address. A second run changes
+nothing and says so; when `llama` is stopped, it says `docker start llama` starts it, and leaves
+it stopped. It fails, changing nothing, while vLLM's `vllm` container runs, since one
+engine serves per host at a time (`docker stop vllm` stops it), when `/srv/models` is missing,
+when the host has no tailnet IPv4 address, or when `llama` already runs another build;
+[Update](update.md) moves a running build. Given a b-build, such as `b11429`, it installs that
+build instead of the pin.
 
 Check that the container is up and the router answers:
 

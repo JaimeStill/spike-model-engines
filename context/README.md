@@ -20,7 +20,8 @@ Halo), and is it hosted in a container or on bare metal?
 ## The evidence
 
 1. Each engine installs, updates, and uninstalls on each host class from a few named, idempotent
-   scripted steps, and its guide documents setup, models, APIs, updates, and uninstall.
+   scripted steps, and its guide documents setup, models, APIs, updates, and uninstall, and
+   whether the engine loads models on demand.
 2. Raw speed, TTFT, unified-memory footprint, and cold load per engine and host class, by shape:
    dense small, mid, and large; MoE; embedding; ASR; vision. Each cell is measured, or marked
    unsupported with its reason.
@@ -59,12 +60,12 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
 ## Capabilities
 
 - **Engine guides:** setup, models, APIs, updates, and uninstall, per engine, under
-  `docs/engines/<engine>/`; llama.cpp's is written, vLLM's is planned.
+  `docs/engines/<engine>/`; llama.cpp's and vLLM's are written.
 - **The `engines` suite:** the scripted install, update, and uninstall steps, under `engines/`;
-  llama.cpp's are written.
+  llama.cpp's and vLLM's are written.
 - **Served-load findings:** GuideLLM runs by shape, quantization, and concurrency, under
-  `docs/findings/`. The anchor cells later tasks rerun are in `llama-gb10-container.md`, with the
-  commands that run them.
+  `docs/findings/`. The anchor cells later tasks rerun, with the commands that run them, are in
+  `llama-gb10-container.md` for llama.cpp and `vllm-gb10-container.md` for vLLM.
 - **Raw backend findings:** llama-bench pp/tg per llama.cpp backend.
 - **API surface:** the matrix of what each engine serves.
 - **Hosting method:** container against bare metal.
@@ -80,7 +81,11 @@ The tasks, in the order they run; each cites the evidence it proves.
 2. `vllm-gb10-container`: vLLM's CUDA 13.0 arm64 image on both GB10s, NVFP4 served, the vLLM guide
    (evidence 1, 3).
 3. `bench-gb10-container`: the agreed cells on gb10-1, cross-checked on gb10-2, and the
-   API-surface probes (evidence 2, 3, 4, 5).
+   API-surface probes (evidence 2, 3, 4, 5). Its plan round takes up one question from
+   vllm-gb10-container: vLLM's A' decoded at 30 tok/s on a 4B-active model, with Triton
+   attention (FA4 not available) and a BF16 KV cache named in the log, so whether one diagnostic
+   A' rerun changing one of them precedes the comparison. A' reruns as vLLM's anchor from a
+   confirmed warm start.
 4. `llama-gb10-native`: llama.cpp native under systemd, llama-bench, anchor cells against the
    container (evidence 1, 6).
 5. `vllm-gb10-native`: vLLM's aarch64 wheel natively, anchor cells against the container
@@ -101,6 +106,21 @@ The practices every task on the GB10s follows, each with its reason:
   each upgrade ([setup](../docs/engines/llama.cpp/setup.md#1-bring-the-host-current)).
 - **Models.** Download a model once, on gb10-1, and copy it to gb10-2 over QSFP
   ([models](../docs/engines/llama.cpp/models.md#copying-a-model-to-the-other-gb10)).
+- **The shared blob store.** The Hugging Face client in vLLM's image keeps a model's weight files
+  in `/srv/models/blobs`, outside the model's directory, which only links to them. Copy
+  `/srv/models/blobs` with the model's directory, and measure a model with `du -shL`, since a
+  plain `du -sh` doesn't follow the links and shows a few MB
+  ([models](../docs/engines/vllm/models.md#the-first-download)).
+- **One engine per host.** Each engine's install refuses while the other's container runs:
+  beside a second server, vLLM's memory reservation would fail and its container restart in a
+  loop. Stop one before installing the other.
+- **`ls` on the GB10s.** The GB10 setup in dotfiles aliases `ls` to eza, whose flags differ from
+  coreutils' (`ls -laL` failed: eza reads `-L` as a tree depth), so guide commands use `du -shL`,
+  `stat`, `readlink -f`, or `command ls` instead.
+- **Hosts by short name.** Laptop commands name a GB10 by its short name (`http://gb10-1:8000`),
+  which MagicDNS resolves, so no command carries a tailnet address.
+- **Install messages.** The `engines` install messages print the port, never the host's address,
+  so a pasted output keeps to `ai-hosting.md`'s "Visibility" rule as it stands.
 - **Network path.** When the architect is remote, the laptop can reach the GB10s through a
   Tailscale DERP relay. The relay adds its round trip to TTFT and request latency, but not to ITL
   or the server's `/metrics` figures, so every served run records its path with `tailscale ping`.
