@@ -144,10 +144,13 @@
 - vllm-gb10-container: install messages print the port, never the tailnet address (both
   engines), after the architect's visibility request during the walk; llama's message change is
   outside behavior 5's "otherwise unchanged" by that request.
-- vllm-gb10-container: at the brief, the architect carried three open questions to
-  bench-gb10-container's plan round (context/README.md, Path): a diagnostic A' rerun for vLLM's
-  slow decode, `free -g` before a vLLM start for the memory edit, and install's "already runs"
-  for a stopped container; A' reruns from a confirmed warm start, since its warm-up isn't confirmed.
+- vllm-gb10-container: at the brief, the architect redirected: the session ran the remaining
+  small checks itself over SSH on gb10-1 (no root): the stopped-container fix, the memory reading
+  behind the memory-reporting edit (now owed), llama's update refusal, and `/version` after an
+  install. One question stays for bench-gb10-container's plan round (context/README.md, Path): a
+  diagnostic A' rerun for vLLM's slow decode; A' reruns there from a confirmed warm start.
+- vllm-gb10-container: the guided-session rule bent once, for these checks, by the architect's
+  request; root steps stay the architect's (sudo needs their password).
 - vllm-gb10-container: install and update report a stopped container as stopped (docker start
   <name>) instead of "already runs"; both engines, fixed at the architect's request after
   acceptance; rejected starting it, which would change state on a check.
@@ -174,7 +177,8 @@
 - coordinator · ai-hosting.md, "Experiment: experiment.hosting", the spike-model-engines
   paragraph: after "documents each engine as a guide to setup, models, APIs, updates, and
   uninstall", add ", and whether it loads models on demand".
-- Held, not owed: ai-hosting.md, the GB10 host class, "Memory reporting" — vLLM v0.32.0 reads the
-  OS's available memory on integrated GPUs, so the page cache counts as free. The finding records
-  113.08 of 121.63 GiB free right after the 18 GB download, but nobody measured the page cache;
-  owed once bench-gb10-container measures it with `free -g` before a vLLM start.
+- coordinator · ai-hosting.md, the GB10 host class, "Memory reporting": after "`cudaMemGetInfo`
+  counts the page cache as used." add "On the integrated GPU, vLLM reads the OS's available memory
+  instead, which counts the page cache as free: with 18 GiB cached and 99.7 GiB MemFree, v0.32.0
+  reported 113.42 of 121.63 GiB free at startup." (spike-model-engines,
+  docs/findings/vllm-gb10-container.md, "Serving and the model store").

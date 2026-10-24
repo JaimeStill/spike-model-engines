@@ -95,10 +95,15 @@ The memory vLLM reported at each start:
 | Peak activation | not recorded | 0.8 GiB |
 | KV cache | 75.16 GiB | 74.43 GiB |
 
-The FP8 start's free figure was read with a warm page cache: the model had just been downloaded
-and read. On an integrated GPU, v0.32.0 reads the OS's available memory
+On an integrated GPU, v0.32.0 reads the OS's available memory
 (`psutil.virtual_memory().available`, in `vllm/utils/mem_utils.py`), which counts the page cache
-as free, so the 18 GB just written left 113.08 GiB free.
+as free. A start measured for it on gb10-1 on 2026-10-24 (the session ran it over SSH, after the
+walkthrough) shows that: with the model's 18 GB read into the page cache first (`Cached` 18.2 GiB),
+`/proc/meminfo` gave MemFree 99.7 GiB and MemAvailable 117.6 GiB before the start, and vLLM
+reported `Free memory on device (113.42/121.63 GiB) on startup`. That is 13.7 GiB more than
+MemFree, which only counting the page cache as free allows; the remaining 4 GiB below
+MemAvailable went to the container and the process before the reading. The page cache also
+didn't shorten the weight load: 113.65 s, against 134 s from a cold cache.
 
 At the BF16 start, 0.80 of 121.63 GiB is 97.30 GiB, and 97.30 less the 22.07 consumed and the 0.8
 of activation leaves 74.43, the KV cache's size.
@@ -123,7 +128,18 @@ Against gb10-1 under the BF16 flags, by its short name, which MagicDNS resolves:
 ### llama.cpp refuses
 
 While `vllm` ran on gb10-1, `engines/engines llama install` refused, changing nothing: `vllm is
-running, and one engine serves per host at a time; docker stop vllm stops it`.
+running, and one engine serves per host at a time; docker stop vllm stops it`. On 2026-10-24 `engines/engines
+llama update` refused the same way (exit 1).
+
+### A stopped container
+
+Found at the brief: install reported "already runs; nothing changed" for a stopped container.
+After the fix, on gb10-1 on 2026-10-24, with `vllm` stopped by `docker stop vllm`, both
+`engines/engines vllm install` and `update` printed `vllm is installed with
+vllm/vllm-openai:v0.32.0 and nvidia/Gemma-4-26B-A4B-NVFP4 but stopped; docker start vllm starts
+it` (exit 0) and left it exited. After `docker start vllm`, both said `already runs …; nothing
+changed`. From the laptop, `/version` answered `0.32.0`. The session then uninstalled vLLM again,
+keeping the model.
 
 ### The copy to gb10-2
 
