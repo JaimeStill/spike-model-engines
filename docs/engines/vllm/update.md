@@ -35,9 +35,9 @@ docker inspect --format '{{.Config.Image}} {{join .Config.Cmd " "}}' vllm
 docker image ls vllm/vllm-openai
 ```
 
-The first prints the pinned image, then the model and the server flags the container serves; the second lists the pinned image alone. The laptop
-confirms the version the server itself runs ([API](api.md#version)), which reads `0.32.0` at the
-pin.
+The first prints the pinned image, then the model and the server flags the container serves;
+the second lists the pinned image alone. The laptop confirms the version the server itself runs
+([API](api.md#version)), which reads `0.32.0` at the pin.
 
 ## Rehearsing an update
 
@@ -67,4 +67,5 @@ Edit `VLLM_RELEASE` in `engines/vllm.env` to it, and the pin this guide quotes t
 [README](README.md), the image and its `--version` output in
 [Setup](setup.md#2-prove-the-pinned-image-runs-on-the-gpu), and the version in
 [API](api.md#version). A model change edits `VLLM_MODEL` instead
-([Models](models.md#changing-the-model)). Commit and push; then, on each host, `git pull` and `engines/engines vllm update`.
+([Models](models.md#changing-the-model)). Commit and push; then, on each host, `git pull` and
+`engines/engines vllm update`.

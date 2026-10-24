@@ -98,11 +98,11 @@ temperature 1.0, top_p 0.95, top_k 64. Two directories are mounted:
 - `~/.cache/vllm`, the compile cache, as the container's home. vLLM's torch.compile cache and the
   kernels it builds land there, so a later start skips compiling them again.
 
-It prints the image, the model, and the address it serves on. A second run changes nothing and
-says so. It fails, changing nothing, while `llama` runs, when `/srv/models` is missing, when the
-host has no tailnet IPv4 address, or when `vllm` already runs another release, another model,
-or other server flags; [Update](update.md) moves a running one. Given a release, such as `v0.31.0`, it installs that
-release instead of the pin.
+It prints the image, the model, and the port it serves on, without the address. A second run
+changes nothing and says so. It fails, changing nothing, while `llama` runs, when `/srv/models`
+is missing, when the host has no tailnet IPv4 address, or when `vllm` already runs another
+release, another model, or other server flags; [Update](update.md) moves a running one. Given a
+release, such as `v0.31.0`, it installs that release instead of the pin.
 
 ### 6. Watch the cold start, and record it
 
