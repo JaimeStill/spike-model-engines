@@ -1,13 +1,13 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** brief ready
-- **Task:** vllm-gb10-container
-- **Branch:** vllm-gb10-container
+- **State:** idle
+- **Task:** none
+- **Branch:** none
 
 ## Tasks
 
 1. [x] llama-gb10-container
-2. [ ] vllm-gb10-container
+2. [x] vllm-gb10-container
 3. [ ] bench-gb10-container
 4. [ ] llama-gb10-native
 5. [ ] vllm-gb10-native
@@ -15,130 +15,6 @@
 7. [ ] vllm-strix
 8. [ ] strix-native
 9. [ ] answer
-
-## Task brief · vllm-gb10-container
-
-**Problem.** Only llama.cpp runs on the GB10s. The spike's question is llama.cpp or vLLM, and
-NVFP4 is served only through vLLM, so this task brings in the second engine. It gives vLLM its
-CUDA 13.0 arm64 image on both GB10s, its install, update, and uninstall steps, its guide, an
-NVFP4 model served, and the anchor cells later tasks rerun for vLLM. Each engine's guide also
-records whether it loads models on demand, which now joins evidence 1.
-
-Proof: The architect installs, serves, updates, and uninstalls vLLM on both GB10s from the guide.
-
-**Behaviors**
-
-1. The architect brings both GB10s current at the session's start. Each host's stack is
-   recorded with the date: DGX OS, driver, CUDA, kernel, Docker, the container toolkit, and
-   whether a reboot is pending.
-2. The pinned image runs on both GB10s with the GPU, prints its version, and finds the GB10 as a
-   CUDA device. The pin is vLLM's latest release (v0.32.0), on its default CUDA 13.0
-   multi-arch tag.
-3. `mise run currency` reports the pinned vLLM release when it trails vLLM's latest GitHub
-   release, and reports nothing for vLLM when they match. Its other lines are unchanged.
-4. `engines vllm install` runs one `vllm` container with restart unless-stopped. It installs the
-   pinned image, or a release given as an argument (the walkthrough uses that for v0.31.0). The
-   container:
-   - runs as the architect's user;
-   - serves nvidia/Gemma-4-26B-A4B-NVFP4, the model pinned beside the release, with:
-     - 4 concurrent sequences of 8192 tokens;
-     - GPU memory utilization 0.80;
-     - a BF16 KV cache;
-     - the vision encoder loaded;
-     - the model's own reasoning and tool-call parsing;
-   - uses the shared model store as its Hugging Face cache, and keeps its compile cache in a
-     directory in the architect's home;
-   - serves on the host's tailnet address, port 8000.
-
-   A second run changes nothing. It refuses, changing nothing, while `llama` runs, when the
-   store is missing, or when the host has no tailnet address.
-5. `engines llama install` and `engines llama update` refuse, changing nothing, while `vllm`
-   runs. Their behavior is otherwise unchanged.
-6. `engines vllm update` moves the container to the pinned release and model, and removes every
-   previous vLLM image. It pulls before it removes anything, and changes nothing when the
-   container already runs the pin. The walkthrough proves it by installing v0.31.0 and updating
-   to v0.32.0.
-7. `engines vllm uninstall` removes the container, every vLLM image, and the compile cache, and
-   keeps the model store. A second run changes nothing.
-8. The container fetches the NVFP4 model into gb10-1's store, and the architect copies it to
-   gb10-2 over QSFP, so gb10-2 loads it without a download. From the laptop the model answers an
-   OpenAI chat completion, with its reasoning separated. `/metrics` and `/version` answer, and
-   the version matches the pin.
-9. The vLLM guide has six pages: README, setup, models, api, update, and uninstall. It:
-   - holds every command the architect types, exactly as typed, with no tailnet identifier;
-   - states that vLLM serves one model per server and loads none on demand, so changing the
-     model means editing the pin and running update;
-   - records the cold start each time.
-
-   The llama.cpp guide's README states that its router loads models on demand. The llama.cpp
-   guide also says that llama refuses to install or update while `vllm` runs. The spike's
-   evidence 1 gains on-demand loading.
-10. GuideLLM 0.8.1 runs two anchor cells from the laptop against gb10-1 at v0.32.0, on the NVFP4
-    model:
-    - A' is 1 stream sending 8 requests; B' is 4 streams sending 32;
-    - each request is 512 synthetic prompt tokens and exactly 256 output tokens;
-    - both start from a warm model (one chat request after the server reports ready), A' then
-      B';
-    - each takes under 10 minutes.
-
-    A dated finding records the release, the host stack, the network path (`tailscale ping`), and
-    the figures. The client figures are GuideLLM's. The server figures are vLLM's own `/metrics`
-    counters, differenced over each cell.
-11. The architect installs, serves, updates, and uninstalls vLLM on both GB10s from the guide
-    alone.
-
-**Test seams.**
-- The `engines` commands on each host.
-- `mise run check` and `mise run currency` on the laptop.
-- The guide, followed step by step.
-
-**Slices**
-
-1. **Hosts current, image proven** (behaviors 1–3). Both GB10s brought current, with their stacks
-   recorded. The image's version and device check run on the GPU on both. The vLLM pin and its
-   currency line land.
-2. **vLLM served, and the guide** (behaviors 4–9). Install, update, and uninstall; the mutual
-   refusal with llama; the store as the Hugging Face cache, and the compile cache; the NVFP4 model
-   fetched on gb10-1 and copied to gb10-2; a chat request, `/metrics`, and `/version` from the
-   laptop; the on-demand-loading lines. Walked on gb10-1.
-3. **Anchor cells** (behavior 10). A' and B' on gb10-1, and the dated finding.
-4. **Walkthrough** (behaviors 6, 11). The architect runs the whole procedure from the guide on
-   both GB10s: install v0.31.0, update to v0.32.0, then uninstall.
-
-Only Python trails, and it is held, so no upgrade slice comes first.
-
-**Out of scope.**
-- gpt-oss-120b and every other model on vLLM.
-- Comparing the engines, which bench-gb10-container does, along with:
-  - other shapes and quantizations;
-  - the concurrency sweep;
-  - the API-surface probes, Anthropic messages and tools included.
-- Benchmarking on gb10-2.
-- Sleep mode and every dev-mode endpoint.
-- Serving a model on demand, through llama-swap or anything else.
-- Native vLLM (vllm-gb10-native).
-- The Framework.
-
-**Door.** Two-way for the repository: the model store and llama.cpp's install survive every
-step. The host OS updates in slice 1 are hard to reverse, but the experiment's rules require them,
-and the architect runs them as root steps.
-
-## Progress
-
-- [x] 1. Hosts current, image proven (dd99119; walked on both GB10s: stack unchanged from task 1,
-  v0.32.0 digest befccf0e, NVIDIA GB10 124544 MiB)
-- [x] 2. vLLM served, and the guide (a7f635e, f20ac3a, 37b9374, 0bb63bb; walked on gb10-1 and
-  gb10-2: cold start ~27 min with 23 min download, warm ~4 min; the strict copy-without-download
-  proof ran in slice 4)
-- [x] 3. Anchor cells (b4318cf; run on gb10-1: A' 30.0 tok/s, TTFT 237 ms, ITL 32.4 ms; B' 106.0
-  tok/s, TTFT 426 ms, ITL 36.3 ms; results in docs/findings/vllm-gb10-container.md)
-- [x] 4. Walkthrough (both GB10s from the guide: uninstall, install v0.31.0, update to v0.32.0,
-  uninstall; gb10-2 deleted its model, took a QSFP copy, and served it with no download)
-
-Held: a pending edit to ai-hosting.md, GB10 "Memory reporting" (vLLM v0.32.0 reads the OS's
-available memory on integrated GPUs, so the page cache counts as free). The finding records 113.08
-of 121.63 GiB free at a start right after the 18 GB download, but the page cache wasn't measured
-(`free`), so the edit rests on vLLM's source and an inference; owed once a run measures both.
 
 ## Decisions
 
@@ -268,6 +144,10 @@ of 121.63 GiB free at a start right after the 18 GB download, but the page cache
 - vllm-gb10-container: install messages print the port, never the tailnet address (both
   engines), after the architect's visibility request during the walk; llama's message change is
   outside behavior 5's "otherwise unchanged" by that request.
+- vllm-gb10-container: at the brief, the architect carried three open questions to
+  bench-gb10-container's plan round (context/README.md, Path): a diagnostic A' rerun for vLLM's
+  slow decode, `free -g` before a vLLM start for the memory edit, and install's "already runs"
+  for a stopped container; A' reruns from a confirmed warm start, since its warm-up isn't confirmed.
 
 ## Pending edits
 
@@ -291,3 +171,7 @@ of 121.63 GiB free at a start right after the 18 GB download, but the page cache
 - coordinator · ai-hosting.md, "Experiment: experiment.hosting", the spike-model-engines
   paragraph: after "documents each engine as a guide to setup, models, APIs, updates, and
   uninstall", add ", and whether it loads models on demand".
+- Held, not owed: ai-hosting.md, the GB10 host class, "Memory reporting" — vLLM v0.32.0 reads the
+  OS's available memory on integrated GPUs, so the page cache counts as free. The finding records
+  113.08 of 121.63 GiB free right after the 18 GB download, but nobody measured the page cache;
+  owed once bench-gb10-container measures it with `free -g` before a vLLM start.
