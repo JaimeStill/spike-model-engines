@@ -115,7 +115,15 @@ running:
 docker logs -f vllm
 ```
 
-Then time the cold start, from the container's start to that line:
+Instead of following the log, you can poll `/health` every 5 s until it answers 200; the poll
+then prints the time, in UTC, so you know the timing lines below are ready to read:
+
+```sh
+until [ "$(curl -s -o /dev/null -w '%{http_code}' "http://$(tailscale ip -4):8000/health")" = 200 ]; do sleep 5; done; date -u
+```
+
+Then time the cold start, from the container's start to the `Application startup complete.`
+line:
 
 ```sh
 docker inspect --format '{{.State.StartedAt}}' vllm

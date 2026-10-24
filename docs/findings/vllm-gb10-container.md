@@ -40,8 +40,7 @@ Both hosts pulled the same image:
 
 `engines/engines vllm install` started the server at v0.32.0 on each host, bound to its tailnet
 address on port 8000, with 4 sequences of 8192 tokens and 0.80 of the GPU's memory
-(`engines/vllm.sh`). Each start below is timed from the container's first log line, or its start,
-to `Application startup complete.`
+(`engines/vllm.sh`). [Cold starts](#cold-starts) lists every start's time and how it was taken.
 
 ### gb10-1
 
@@ -55,7 +54,6 @@ cold start downloaded the model:
 | Model loading, in all | 1514.9 s |
 | Engine init | 92.55 s, compile 33.96 s |
 | Multimodal warmup | 37.8 s |
-| Cold start, first log 19:58:33 to startup complete 20:25:41Z | about 27 min |
 
 vLLM chose FlashInfer's CUTLASS kernels for the NVFP4 experts and Triton for attention (FA4 isn't
 available), on its V2 model runner. It applied the model's shipped generation config:
@@ -76,7 +74,6 @@ container's command with `--kv-cache-dtype auto`.
 | Weight load | 133.98 s |
 | Model loading, in all | 137.6 s |
 | Engine init | 82.18 s, compile 27.48 s |
-| Warm restart, started 21:24:26Z to `/health` 200 by 21:28:31Z | about 4m05s (polled every 5 s) |
 
 The BF16 start printed no FP8 or scale warnings, and its KV cache holds half the FP8 one's tokens,
 as BF16's two bytes a value against FP8's one predict:
@@ -99,8 +96,12 @@ The memory vLLM reported at each start:
 | KV cache | 75.16 GiB | 74.43 GiB |
 
 The FP8 start's free figure was read with a warm page cache: the model had just been downloaded
-and read. At the BF16 start, 0.80 of 121.63 GiB is 97.30 GiB, and 97.30 less the 22.07 consumed
-and the 0.8 of activation leaves 74.43, the KV cache's size.
+and read. On an integrated GPU, v0.32.0 reads the OS's available memory
+(`psutil.virtual_memory().available`, in `vllm/utils/mem_utils.py`), which counts the page cache
+as free, so the 18 GB just written left 113.08 GiB free.
+
+At the BF16 start, 0.80 of 121.63 GiB is 97.30 GiB, and 97.30 less the 22.07 consumed and the 0.8
+of activation leaves 74.43, the KV cache's size.
 
 After the download, `du -sh` of the model's directory showed 4.9M and `~/.cache/vllm` 358M: the
 Hugging Face client in vLLM's image keeps the weight files in a shared store at the cache's root,
@@ -151,12 +152,25 @@ then restarted it under the BF16 flags:
 |---|---|
 | Weight load | 126.12 s |
 | Engine init | 76.59 s, compile 27.76 s, for the new flags |
-| Warm restart, started 21:39:08Z to `/health` 200 by 21:42:57Z | about 3m49s |
 
 It downloaded nothing; its BF16 KV cache holds 470,467 tokens, and a second install changed
-nothing. Since gb10-2's store already held the model it had downloaded, this start doesn't prove
-that a copied model loads without a download from a store that held none; the walkthrough, on a
-store emptied first, proves it.
+nothing. gb10-2's store already held the model it had downloaded, so this start doesn't prove
+that a copied model loads without a download.
+
+### A copied model in an emptied store
+
+During the walkthrough, gb10-2 proved it. After `engines/engines vllm uninstall`, the architect
+deleted the model with the guide's procedure
+([Uninstall](../engines/vllm/uninstall.md#deleting-the-model)). The list of shared files held 3
+blobs: the two weight shards and `tokenizer.json`. After the delete, the model's directory was
+gone and the shared store, `/srv/models/blobs`, measured 32K. gb10-1 then copied the model again:
+
+| Copy | Bytes | Files | Time | Rate |
+|---|---|---|---|---|
+| `rsync -a` over SSH, gb10-1 to gb10-2-qsfp | 18,825,681,731 | 20 | 0:00:40 | 447.34 MB/s |
+
+`find -xtype l` printed nothing and `du -shL` of the model showed 18G. `engines/engines vllm
+install v0.31.0` then started the server with no download line in its log.
 
 ## Anchor cells
 
@@ -207,9 +221,7 @@ outside the decode time, hence one a request less. The server sums those seconds
 at 4 streams, whose requests run at once, they are one request's rate, not the cell's; the
 client's output throughput is the aggregate.
 
-Each cell should take a minute or two: llama.cpp's cell A ran in 42 s and B in 99 s on
-gpt-oss-120b, about 5B of 117B parameters active a token, and Gemma 4 26B-A4B activates 4B of
-26B in NVFP4.
+Cell A' ran in 68.25 s and B' in 77.31 s, within the 10-minute limit.
 
 ### Running the cells
 
@@ -278,5 +290,72 @@ awk '!/^#/ { k = $1; sub(/\{.*/, "", k); d[k] += (NR == FNR ? -$2 : $2) } END { 
 
 | Cell | Streams | Requests | Completed | Errored | Duration s | Output tok/s | TTFT median ms | TTFT p95 ms | ITL median ms | Latency median s | Latency p95 s | Server prompt tok/s | Server gen tok/s |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| A' | 1 | 8 | | | | | | | | | | | |
-| B' | 4 | 32 | | | | | | | | | | | |
+| A' | 1 | 8 | 8 | 0 | 68.25 | 30.0 | 237 | 299 | 32.4 | 8.51 | 8.57 | 5061 | 30.4 |
+| B' | 4 | 32 | 32 | 0 | 77.31 | 106.0 | 426 | 465 | 36.3 | 9.66 | 9.79 | 2261 | 27.1 |
+
+The read-out reported GuideLLM 0.8.1 on Python 3.14.9. The laptop reached gb10-1 directly over
+the LAN (`tailscale ping`: 1 ms), so TTFT and request latency carry no relay's round trip. ITL's p95 was 32.5 ms in A' and 36.7 ms in
+B'. The method's warm-up chat request was part of the instructed sequence before A'; the walk's
+record doesn't show its output.
+
+- Each request carried 528 prompt tokens: the 512 synthetic tokens plus Gemma 4's chat template.
+  The server counted 4,224 prompt tokens in A' (8 × 528) and 16,896 in B' (32 × 528).
+- The client and the server agree: A''s ITL of 32.4 ms is 30.8 tok/s, against the server's 30.4.
+- The server's generation rate is per request, since it sums each request's decode time: in B',
+  27.1 tok/s per stream, about 108 tok/s across the four, against the client's 106.0 output
+  tok/s.
+- In B' the server took 4,096 of its 16,896 prompt tokens from its prefix cache, 128 a request,
+  and computed the rest at 2261 tok/s. The 128 are likely a prefix every request shares, from the
+  chat template or the synthetic prompt; that is unverified. A' took none from the cache.
+- A''s decode, 30 tok/s on a model with 4B parameters active a token, is slow against
+  expectation. The server's log shows Triton attention, since FA4 isn't available, and the cells
+  ran a BF16 KV cache. Why decode runs at this rate is an open question for
+  bench-gb10-container. These cells are not compared with llama.cpp's A and B, which ran another
+  model in another session ([Comparisons](../../context/README.md#rules)).
+
+## Walkthrough
+
+The architect ran the whole procedure on each GB10 from the guide alone: uninstall, install
+v0.31.0, serve, update to v0.32.0, serve again, and uninstall. gb10-1's store held the model
+throughout; gb10-2 deleted it and took a fresh copy before installing
+([A copied model in an emptied store](#a-copied-model-in-an-emptied-store)).
+
+| Step | gb10-1 | gb10-2 |
+|---|---|---|
+| `engines/engines vllm uninstall` | removed the container, the v0.32.0 image, and the compile cache | the same |
+| Second `uninstall` | `vllm is not installed; nothing changed`; no vLLM images; model kept, 18G | not recorded |
+| Model | kept | deleted and copied again from gb10-1 |
+| `engines/engines vllm install v0.31.0` | digest `sha256:c1c9f6fd5c10…`; no download, empty compile cache; weight load 114.34 s, engine init 85.25 s (compile 27.96 s); BF16 KV cache 469,993 tokens | no download, empty compile cache; weight load 114.48 s, engine init 85.94 s (compile 27.64 s); KV cache 469,821 tokens |
+| `/version` from the laptop | `0.31.0` | `0.31.0` |
+| `engines/engines vllm update` | pulled v0.32.0 (digest `befccf0e…`) before removing v0.31.0, and printed `moved from … to …`; the container's command shows `bfloat16` | pulled v0.32.0 first, printed `moved from … to …`, and removed v0.31.0 |
+| Images left | v0.32.0 only (10.3 GB content, 35.3 GB on disk) | v0.32.0 only |
+| Second `update` | nothing changed | nothing changed |
+| `/version` from the laptop | not recorded (the container's command showed `vllm/vllm-openai:v0.32.0`) | `0.32.0` |
+| Final `uninstall` | removed the container, the v0.32.0 image, and the compile cache | the same |
+| Second `uninstall` | nothing changed; no images; model kept, 18G | nothing changed, run twice; no images; model kept, 18G |
+
+## Cold starts
+
+Every start of the container, in order. Each is timed from its start to the first of two signals:
+
+- **Startup complete**: from `docker inspect`'s `StartedAt` to the log's `Application startup
+  complete.` line, as [Setup](../engines/vllm/setup.md#6-watch-the-cold-start-and-record-it)
+  records it.
+- **`/health` 200**: from `StartedAt` to the first `/health` 200 of a poll every 5 s, so up to
+  5 s late.
+
+| Host | Start | Download | Started | Ready | Timed to | Cold start |
+|---|---|---|---|---|---|---|
+| gb10-1 | install v0.32.0, FP8 KV | 1373.9 s | 19:58:33, first log line | 20:25:41Z | startup complete | about 27 min |
+| gb10-2 | install v0.32.0, FP8 KV | 735.8 s | 20:22:30Z | not captured | — | — |
+| gb10-1 | update to the BF16 flags | none | 21:24:26Z | 21:28:31Z | `/health` 200 | about 4m05s |
+| gb10-2 | update to the BF16 flags | none | 21:39:08Z | 21:42:57Z | `/health` 200 | about 3m49s |
+| gb10-1 | install v0.31.0, empty compile cache | none | 22:20:56Z | 22:25:09Z | `/health` 200 | about 4m13s |
+| gb10-1 | update to v0.32.0 | none | 22:36:48Z | 22:42:37Z | `/health` 200 | about 5m49s |
+| gb10-2 | install v0.31.0, from the copy | none | 22:57:38Z | not captured; engine init done 23:01:44Z | — | — (about 4m06s to engine init) |
+| gb10-2 | update to v0.32.0 | none | 23:30:47Z | 23:34:56Z | startup complete | 4m09s |
+
+The first gb10-1 start is timed from the container's first log line, not `StartedAt`. Two polls
+ran late, after the server was already up, and their times are discarded: gb10-2's v0.31.0
+install (23:22:45Z) and its update to v0.32.0 (00:04:18Z). gb10-1's update from v0.31.0 to
+v0.32.0 took about 5m49s, the longest start without a download; the record doesn't show why.

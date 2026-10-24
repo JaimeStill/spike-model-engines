@@ -60,7 +60,7 @@ every model, so load it again after one.
 
 ## Watching the download
 
-On the host, the store grows to about 60 GiB as the files arrive, and the router's log shows the
+On the host, the store grows by about 60 GiB as the files arrive, and the router's log shows the
 download and then the load:
 
 ```sh
