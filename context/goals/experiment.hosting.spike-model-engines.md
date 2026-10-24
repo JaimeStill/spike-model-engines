@@ -1,13 +1,13 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** brief ready
-- **Task:** vllm-gb10-container
-- **Branch:** vllm-gb10-container
+- **State:** idle
+- **Task:** none
+- **Branch:** none
 
 ## Tasks
 
 1. [x] llama-gb10-container
-2. [ ] vllm-gb10-container
+2. [x] vllm-gb10-container
 3. [ ] bench-gb10-container
 4. [ ] llama-gb10-native
 5. [ ] vllm-gb10-native
