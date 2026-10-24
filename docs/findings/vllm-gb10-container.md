@@ -294,9 +294,10 @@ awk '!/^#/ { k = $1; sub(/\{.*/, "", k); d[k] += (NR == FNR ? -$2 : $2) } END { 
 | B' | 4 | 32 | 32 | 0 | 77.31 | 106.0 | 426 | 465 | 36.3 | 9.66 | 9.79 | 2261 | 27.1 |
 
 The read-out reported GuideLLM 0.8.1 on Python 3.14.9. The laptop reached gb10-1 directly over
-the LAN (`tailscale ping`: 1 ms), so TTFT and request latency carry no relay's round trip. ITL's p95 was 32.5 ms in A' and 36.7 ms in
-B'. The method's warm-up chat request was part of the instructed sequence before A'; the walk's
-record doesn't show its output.
+the LAN (`tailscale ping`: 1 ms), so TTFT and request latency carry no relay's round trip. ITL's
+p95 was 32.5 ms in A' and 36.7 ms in B'. The warm-up chat request before A' is not confirmed: it
+was in the instructed sequence, but the walk's record doesn't show it and the architect doesn't
+recall, so A''s TTFT may include a cold first request.
 
 - Each request carried 528 prompt tokens: the 512 synthetic tokens plus Gemma 4's chat template.
   The server counted 4,224 prompt tokens in A' (8 × 528) and 16,896 in B' (32 × 528).

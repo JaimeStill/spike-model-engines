@@ -81,7 +81,17 @@ The tasks, in the order they run; each cites the evidence it proves.
 2. `vllm-gb10-container`: vLLM's CUDA 13.0 arm64 image on both GB10s, NVFP4 served, the vLLM guide
    (evidence 1, 3).
 3. `bench-gb10-container`: the agreed cells on gb10-1, cross-checked on gb10-2, and the
-   API-surface probes (evidence 2, 3, 4, 5).
+   API-surface probes (evidence 2, 3, 4, 5). Its plan round takes up three questions from
+   vllm-gb10-container:
+   - vLLM's A' decoded at 30 tok/s on a 4B-active model, with Triton attention (FA4 not
+     available) and a BF16 KV cache named in the log: whether one diagnostic A' rerun changing
+     one of them precedes the comparison;
+   - `free -g` on the host before a vLLM start, which proves or drops the held memory-reporting
+     edit in the goal record;
+   - `engines <engine> install` reports "already runs; nothing changed" for a stopped
+     container (both engines), which engine switching hits.
+
+   A' reruns as vLLM's anchor from a confirmed warm start.
 4. `llama-gb10-native`: llama.cpp native under systemd, llama-bench, anchor cells against the
    container (evidence 1, 6).
 5. `vllm-gb10-native`: vLLM's aarch64 wheel natively, anchor cells against the container
