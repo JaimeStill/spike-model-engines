@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # The vLLM container, in one place: sourced by the engines-vllm-* commands so install and update
-# start the same container. It runs `vllm serve` (the image's entrypoint) on the one model pinned
-# beside the release, with the model store (/srv/models) as its Hugging Face cache, so the model
-# lands in the same models--<org>--<name> layout llama.cpp's do. It runs as the invoking user, so
-# the store's files stay that user's, and publishes port 8000 on the host's tailnet IPv4 address
+# start the same container. It runs `vllm serve` (the image's entrypoint) on one row of the rows
+# file (vllm-rows): a model and its server flags, the pin's default row or the one VLLM_MODEL
+# names for the run. The model store (/srv/models) is its Hugging Face cache, so the model lands
+# in the same models--<org>--<name> layout llama.cpp's do. It runs as the invoking user, so the
+# store's files stay that user's, and publishes port 8000 on the host's tailnet IPv4 address
 # only.
 #
 # Run as a user the image's /etc/passwd doesn't name, the container has no writable home, so the
@@ -11,13 +12,6 @@
 # torch.compile cache, and the Triton and FlashInfer kernels it builds, land there and survive an
 # update. USER is set too, since Python's getpass.getuser() otherwise fails on a uid with no
 # passwd entry. This is what the image's own non-root variant does in its entrypoint.
-#
-# The server flags: 4 sequences of 8192 tokens, mirroring llama.cpp's 4 slots of 8192; 0.80 of
-# the GB10's memory, which leaves the rest to the host it shares it with; a BF16 KV cache, since
-# the checkpoint declares a static FP8 KV cache but ships no calibrated k/v scales, so vLLM would
-# quantize it with a scale of 1.0; and Gemma 4's own reasoning and tool-call parsers. The vision
-# encoder loads (no --language-model-only), and the model's shipped generation config sets its
-# sampling.
 
 # shellcheck source=engines/engines.sh
 source "$(dirname "${BASH_SOURCE[0]}")/engines.sh"
@@ -29,19 +23,44 @@ VLLM_STORE=$ENGINES_STORE
 VLLM_CACHE_DIR=$HOME/.cache/vllm
 VLLM_HOME=/home/vllm
 
-# What the container serves, after its image: the pinned model and the server flags. vllm_run
-# starts the container with them, and vllm_running's comparison reads them back from the
-# container's command, so the two can't drift. No element holds a space, so the command joined
-# with spaces reads back unambiguously.
-VLLM_ARGS=(
-  "$VLLM_MODEL" --host 0.0.0.0 --port 8000
-  --max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.80
-  --kv-cache-dtype bfloat16
-  --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
-)
+VLLM_ROWS_FILE=$(dirname "${BASH_SOURCE[0]}")/$VLLM_ROWS
 
-# What a container serves the pin as, from the image given: "<image> <model> <flags...>", in the
-# form vllm_running prints, so a container serving exactly the pin compares equal.
+# The rows' ids, one a line, in the rows file's order.
+vllm_rows() {
+  sed -n 's/^\[\(.*\)\]$/\1/p' "$VLLM_ROWS_FILE"
+}
+
+# The words of the row given, one a line: its model, then its server flags. Prints nothing for an
+# id the file has no row for.
+vllm_row_words() {
+  awk -v id="[$1]" '{ sub(/#.*/, "") } /^\[/ { inrow = ($1 == id); next }
+    inrow { for (i = 1; i <= NF; i++) print $i }' "$VLLM_ROWS_FILE"
+}
+
+# Reads the row VLLM_MODEL names into VLLM_ARGS, what the container serves after its image: the
+# row's model, the address it listens on, and the row's flags. vllm_run starts the container with VLLM_ARGS, and vllm_running's comparison reads
+# them back from the container's command, so the two can't drift. No element holds a space, so
+# the command joined with spaces reads back unambiguously. Refuses an id with no row, listing the
+# rows.
+vllm_row() {
+  local words
+  mapfile -t words < <(vllm_row_words "$VLLM_MODEL")
+  if ((${#words[@]} == 0)); then
+    echo "vllm has no row $VLLM_MODEL in engines/$VLLM_ROWS; its rows are:" >&2
+    vllm_rows | sed 's/^/  /' >&2
+    return 1
+  fi
+  VLLM_ARGS=("${words[0]}" --host 0.0.0.0 --port 8000 "${words[@]:1}")
+}
+
+# The row, as "row <id> (<model>)", for messages, after vllm_row.
+vllm_serves() {
+  echo "row $VLLM_MODEL (${VLLM_ARGS[0]})"
+}
+
+# What a container serves the row as (after vllm_row), from the image given:
+# "<image> <model> <flags...>", in the form vllm_running prints, so a container serving exactly
+# the row compares equal.
 vllm_served() {
   echo "$1 ${VLLM_ARGS[*]}"
 }
@@ -75,7 +94,7 @@ vllm_preflight() {
   engines_preflight 8000 && VLLM_ADDR=$ENGINES_ADDR
 }
 
-# Starts the container from the image given, serving the pinned model, after vllm_preflight. It
+# Starts the container from the image given, serving the row, after vllm_row and vllm_preflight. It
 # creates the compile cache directory first, so Docker doesn't create it as root.
 vllm_run() {
   mkdir -p "$VLLM_CACHE_DIR"

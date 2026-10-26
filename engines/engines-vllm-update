@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
-# engines:summary=Move vllm to the pinned release and model and remove every other vLLM image
-# Pulls the pinned image before replacing the container, so a failed pull leaves the old release
-# serving. The container moves when anything it serves differs from the pin: its image, its
-# model, or a server flag. When only flags differ the image is already the pin's, so it replaces
-# the container without pulling. When it already serves the pin exactly and no other image is
-# left, it changes nothing; when the pin's container is stopped, it says docker start starts it,
-# and never starts it itself. It refuses while the llama container runs, since one engine serves
-# per host at a time.
+# engines:summary=Move vllm to the pinned release and row, or VLLM_MODEL's, and remove every other vLLM image
+# Serves the pin's default row (vllm-rows), or the row VLLM_MODEL names for this run, so a plain
+# update returns to the default. Pulls the pinned image before replacing the container, so a failed
+# pull leaves the old release serving. The container moves when anything it serves differs from
+# the row's: its image, its model, or a server flag. When the image is already the pin's, as when
+# only the row changes, it replaces the container without pulling. When it already serves the
+# row exactly and no other image is left, it changes nothing; when that container is stopped, it
+# says docker start starts it, and never starts it itself. It refuses a VLLM_MODEL with no row,
+# listing the rows, and refuses while the llama container runs, since one engine serves per host
+# at a time.
 set -euo pipefail
 # shellcheck source=engines/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 
 engines_refuse_running llama
+vllm_row
+serves=$(vllm_serves)
 
 running=$(vllm_running)
 if [[ -z $running ]]; then
@@ -27,9 +31,9 @@ if [[ $running != "$served" ]]; then
   docker rm --force "$VLLM_CONTAINER" >/dev/null
   vllm_run "$VLLM_IMAGE" >/dev/null
   if [[ $(vllm_describe "$running") == "$(vllm_describe "$served")" ]]; then
-    echo "vllm restarted $VLLM_IMAGE with $VLLM_MODEL under the pinned server flags"
+    echo "vllm restarted $VLLM_IMAGE under the server flags of $serves"
   else
-    echo "vllm moved from $(vllm_describe "$running") to $VLLM_IMAGE with $VLLM_MODEL"
+    echo "vllm moved from $(vllm_describe "$running") to $VLLM_IMAGE with $serves"
   fi
   changed=yes
 fi
@@ -38,8 +42,8 @@ removed=$(vllm_remove_images "$VLLM_IMAGE")
 stopped=
 [[ -n $changed ]] || stopped=$(engines_stopped "$VLLM_CONTAINER")
 if [[ -n $stopped ]]; then
-  echo "vllm is installed with $VLLM_IMAGE and $VLLM_MODEL but stopped;" \
+  echo "vllm is installed with $VLLM_IMAGE and $serves but stopped;" \
     "docker start vllm starts it"
 elif [[ -z $changed$removed ]]; then
-  echo "vllm already runs $VLLM_IMAGE with $VLLM_MODEL; nothing changed"
+  echo "vllm already runs $VLLM_IMAGE with $serves; nothing changed"
 fi

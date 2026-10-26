@@ -77,9 +77,11 @@ engines/engines vllm install
 ```
 
 `install` pulls the pinned image and starts one container, `vllm`, running `vllm serve` on the
-pinned model, `nvidia/Gemma-4-26B-A4B-NVFP4`. It runs as your account, with `--restart
+pin's default row, `gemma-4-26B-A4B-NVFP4`: the model `nvidia/Gemma-4-26B-A4B-NVFP4` and its
+server flags. It runs as your account, with `--restart
 unless-stopped`, so Docker starts it again after a reboot, and publishes port 8000 on the host's
-tailnet IPv4 address only. The server's flags are in `engines/vllm.sh`:
+tailnet IPv4 address only. The row's flags are in `engines/vllm-rows`
+([Models](models.md#the-rows)):
 
 | Flag | Value | Why |
 |---|---|---|
@@ -104,7 +106,9 @@ changes nothing and says so; when `vllm` is stopped, it says `docker start vllm`
 leaves it stopped. It fails, changing nothing, while `llama` runs, when `/srv/models`
 is missing, when the host has no tailnet IPv4 address, or when `vllm` already runs another
 release, another model, or other server flags; [Update](update.md) moves a running one. Given a
-release, such as `v0.31.0`, it installs that release instead of the pin.
+release, such as `v0.31.0`, it installs that release instead of the pin; given
+`VLLM_MODEL=<row id>` before it, it serves that row instead of the default
+([Models](models.md#serving-another-row-for-one-run)).
 
 ### 6. Watch the cold start, and record it
 
