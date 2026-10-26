@@ -44,12 +44,11 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
   read-outs, and health and version checks. The architect keeps root, a new tool's or concept's
   first walk, which the session walks them through, the last slice's walkthrough of the whole
   procedure from the docs, and every escalation's decision. Every command either side runs
-  appears in a guide or the finding's method exactly as run (bench-gb10-container, at the
-  architect's request, 2026-10-26).
+  appears in a guide or the finding's method exactly as run.
 - **Benchmarks.** Each benchmark is planned together in its task's plan round, then built and run
   a step at a time from the commands the brief agreed: the session runs the GuideLLM cells in the
-  architect's view, printing each command first, never out of the architect's sight. A run takes
-  at most 10 minutes unless the brief decides otherwise.
+  architect's view, printing each command first. A run takes at most 10 minutes unless the
+  brief decides otherwise.
 - **Current hosts and engines.** Every session starts by bringing the hosts current. llama.cpp
   follows its semver releases, running the b-build each one names; vLLM follows its releases.
   Every result records the engine version and the host stack.
@@ -72,13 +71,17 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
   `docs/engines/<engine>/`; llama.cpp's and vLLM's are written.
 - **The `engines` suite:** the scripted install, update, and uninstall steps, under `engines/`;
   llama.cpp's and vLLM's are written.
-- **Served-load findings:** GuideLLM runs by shape, quantization, and concurrency, under
-  `docs/findings/`. The anchor cells later tasks rerun, with the commands that run them, are in
-  `llama-gb10-container.md` for llama.cpp and `vllm-gb10-container.md` for vLLM.
+- **Served-load findings:** GuideLLM runs under `docs/findings/`.
+  `bench-gb10-container.md` compares both engines on gb10-1 in containers by shape, quantization,
+  concurrency, vision, ASR, and embeddings, with each method's commands. The anchor cells later
+  tasks rerun are first in `llama-gb10-container.md` for llama.cpp and `vllm-gb10-container.md`
+  for vLLM.
 - **Raw backend findings:** llama-bench pp/tg per llama.cpp backend.
-- **API surface:** the matrix of what each engine serves.
+- **API surface:** the matrix of what each engine serves, probed on both engines from each API
+  page's probes (`bench-gb10-container.md`, "API probes").
 - **Hosting method:** container against bare metal.
-- **Quantization rule:** the floor every cell keeps.
+- **Quantization rule:** the floor every cell keeps, applied in `bench-gb10-container.md`'s
+  formats ([Rules](#rules)).
 - **The answer.**
 
 ## Path
@@ -89,15 +92,15 @@ The tasks, in the order they run; each cites the evidence it proves.
    the llama.cpp guide, two GuideLLM anchor cells (evidence 1, 2).
 2. `vllm-gb10-container`: vLLM's CUDA 13.0 arm64 image on both GB10s, NVFP4 served, the vLLM guide
    (evidence 1, 3).
-3. `bench-gb10-container`: the agreed cells on gb10-1 and the API-surface probes (evidence 2, 3,
-   4, 5). Its plan round takes up one question from vllm-gb10-container: vLLM's A' decoded at 30
-   tok/s on a 4B-active model, with Triton attention (FA4 not available) and a BF16 KV cache
-   named in the log, so whether one diagnostic A' rerun changing one of them precedes the
-   comparison. A' reruns as vLLM's anchor from a confirmed warm start.
+3. `bench-gb10-container`: both engines' cells on gb10-1 and the API-surface probes, in
+   `docs/findings/bench-gb10-container.md` (evidence 2, 3, 4, 5).
 4. `llama-gb10-native`: llama.cpp native under systemd on gb10-1, llama-bench, anchor cells
    against the container (evidence 1, 6).
 5. `vllm-gb10-native`: vLLM's aarch64 wheel natively on gb10-1, anchor cells against the
-   container (evidence 1, 6).
+   container (evidence 1, 6). Its plan round may take up one question from
+   bench-gb10-container: vLLM's NVFP4 rows decode at about half llama.cpp's QAT Q4_0 rate, and
+   FlashInfer attention didn't change that, so the NVFP4 path on SM121 is the suspect, untested
+   ([Findings](../docs/findings/bench-gb10-container.md#findings)).
 6. `llama-strix-rocm`: llama.cpp ROCm in ggml's ROCm image against the native Vulkan router
    (evidence 1, 2, 3).
 7. `vllm-strix`: vLLM's ROCm image on gfx1151, serving or a recorded failure (evidence 1, 2).
@@ -148,6 +151,19 @@ The practices every task on the GB10s follows, each with its reason:
 - **Model state.** The prompt cache changes TTFT and the prompt tokens the server processes: cell
   B's rerun, on a freshly loaded model, had a higher TTFT than its first run after cell A. Start
   each cell from the same model state, warmed or freshly loaded, so TTFT compares like with like.
+- **Warm-up.** Send each model one request before its first cell. A cold first request raised
+  llama.cpp's anchor A's TTFT p95 from 436 to 735 ms, with decode unchanged
+  ([bench-gb10-container](../docs/findings/bench-gb10-container.md#walkthrough)).
+- **Store-only loads.** llama.cpp's preset sets `offline = true`, so a load never downloads. vLLM
+  has no such guard: a start fetches any small file missing from the store without a word, as
+  gpt-oss-120b's did for three JSON files from `original/`. Stage every file a model's start reads
+  ([Pre-staging](../docs/findings/bench-gb10-container.md#pre-staging)).
+- **Buffer sizes.** llama.cpp's preset sets `verbosity = 4`, since b11669 logs a load's weight, KV
+  cache, and compute buffers only above its default of 3
+  ([models](../docs/engines/llama.cpp/models.md#the-preset)).
+- **Base64 from a file.** The vision probes read the image's base64 with `jq --rawfile`, since
+  the base64 passed as a jq argument exceeds the shell's argument-list limit
+  ([API](../docs/engines/llama.cpp/api.md#vision)).
 - **GuideLLM's Python.** `mise.bench.toml` holds Python at 3.14, because torch publishes no 3.15
   wheels, so `mise run currency` reports Python behind until it does.
 - **GuideLLM's extras.** The bench environment installs GuideLLM with its `vision` and `audio`

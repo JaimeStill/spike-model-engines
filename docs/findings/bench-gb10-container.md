@@ -272,7 +272,7 @@ curl -s "http://gb10-1:8080/v1/chat/completions" -H "Content-Type: application/j
 For EmbeddingGemma 2, the warm-up instead:
 
 ```sh
-curl -s "http://gb10-1:8080/v1/embeddings" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"input\": \"Say hello in one sentence.\"}" | jq '{model, usage}'
+curl -s "http://gb10-1:8080/v1/embeddings" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"input\": \"Say hello in one sentence.\"}" | jq -c '{model, usage}'
 ```
 
 ### Per cell
@@ -316,20 +316,23 @@ is 0 when nothing else is using the model. The cells' names:
 ### Reading the figures
 
 The client figures, one line per benchmark in the JSON (the sweep has four, the embedding cell
-two), with `f` set to the cell's JSON, rounded as the tables give them: the duration to whole
-seconds, output tok/s to a tenth, TTFT to whole milliseconds, ITL and latency to hundredths. This
-is the read-out that produced the tables' figures:
+two), with `f` set to the cell's JSON, rounded as the tables give them: output tok/s to a tenth,
+TTFT to whole milliseconds, ITL and latency to hundredths. This is the read-out that produced the
+tables' figures:
 
 ```sh
 f=.state/bench/$cell.json
 jq -c '.metadata as $v | .benchmarks[] | .metrics as $m | {streams: .config.strategy.streams, duration_s: (.duration|floor), requests: $m.request_totals, prompt_tokens: $m.prompt_token_count.successful.median, output_tokens: $m.output_token_count.successful.median, output_tok_s: ($m.output_tokens_per_second.successful.mean|.*10|round/10), ttft_ms: ($m.time_to_first_token_ms.successful | {median: (.median|round), p95: (.percentiles.p95|round)}), itl_ms: ($m.inter_token_latency_ms.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)}), latency_s: ($m.request_latency.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)}), audio_s_per_s: $m.audio.seconds.input_per_second.successful.mean}' "$f"
 ```
 
-The anchors' JSON is `.state/bench/llama-anchor-$cell.json`. The tables give the duration to
-hundredths, from the same `.duration`, and the embedding cell's requests per second, which is
-`$m.requests_per_second.successful.mean`; this read-out leaves the latter out.
+The anchors' JSON is `.state/bench/llama-anchor-$cell.json`. The read-out floors the duration to
+whole seconds; the tables give it to hundredths, read from each JSON:
 
-And the server figures, the counters differenced between the two snapshots, with `p` set to the
+```sh
+jq '.benchmarks[].duration' "$f"
+```
+
+The server figures are the counters differenced between the two snapshots, with `p` set to the
 snapshots' path without its suffix:
 
 ```sh
@@ -337,21 +340,30 @@ p=.state/bench/$cell
 awk '{ d[$1] += (NR == FNR ? -$2 : $2) } END { m = "llamacpp:"; printf "prompt %d tokens, %.1f tok/s; generated %d tokens, %.1f tok/s\n", d[m "prompt_tokens_total"], d[m "prompt_tokens_total"] / d[m "prompt_seconds_total"], d[m "tokens_predicted_total"], d[m "tokens_predicted_total"] / d[m "tokens_predicted_seconds_total"] }' $p.before.metrics $p.after.metrics
 ```
 
-The embedding cell generates no tokens, so that read-out divides by zero there. Its server
-figure is the prompt alone:
+The embedding cell generates no tokens, so that read-out divides by zero there. After the cell's
+read-out, a second one gives its requests per second, input tokens per second, and latency in
+milliseconds:
 
 ```sh
-p=.state/bench/llama-embed
-awk '{ d[$1] += (NR == FNR ? -$2 : $2) } END { m = "llamacpp:"; printf "prompt %d tokens in %.1f s, %.1f tok/s\n", d[m "prompt_tokens_total"], d[m "prompt_seconds_total"], d[m "prompt_tokens_total"] / d[m "prompt_seconds_total"] }' $p.before.metrics $p.after.metrics
+jq -c '.benchmarks[] | {s: .config.strategy.streams, rps: (.metrics.requests_per_second.successful.mean*10|round/10), in_tok_s: (.metrics.prompt_tokens_per_second.successful.mean|round), lat_ms: (.metrics.request_latency.successful | {median: (.median*1000|round), p95: (.percentiles.p95*1000|round)})}' .state/bench/llama-embed.json
+```
+
+The server's prompt tokens and seconds are `llamacpp:prompt_tokens_total` and
+`llamacpp:prompt_seconds_total`, each its after line less its before line, read from the
+snapshots' changed lines; the rate is the tokens over the seconds:
+
+```sh
+diff <(grep -v '^#' .state/bench/llama-embed.before.metrics) <(grep -v '^#' .state/bench/llama-embed.after.metrics)
 ```
 
 The sweep's levels at 4 streams and more end with requests in flight, which the successful-only
-figures leave out ([Concurrency sweep](#concurrency-sweep)), so its read-out takes the output rate
-and TTFT over every request, GuideLLM's `total`:
+figures leave out ([Concurrency sweep](#concurrency-sweep)). After the cell's read-out, which
+gives ITL and latency, the sweep's read-out gives the output rate over successful, incomplete,
+and all requests, and TTFT over all requests, GuideLLM's `total`; both engines' sweeps were read
+with it, `f` set to the cell's JSON:
 
 ```sh
-f=.state/bench/$cell.json
-jq '.benchmarks[] | .metrics as $m | {streams: .config.strategy.streams, requests: $m.request_totals, out_tok_s_total: $m.output_tokens_per_second.total.mean, ttft_ms_total: ($m.time_to_first_token_ms.total | {median, p95: .percentiles.p95}), itl_ms: ($m.inter_token_latency_ms.successful | {median, p95: .percentiles.p95}), latency_s: ($m.request_latency.successful | {median, p95: .percentiles.p95})}' "$f"
+jq -c '.benchmarks[] | {s: .config.strategy.streams, otps: (.metrics.output_tokens_per_second | {succ: .successful.mean, inc: .incomplete.mean, tot: .total.mean}), tps: (.metrics.tokens_per_second | {tot: .total.mean}), ttft_tot: (.metrics.time_to_first_token_ms.total | {median, p95: .percentiles.p95, max})}' "$f"
 ```
 
 ### API probes
@@ -466,13 +478,14 @@ curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/j
 curl -s "http://gb10-1:8000/metrics" | grep -E '^vllm:(request_success_total|num_requests_running)'
 ```
 
-For gpt-oss-120b, the warm-up instead:
+For gpt-oss-120b, the warm-up instead, followed by the same `/metrics` line:
 
 ```sh
-curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}]}" | jq '.choices[0].message'
+curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}]}" | jq -c '.choices[0].message | {content, reasoning: (.reasoning|tostring|.[0:80])}'
 ```
 
-For EmbeddingGemma 2:
+For EmbeddingGemma 2, planned but never run, since step 7's row didn't start
+([Embeddings](#embeddings)):
 
 ```sh
 curl -s "http://gb10-1:8000/v1/embeddings" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"input\": \"Say hello in one sentence.\"}" | jq '{model, usage}'
@@ -531,8 +544,8 @@ The cells' names:
 
 The client figures are llama.cpp's read-out ([Reading the figures](#reading-the-figures)), with
 `f` set to the cell's JSON, adding the output rate over every request, `out_tok_s_total`, beside
-`output_tok_s`; the sweep's are read with its read-out. This is the read-out that produced the
-tables' figures:
+`output_tok_s`. The durations and the sweep's `total` figures come from the same commands as
+llama.cpp's. This is the read-out that produced the tables' figures:
 
 ```sh
 f=.state/bench/$cell.json
@@ -743,9 +756,9 @@ EmbeddingGemma 2, 512 tokens a request, 30 s a level:
 | vLLM | BF16 | 16 | unsupported: the row doesn't start on GB10 at v0.32.0 | | | | | | |
 
 llama.cpp's input rate was 18,896 tokens/s at 1 stream and 26,539 at 16. Its server computed
-1,371,252 prompt tokens over both levels in 47.1 s, 29.1k tok/s, by the prompt-only read-out
-([Reading the figures](#reading-the-figures)). The 16 incomplete requests at 16 streams were in
-flight when the level's 30 s ended.
+about 1.371 million prompt tokens over both levels in 47.1 s, 29.1k tok/s, by the snapshots'
+diff ([Reading the figures](#reading-the-figures)); the counter prints as `1.37126e+06`. The 16
+incomplete requests at 16 streams were in flight when the level's 30 s ended.
 
 vLLM's `embeddinggemma-2` row crash-looped at step 7: `/health` never answered 200 within the
 10 minutes, and the container had restarted 12 times by 19:36Z. Its log ended in Triton's

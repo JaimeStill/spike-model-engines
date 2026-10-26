@@ -139,7 +139,7 @@ Door
 
 ## Progress
 
-slices 1/4 committed (slice 1 eb40da3); slices 2–3 cells all run 2026-10-26 (results in the session scratchpad, finding not yet written); slice 4 walkthrough pending · standards — · spec — · editor —
+slices 4/4 committed · standards ✓ (4dab334, 5b31a8d, b0d25ba) · spec ✓ after one round (gaps closed in f9a6c5b, d2f3f41) · editor ✓
 
 ## Decisions
 
@@ -361,6 +361,35 @@ slices 1/4 committed (slice 1 eb40da3); slices 2–3 cells all run 2026-10-26 (r
 - bench-gb10-container: the coordinator PR carries the session split, all six pending edits, the
   two tier edits, and this task's new tool, emptying Pending edits; rejected the rule change
   alone.
+- bench-gb10-container: llama.cpp's preset sets `verbosity = 4`: b11669 logs no buffer sizes at
+  its default of 3, so gpt-oss-120b's first load (47.7 s) was redone (47.6 s) to record them.
+- bench-gb10-container: the sweep's levels at 4 streams and more complete only their first wave
+  in 60 s, so the finding reads GuideLLM's `total` output rate and TTFT; the level length stays as
+  agreed.
+- bench-gb10-container: vLLM's EmbeddingGemma 2 row kept, though it doesn't start on GB10 at
+  v0.32.0: Triton's encoder attention needs 160 KiB of shared memory and SM121 has 99 KiB. Marked
+  unsupported per the brief; another attention backend not tried, as beyond the brief.
+- bench-gb10-container: the FlashInfer diagnostic left NVFP4 decode unchanged (30.0 against 30.5
+  tok/s), so the attention backend isn't the cause. The NVFP4 path on SM121 is the suspect,
+  untested here; a candidate question for vllm-gb10-native's plan round.
+- bench-gb10-container: vLLM decodes audio with the image's torchcodec, so no derived image; the
+  brief's BUILD check settled it without an escalation.
+- bench-gb10-container: the vision probe reads its base64 from a file with `--rawfile`; as a jq
+  argument it exceeds the argument-list limit.
+- bench-gb10-container: a file that failed twice under Xet completed with `HF_HUB_DISABLE_XET=1`;
+  llama.cpp's models guide gives the fallback.
+- bench-gb10-container: gpt-oss-120b's vLLM stage line excludes only the weights in `original/`
+  and `metal/` (`--exclude "original/*.safetensors" --exclude "metal/*"`): the earlier
+  `original/*` exclusion made vLLM fetch three config files (~57 KB) at its start. vLLM has no
+  offline guard like llama.cpp's preset; adding one is left to a later task.
+- bench-gb10-container: the walkthrough's instructions omitted the per-model warm-up, so
+  llama.cpp's A ran cold (TTFT p95 735 against 436 ms, decode unchanged); the finding records it,
+  and its walkthrough procedure names the warm-up.
+- bench-gb10-container: behavior 21's Pending edits were emptied by PR #100. The `engines/`
+  rename edit arrived after the brief, at spike-ai-pipeline's request, and stays pending for a
+  later coordinator change; it isn't this task's.
+- bench-gb10-container: gb10-1 left with llama.cpp serving gpt-oss-120b and vLLM stopped on its
+  pin.
 
 ## Pending edits
 
