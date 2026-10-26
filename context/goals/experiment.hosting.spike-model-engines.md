@@ -139,7 +139,7 @@ Door
 
 ## Progress
 
-slices 1/4 committed (slice 1 eb40da3; slice 2 configs 0c41696 and slice 3 configs 107ab06 written, cells not run) · pre-stage running since 11:15 · standards — · spec — · editor —
+slices 1/4 committed (slice 1 eb40da3); slices 2–3 cells all run 2026-10-26 (results in the session scratchpad, finding not yet written); slice 4 walkthrough pending · standards — · spec — · editor —
 
 ## Decisions
 
