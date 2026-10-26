@@ -15,7 +15,22 @@ second run changes nothing and says so.
 ## Deleting models
 
 Deleting a model is a typed step, apart from the uninstall. Each model is one directory in the
-store, in Hugging Face's cache layout; delete gpt-oss-120b with:
+store, in Hugging Face's cache layout.
+
+A model hf pre-staged ([Models](models.md#pre-staging-models-with-hf)) keeps its files in the
+shared store, `/srv/models/blobs`, which hf tracks, so delete it with hf, from the clone. Name it
+as `model/<repository>`; the first command shows what goes, and the second deletes it:
+
+```sh
+MISE_ENV=host HF_HUB_CACHE=/srv/models mise exec -- hf cache rm model/google/gemma-4-31B-it-qat-q4_0-gguf --dry-run
+MISE_ENV=host HF_HUB_CACHE=/srv/models mise exec -- hf cache rm model/google/gemma-4-31B-it-qat-q4_0-gguf -y
+```
+
+hf removes the model's directory and every file of the shared store no other model in it uses.
+The same command deletes vLLM's pre-staged models.
+
+A model the router downloaded itself keeps its files in its own directory; delete gpt-oss-120b
+with:
 
 ```sh
 rm -rf /srv/models/models--ggml-org--gpt-oss-120b-GGUF

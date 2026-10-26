@@ -2,8 +2,10 @@
 
 ## GB10, in a container
 
-Run these steps on each GB10, one host at a time. Commands with `sudo` are root steps; Docker
-needs no `sudo`, because the account is in the `docker` group.
+Run these steps on gb10-1. gb10-2 is reserved for spike-ai-pipeline, and the spike installs
+there only under a named borrow of it (`ai-hosting.md`, "Hosts and access"). Commands with `sudo`
+are root steps, the architect's; Docker needs no `sudo`, because the account is in the `docker`
+group.
 
 ### 1. Bring the host current
 
@@ -116,3 +118,47 @@ curl -s "http://$(tailscale ip -4):8080/health"
 
 `docker ps` shows `llama` with status `Up`, and `(healthy)` once the image's health check passes;
 `/health` prints `{"status":"ok"}`.
+
+### 7. Allow the page-cache drop
+
+A cold load is timed from an empty page cache: Linux keeps the files a load read in memory, so a
+second load reads them from memory, not disk, and vLLM counts that cache as free memory. Dropping
+the cache is a root command, which a session runs before every timed load. The architect allows
+it once, as a root step, with a sudoers rule naming that one command exactly, so the session runs
+it without a password and can run nothing else as root.
+
+Write the rule into its own file. `visudo` opens it in your editor and checks it before saving:
+
+```sh
+sudo visudo -f /etc/sudoers.d/drop-caches
+```
+
+The file holds one line, with your account's name (`id -un` prints it) in place of `jaime`:
+
+```text
+jaime ALL=(root) NOPASSWD: /usr/sbin/sysctl vm.drop_caches=3
+```
+
+Check it without the password `visudo` just cached: `sudo -k` forgets it, and `sudo -n` fails
+instead of asking for one. The drop prints `vm.drop_caches = 3`:
+
+```sh
+sudo -k
+sudo -n /usr/sbin/sysctl vm.drop_caches=3
+```
+
+A session drops the cache as below: `sync` first writes any unwritten data to disk, so the drop
+can free every cached page. `Cached` in `/proc/meminfo`, read before and after, falls by what the
+drop freed:
+
+```sh
+grep ^Cached /proc/meminfo
+sync && sudo -n /usr/sbin/sysctl vm.drop_caches=3
+grep ^Cached /proc/meminfo
+```
+
+The rule goes when its file does, with a root step:
+
+```sh
+sudo rm /etc/sudoers.d/drop-caches
+```

@@ -2,8 +2,9 @@
 
 ## GB10, in a container
 
-Run these steps on each GB10, one host at a time. Docker needs no `sudo`, because the account is
-in the `docker` group.
+Run these steps on gb10-1. gb10-2 is reserved for spike-ai-pipeline, and the spike installs
+there only under a named borrow of it (`ai-hosting.md`, "Hosts and access"). Docker needs no
+`sudo`, because the account is in the `docker` group.
 
 ### 1. Bring the host current and record its stack
 
@@ -107,10 +108,14 @@ release, such as `v0.31.0`, it installs that release instead of the pin.
 
 ### 6. Watch the cold start, and record it
 
-The first start downloads the model into the store ([Models](models.md#the-first-download)),
-then loads and compiles it. Follow the log until the server is ready; it prints `Application
-startup complete.` once it answers. Stop following with Ctrl-C, which leaves the container
-running:
+A timed cold start begins from an empty page cache, dropped just before `install` or `update`
+starts the container, with the command llama.cpp's setup allows
+([Allow the page-cache drop](../llama.cpp/setup.md#7-allow-the-page-cache-drop)).
+
+Unless the model is pre-staged ([Models](models.md#pre-staging-models-with-hf)), the first start
+downloads it into the store ([Models](models.md#the-first-download)), then loads and compiles
+it. Follow the log until the server is ready; it prints `Application startup complete.` once it
+answers. Stop following with Ctrl-C, which leaves the container running:
 
 ```sh
 docker logs -f vllm

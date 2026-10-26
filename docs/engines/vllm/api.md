@@ -3,10 +3,9 @@
 The server serves vLLM's OpenAI-compatible API on port 8000 of the host's tailnet address. It
 serves one model, so every request names that model in `"model"`: `nvidia/Gemma-4-26B-A4B-NVFP4`.
 
-These commands run on the laptop and name the host by its short name, which Tailscale's MagicDNS
-resolves to its tailnet address (llama.cpp's
-[Models](../llama.cpp/models.md#the-hosts-address-on-the-laptop)); on gb10-2, put `gb10-2` in place
-of `gb10-1`.
+These commands run on the laptop and name the host by its short name, `gb10-1`, which Tailscale's
+MagicDNS resolves to its tailnet address (llama.cpp's
+[Models](../llama.cpp/models.md#the-hosts-address-on-the-laptop)).
 
 v0.32.0 no longer allows every origin for cross-origin requests by default, so a browser page on
 another origin can't call the server. `curl` and other clients that aren't browsers aren't

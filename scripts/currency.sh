@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 # Prints `<file>: <tool> <pin> -> <latest>` for each pin behind its latest, and exits 1 if any;
-# prints nothing when all are current. Covers the mise tools, those of mise.toml and of the bench
-# environment (mise.bench.toml, GuideLLM's), the llama.cpp build, whose latest is the b-build
-# named in the notes of llama.cpp's latest semver release, and the vLLM release, whose latest is
-# vLLM's latest GitHub release. Reads the network.
+# prints nothing when all are current. Covers the mise tools, those of mise.toml, of the bench
+# environment (mise.bench.toml, GuideLLM's), and of the host environment (mise.host.toml, hf's);
+# the llama.cpp build, whose latest is the b-build named in the notes of llama.cpp's latest semver
+# release; and the vLLM release, whose latest is vLLM's latest GitHub release. Reads the network.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-trailing=$(MISE_ENV=bench MISE_LOG_LEVEL=error mise outdated --bump --local --json |
-  jq -r 'to_entries[] |
-    "\(.value.source.path | split("/") | last): \(.key) \(.value.requested) -> \(.value.bump)"')
+# Each environment is read on its own, since both pin uv and one would hide the other's pin;
+# mise.toml's tools, which both read, are listed once. mise lists a tool not installed here, such
+# as hf on the laptop, with no bump, so its pin is compared with its latest instead. A failed read
+# stops the script.
+trailing=$(for env in bench host; do
+  MISE_ENV=$env MISE_LOG_LEVEL=error mise outdated --bump --local --json |
+    jq -r 'to_entries[] | (.value.bump // .value.latest) as $to | select($to != .value.requested) |
+      "\(.value.source.path | split("/") | last): \(.key) \(.value.requested) -> \($to)"' ||
+    exit
+done | sort -u)
 
 # shellcheck source=engines/llama.env
 source engines/llama.env

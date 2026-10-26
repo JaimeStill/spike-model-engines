@@ -4,9 +4,8 @@ The router serves llama.cpp's OpenAI-compatible API on port 8080 of the host's t
 Each request names its model in `"model"`, and the router forwards it to that model's process; a
 model must be loaded first ([Models](models.md)), since the router loads none by itself.
 
-These commands run on the laptop and name the host by its short name, as
-[Models](models.md#the-hosts-address-on-the-laptop) shows; on gb10-2, put `gb10-2` in place of
-`gb10-1`.
+These commands run on the laptop and name the host by its short name, `gb10-1`, as
+[Models](models.md#the-hosts-address-on-the-laptop) shows.
 
 ## A chat completion
 

@@ -34,16 +34,148 @@ A model already loaded keeps the arguments it was started with. When the preset 
 reload unloads it, so load it again ([Loading a model](#loading-a-model)) to start it with the new
 arguments.
 
+## Pre-staging models with hf
+
+The router downloads a model the first time it loads it, so that load waits on the download, and
+the download loads the host's network, disk, and CPU while it runs. Pre-staging downloads every
+model first, all at once, into the store, before any cell or timed load; each model then loads
+from the store without a download.
+
+### What hf is
+
+`hf` is Hugging Face's command line, from its Python client, `huggingface_hub`: the same client
+vLLM's image downloads with. `hf download <repo>` fetches a repository, or only the files
+`--include` names, into a Hugging Face cache, in the layout both engines read:
+`models--<org>--<name>`, with its `snapshots/` linking to the files, which it fetches over
+Hugging Face's Xet storage. `hf cache ls` lists what the cache holds and `hf cache rm` deletes a
+model from it ([Uninstall](uninstall.md#deleting-models)).
+
+The client keeps the large files in the store shared by every model it fetches,
+`/srv/models/blobs`, as vLLM's does, so a model's own directory holds only links; measure it with
+`du -shL` ([vLLM's Models](../vllm/models.md#the-first-download)).
+
+### Setting up hf
+
+hf is pinned, with the uv that installs it, in the clone's host environment, `mise.host.toml`
+(huggingface_hub 2.3.0, uv 0.13.5), which `mise run currency` covers. It installs into your
+account's mise directory, with no root. On gb10-1, from the clone, after a `git pull`:
+
+```sh
+MISE_ENV=host mise install
+MISE_ENV=host mise exec -- hf version
+```
+
+`mise install` also installs the clone's check tools, jq and shellcheck, from `mise.toml`. When
+mise asks whether to trust the clone's config files, answer yes. `hf version` prints its
+version, 2.3.0. hf runs as `MISE_ENV=host mise exec -- hf`, from the clone, and installs
+nothing outside mise's directory.
+
+Every model below is ungated, so no token is needed. hf warns that its requests are
+unauthenticated, which only lowers Hugging Face's rate limit.
+
+### The models this spike stages
+
+llama.cpp's models, each the model's file and the projector (`mmproj`) the router fetches beside
+it, which carries the model's vision encoder, and E4B's its audio encoder too:
+
+| Shape | Repository | Files | Size |
+|---|---|---|---|
+| dense small, Q8_0 | `ggml-org/gemma-4-E4B-it-GGUF` | `gemma-4-E4B-it-Q8_0.gguf`, `mmproj-gemma-4-E4B-it-Q8_0.gguf` | 8.59 GB |
+| dense small, QAT Q4_0 | `google/gemma-4-E4B-it-qat-q4_0-gguf` | `gemma-4-E4B_q4_0-it.gguf`, `gemma-4-E4B-it-mmproj.gguf` | 6.15 GB |
+| dense mid, QAT Q4_0 | `google/gemma-4-12B-it-qat-q4_0-gguf` | `gemma-4-12b-it-qat-q4_0.gguf`, `mmproj-gemma-4-12b-it-qat-q4_0.gguf` | 7.15 GB |
+| dense large, QAT Q4_0 | `google/gemma-4-31B-it-qat-q4_0-gguf` | `gemma-4-31B_q4_0-it.gguf`, `gemma-4-31B-it-mmproj.gguf` | 18.85 GB |
+| MoE, QAT Q4_0 | `google/gemma-4-26B-A4B-it-qat-q4_0-gguf` | `gemma-4-26B_q4_0-it.gguf`, `gemma-4-26B-it-mmproj.gguf` | 15.63 GB |
+| embedding, Q8_0 | `ggml-org/embeddinggemma-2-GGUF` | `embeddinggemma-2-Q8_0.gguf`, `mmproj-embeddinggemma-2-Q8_0.gguf` | 0.86 GB |
+| MoE, MXFP4 | `ggml-org/gpt-oss-120b-GGUF` | `gpt-oss-120b-MXFP4.gguf` | 63.39 GB, in the store |
+
+The Q4_0 files are Google's quantization-aware trained ones, which meet the quantization floor;
+ggml-org's Gemma 4 Q4_0 is quantized from BF16 and doesn't. Each `mmproj` named is the one
+Hugging Face's manifest gives the router for that repository and quantization. The sizes are the
+files', from Hugging Face's API.
+
+vLLM's models are listed in [vLLM's Models](../vllm/models.md#pre-staging-models-with-hf), and
+the procedure below stages both engines' together. The two models already in the store,
+gpt-oss-120b's GGUF and vLLM's pinned NVFP4 model, stay as they are; the rest of both engines'
+is about 195 GB.
+
+### Pre-staging everything at once
+
+On gb10-1, from the clone. First set what every download shares: hf's environment, the store as
+its cache, and Xet's high-performance mode, which uses more of the host's CPU, memory, and
+connections to download faster. Then define `stage`, which runs one `hf download` in the
+background, apart from the SSH session, writing its output and then its exit status to a log in
+`~/prestage`:
+
+```sh
+export MISE_ENV=host HF_HUB_CACHE=/srv/models HF_XET_HIGH_PERFORMANCE=1
+mkdir -p ~/prestage
+stage() { nohup bash -c 'mise exec -- hf download "$@"; echo "exit $?"' stage "$@" > ~/prestage/"${1//\//--}".log 2>&1 & }
+```
+
+Then start every download, and both engines' pinned images (`engines/llama.env`,
+`engines/vllm.env`), together:
+
+```sh
+stage ggml-org/gemma-4-E4B-it-GGUF --include gemma-4-E4B-it-Q8_0.gguf --include mmproj-gemma-4-E4B-it-Q8_0.gguf
+stage google/gemma-4-E4B-it-qat-q4_0-gguf --include gemma-4-E4B_q4_0-it.gguf --include gemma-4-E4B-it-mmproj.gguf
+stage google/gemma-4-12B-it-qat-q4_0-gguf --include gemma-4-12b-it-qat-q4_0.gguf --include mmproj-gemma-4-12b-it-qat-q4_0.gguf
+stage google/gemma-4-31B-it-qat-q4_0-gguf --include gemma-4-31B_q4_0-it.gguf --include gemma-4-31B-it-mmproj.gguf
+stage google/gemma-4-26B-A4B-it-qat-q4_0-gguf --include gemma-4-26B_q4_0-it.gguf --include gemma-4-26B-it-mmproj.gguf
+stage ggml-org/embeddinggemma-2-GGUF --include embeddinggemma-2-Q8_0.gguf --include mmproj-embeddinggemma-2-Q8_0.gguf
+stage google/gemma-4-E4B-it
+stage google/gemma-4-E4B-it-qat-w4a16-ct
+stage google/gemma-4-12B-it-qat-w4a16-ct
+stage nvidia/Gemma-4-31B-IT-NVFP4
+stage google/embeddinggemma-2
+stage openai/gpt-oss-120b --exclude "original/*" --exclude "metal/*"
+nohup bash -c 'docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669; echo "exit $?"' > ~/prestage/llama-image.log 2>&1 &
+nohup bash -c 'docker pull vllm/vllm-openai:v0.32.0; echo "exit $?"' > ~/prestage/vllm-image.log 2>&1 &
+```
+
+Each log is named for its repository, such as `~/prestage/google--gemma-4-E4B-it.log`. The
+downloads and pulls keep running when the SSH session ends.
+
+### Checking that every download is complete
+
+While any download runs, this lists it; it prints nothing once all have finished:
+
+```sh
+pgrep -af "hf download|docker pull"
+```
+
+Then check each one. Every log ends with `exit 0`, and no partial file, which hf names
+`*.incomplete`, is left in the store; the second command prints nothing when none is:
+
+```sh
+tail -qn 1 ~/prestage/*.log
+find /srv/models -name "*.incomplete"
+```
+
+Each model's size, following its links, matches its table row, in GiB (the tables give GB):
+
+```sh
+du -shL /srv/models/models--*
+```
+
+hf lists every model it finds in the store, with its size, and both images are present:
+
+```sh
+mise exec -- hf cache ls
+docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -E "llama.cpp|vllm-openai"
+```
+
+A download that ends in an error, or stops early, resumes from what it fetched: run its `stage`
+line again. A complete model fetches nothing again. When every check passes, `rm -r ~/prestage`
+removes the logs; a new shell starts without the exports and `stage`.
+
 ## The host's address on the laptop
 
-The commands below run on the laptop and name the host by its short name, `gb10-1` or `gb10-2`,
-which Tailscale's MagicDNS resolves to its tailnet address. Check that the name resolves:
+The commands below run on the laptop and name the host by its short name, `gb10-1`, which
+Tailscale's MagicDNS resolves to its tailnet address. Check that the name resolves:
 
 ```sh
 curl -s http://gb10-1:8080/health
 ```
-
-On gb10-2, put `gb10-2` in place of `gb10-1` in every command.
 
 ## Loading a model
 
@@ -53,10 +185,11 @@ The router starts no model by itself. Load gpt-oss-120b through its API:
 curl -s -X POST "http://gb10-1:8080/models/load" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4"}'
 ```
 
-It answers `{"success":true}` at once and loads in the background. The first load downloads the
-model into `/srv/models` before loading it, which takes as long as 63.4 GB takes to download; a
-later load reads it from the store. A restart of the container, by an update or a reboot, unloads
-every model, so load it again after one.
+It answers `{"success":true}` at once and loads in the background. A model pre-staged in the
+store ([Pre-staging models with hf](#pre-staging-models-with-hf)) loads from it. Otherwise the
+first load downloads the model into `/srv/models` before loading it, which takes as long as 63.4
+GB takes to download; a later load reads it from the store. A restart of the container, by an
+update or a reboot, unloads every model, so load it again after one.
 
 ## Watching the download
 
@@ -83,10 +216,11 @@ rm -rf /srv/models/models--ggml-org--gpt-oss-120b-GGUF
 
 ## Copying a model to the other GB10
 
-Download a model once, on gb10-1, and copy it to gb10-2 over the QSFP link instead of downloading
-it again. The `gb10-N-qsfp` names and passwordless SSH between the nodes come from the GB10 setup
-in dotfiles. Copy only once the model shows `loaded` on gb10-1, so no partial file travels. On
-gb10-1:
+Only under a named borrow of gb10-2 (`ai-hosting.md`, "Hosts and access"): gb10-2 is reserved
+for spike-ai-pipeline, and the spike runs on gb10-1 alone. Under a borrow, download a model once,
+on gb10-1, and copy it to gb10-2 over the QSFP link instead of downloading it again. The
+`gb10-N-qsfp` names and passwordless SSH between the nodes come from the GB10 setup in dotfiles.
+Copy only once the model shows `loaded` on gb10-1, so no partial file travels. On gb10-1:
 
 ```sh
 rsync -a --info=progress2 /srv/models/models--ggml-org--gpt-oss-120b-GGUF gb10-2-qsfp:/srv/models/
@@ -94,7 +228,10 @@ rsync -a --info=progress2 /srv/models/models--ggml-org--gpt-oss-120b-GGUF gb10-2
 
 `rsync -a` keeps the cache's links between `snapshots/` and `blobs/`, and both hosts run the
 container as the same user, so gb10-2 owns the copy. Then load the model on gb10-2 as above; the
-router finds it in the store and downloads nothing.
+router finds it in the store and downloads nothing. This copies a model the router downloaded
+itself, whose files stay in its own directory. A model hf pre-staged keeps its files in the shared
+`/srv/models/blobs`, so copy it as vLLM's model is copied, with the shared store beside it
+([vLLM's Models](../vllm/models.md#copying-the-model-to-the-other-gb10)).
 
 ## Listing models
 

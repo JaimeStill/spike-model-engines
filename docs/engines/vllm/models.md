@@ -12,6 +12,34 @@ computes in natively, and its card's evaluations sit within 0.7 points of the BF
 every benchmark: GPQA Diamond, AIME 2025, MMLU Pro, LiveCodeBench, IFBench, and IFEval. vLLM's
 Gemma 4 recipe lists it as validated on the GB10.
 
+## Pre-staging models with hf
+
+Every model vLLM serves in this spike is downloaded ahead with hf, Hugging Face's command line,
+into the store, before any cell or timed load, so the container's start loads it without a
+download. llama.cpp's guide says what hf is, sets it up, and gives the one procedure that
+pre-stages both engines' models and pulls both images together
+([Pre-staging models with hf](../llama.cpp/models.md#pre-staging-models-with-hf)). hf is the
+client this image downloads with, so its files land as the container's own would: the model's
+directory in Hugging Face's cache layout, and its weight files in the shared store
+([The first download](#the-first-download)).
+
+vLLM's models are each a whole repository. gpt-oss-120b's leaves out `original/` and `metal/`,
+the same weights for OpenAI's reference and Metal implementations, which vLLM doesn't read:
+
+| Shape | Repository | Size |
+|---|---|---|
+| dense small, BF16 | `google/gemma-4-E4B-it` | 16.02 GB |
+| dense small, QAT w4a16 | `google/gemma-4-E4B-it-qat-w4a16-ct` | 11.55 GB |
+| dense mid, QAT w4a16 | `google/gemma-4-12B-it-qat-w4a16-ct` | 10.30 GB |
+| dense large, NVFP4 | `nvidia/Gemma-4-31B-IT-NVFP4` | 32.67 GB |
+| MoE, NVFP4 | `nvidia/Gemma-4-26B-A4B-NVFP4` | 18.83 GB, in the store |
+| embedding, BF16 | `google/embeddinggemma-2` | 1.53 GB |
+| MoE, MXFP4 | `openai/gpt-oss-120b` | 65.28 GB, without `original/` and `metal/` |
+
+The w4a16 models are Google's quantization-aware trained ones. The sizes are the
+repositories', from Hugging Face's API.
+The pinned model is already in the store, from its first download.
+
 ## The first download
 
 The container fetches the model when it first starts, into `/srv/models`, its Hugging Face cache,
@@ -46,10 +74,12 @@ record it as one ([Setup](setup.md#6-watch-the-cold-start-and-record-it)).
 
 ## Copying the model to the other GB10
 
-Download the model once, on gb10-1, and copy it to gb10-2 over the QSFP link instead of
-downloading it again. The `gb10-N-qsfp` names and passwordless SSH between the nodes come from
-the GB10 setup in dotfiles. Copy only once gb10-1's log shows `Application startup complete.`,
-so no partial file travels. On gb10-1:
+Only under a named borrow of gb10-2 (`ai-hosting.md`, "Hosts and access"): gb10-2 is reserved
+for spike-ai-pipeline, and the spike runs on gb10-1 alone. Under a borrow, download the model
+once, on gb10-1, and copy it to gb10-2 over the QSFP link instead of downloading it again. The
+`gb10-N-qsfp` names and passwordless SSH between the nodes come from the GB10 setup in dotfiles.
+Copy only once gb10-1's log shows `Application startup complete.`, so no partial file travels.
+On gb10-1:
 
 ```sh
 rsync -a --info=progress2 /srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4 /srv/models/blobs gb10-2-qsfp:/srv/models/

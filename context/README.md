@@ -1,11 +1,11 @@
 # spike-model-engines
 
-spike-model-engines is where the architect learns llama.cpp and vLLM by running them, on the GB10s
-and then the Framework, in containers first and then on bare metal. Each engine is documented as a
-guide to setup, models, APIs, updates, and removal, and each comparison is a benchmark planned and
-run together. Together they are evidence for the engine and hosting method `v1.ai.hosting`
-specifies per host class, as a general strategy for self-hosted model engines. The spike decides
-nothing itself.
+spike-model-engines is where the architect learns llama.cpp and vLLM by running them, on a GB10,
+gb10-1, and then the Framework, in containers first and then on bare metal. Each engine is
+documented as a guide to setup, models, APIs, updates, and removal, and each comparison is a
+benchmark planned and run together. Together they are evidence for the engine and hosting method
+`v1.ai.hosting` specifies per host class, as a general strategy for self-hosted model engines. The
+spike decides nothing itself.
 
 The spike is the sub-goal `experiment.hosting.spike-model-engines` in the coordinator's roadmap,
 `standards-lab/context/roadmap.toml`, where its tasks live. Its question is framed in
@@ -37,13 +37,19 @@ Halo), and is it hosted in a container or on bare metal?
 
 The experiment's rules, in `ai-hosting.md`, govern every session. In short:
 
-- **Guided sessions.** Sessions are slow and methodical. Each slice's docs and scripts are
-  written on the branch, then the session walks the architect through the host steps one at a
-  time from those docs, and records each output. The last slice is the architect running the
-  whole procedure from the docs.
+- **Guided sessions.** Sessions are guided where the architect is learning. Each slice's docs and
+  scripts are written on the branch first. The session runs routine host steps that need no root
+  itself, over Tailscale SSH, and records each output: downloads and image pulls, engine install,
+  update, and uninstall, model loads, readiness waits, cold-start timing, log and memory
+  read-outs, and health and version checks. The architect keeps root, a new tool's or concept's
+  first walk, which the session walks them through, the last slice's walkthrough of the whole
+  procedure from the docs, and every escalation's decision. Every command either side runs
+  appears in a guide or the finding's method exactly as run (bench-gb10-container, at the
+  architect's request, 2026-10-26).
 - **Benchmarks.** Each benchmark is planned together in its task's plan round, then built and run
-  a step at a time, typed by the architect. A run takes at most 10 minutes unless the brief decides
-  otherwise.
+  a step at a time from the commands the brief agreed: the session runs the GuideLLM cells in the
+  architect's view, printing each command first, never out of the architect's sight. A run takes
+  at most 10 minutes unless the brief decides otherwise.
 - **Current hosts and engines.** Every session starts by bringing the hosts current. llama.cpp
   follows its semver releases, running the b-build each one names; vLLM follows its releases.
   Every result records the engine version and the host stack.
@@ -55,7 +61,10 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
   Q8_0 or FP8 or better.
 - **Load tools.** GuideLLM 0.8.1, run from the laptop, for every served measurement; llama-bench
   for raw pp/tg per llama.cpp backend.
-- **Root** stays the architect's, run from exact commands.
+- **Root** stays the architect's, run from exact commands. A root command a session must repeat
+  may be granted once, by the architect, as a sudoers rule naming that one command exactly, such
+  as gb10-1's page-cache drop
+  ([setup](../docs/engines/llama.cpp/setup.md#7-allow-the-page-cache-drop)).
 
 ## Capabilities
 
@@ -80,16 +89,16 @@ The tasks, in the order they run; each cites the evidence it proves.
    the llama.cpp guide, two GuideLLM anchor cells (evidence 1, 2).
 2. `vllm-gb10-container`: vLLM's CUDA 13.0 arm64 image on both GB10s, NVFP4 served, the vLLM guide
    (evidence 1, 3).
-3. `bench-gb10-container`: the agreed cells on gb10-1, cross-checked on gb10-2, and the
-   API-surface probes (evidence 2, 3, 4, 5). Its plan round takes up one question from
-   vllm-gb10-container: vLLM's A' decoded at 30 tok/s on a 4B-active model, with Triton
-   attention (FA4 not available) and a BF16 KV cache named in the log, so whether one diagnostic
-   A' rerun changing one of them precedes the comparison. A' reruns as vLLM's anchor from a
+3. `bench-gb10-container`: the agreed cells on gb10-1 and the API-surface probes (evidence 2, 3,
+   4, 5). Its plan round takes up one question from vllm-gb10-container: vLLM's A' decoded at 30
+   tok/s on a 4B-active model, with Triton attention (FA4 not available) and a BF16 KV cache
+   named in the log, so whether one diagnostic A' rerun changing one of them precedes the
+   comparison. A' reruns as vLLM's anchor from a
    confirmed warm start.
-4. `llama-gb10-native`: llama.cpp native under systemd, llama-bench, anchor cells against the
+4. `llama-gb10-native`: llama.cpp native under systemd on gb10-1, llama-bench, anchor cells
+   against the container (evidence 1, 6).
+5. `vllm-gb10-native`: vLLM's aarch64 wheel natively on gb10-1, anchor cells against the
    container (evidence 1, 6).
-5. `vllm-gb10-native`: vLLM's aarch64 wheel natively, anchor cells against the container
-   (evidence 1, 6).
 6. `llama-strix-rocm`: llama.cpp ROCm in ggml's ROCm image against the native Vulkan router
    (evidence 1, 2, 3).
 7. `vllm-strix`: vLLM's ROCm image on gfx1151, serving or a recorded failure (evidence 1, 2).
@@ -104,8 +113,21 @@ The practices every task on the GB10s follows, each with its reason:
 - **CDI spec.** An `apt upgrade` without a reboot can leave the NVIDIA Container Toolkit's CDI spec
   naming a library that is gone, and every GPU container then fails to start. Regenerate it after
   each upgrade ([setup](../docs/engines/llama.cpp/setup.md#1-bring-the-host-current)).
-- **Models.** Download a model once, on gb10-1, and copy it to gb10-2 over QSFP
+- **gb10-1 alone.** gb10-2 is reserved for spike-ai-pipeline, so every task installs, downloads,
+  and measures on gb10-1 alone; gb10-2 is used only under a named borrow (`ai-hosting.md`,
+  "Hosts and access").
+- **Models.** Download a model once, on gb10-1, with hf
+  ([models](../docs/engines/llama.cpp/models.md#pre-staging-models-with-hf)). Copy it to gb10-2
+  over QSFP only under a named borrow of gb10-2
   ([models](../docs/engines/llama.cpp/models.md#copying-a-model-to-the-other-gb10)).
+- **Pre-staging.** Every model a task serves is downloaded, and both engines' images pulled,
+  first, all in parallel, before any cell or timed load. A download loads the host's network,
+  disk, and CPU, so a cell or load beside one would measure that noise too
+  ([models](../docs/engines/llama.cpp/models.md#pre-staging-everything-at-once)).
+- **Cold loads.** A cold load is timed from a dropped page cache: a model read before loads from
+  memory instead of disk, and vLLM counts the cache as free memory. The session drops it with
+  `sync && sudo -n /usr/sbin/sysctl vm.drop_caches=3`, which the architect's sudoers rule allows
+  ([setup](../docs/engines/llama.cpp/setup.md#7-allow-the-page-cache-drop)).
 - **The shared blob store.** The Hugging Face client in vLLM's image keeps a model's weight files
   in `/srv/models/blobs`, outside the model's directory, which only links to them. Copy
   `/srv/models/blobs` with the model's directory, and measure a model with `du -shL`, since a
@@ -129,6 +151,10 @@ The practices every task on the GB10s follows, each with its reason:
   each cell from the same model state, warmed or freshly loaded, so TTFT compares like with like.
 - **GuideLLM's Python.** `mise.bench.toml` holds Python at 3.14, because torch publishes no 3.15
   wheels, so `mise run currency` reports Python behind until it does.
+- **GuideLLM's extras.** The bench environment installs GuideLLM with its `vision` and `audio`
+  extras, for the image and audio requests. mise counts an install made before the extras were
+  added as current, so that install gains them only when forced:
+  `MISE_ENV=bench mise install --force pipx:guidellm`.
 
 ## References
 

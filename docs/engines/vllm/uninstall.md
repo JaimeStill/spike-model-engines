@@ -21,9 +21,13 @@ docker start llama
 
 ## Deleting the model
 
-Deleting the model is a typed step, apart from the uninstall. The model is its own directory in
-the store, in Hugging Face's cache layout, and its weight files in the shared store at the
-cache's root, `/srv/models/blobs`, which its directory links into
+Deleting the model is a typed step, apart from the uninstall. The models hf pre-staged
+([Models](models.md#pre-staging-models-with-hf)) are deleted with hf, as llama.cpp's are
+([Deleting models](../llama.cpp/uninstall.md#deleting-models)).
+
+The pinned model, which the container downloaded, is deleted by hand. The model is its own
+directory in the store, in Hugging Face's cache layout, and its weight files in the shared store
+at the cache's root, `/srv/models/blobs`, which its directory links into
 ([Models](models.md#the-first-download)). Deleting the directory alone leaves the weight files
 behind, so first list the shared files its links point to, keeping only paths under
 `/srv/models/blobs/`, and read the list:
