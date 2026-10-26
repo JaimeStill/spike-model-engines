@@ -139,7 +139,7 @@ Door
 
 ## Progress
 
-slices 0/4 committed · standards — · spec — · editor —
+slices 1/4 committed (slice 1 eb40da3; host steps pending: hf first walk, sudoers rule, pre-stage) · standards — · spec — · editor —
 
 ## Decisions
 
@@ -364,57 +364,4 @@ slices 0/4 committed · standards — · spec — · editor —
 
 ## Pending edits
 
-- coordinator · ai-hosting.md, the GB10 host class, "Stack": replace "DGX OS reports 7.4.0 but
-  carries a newer stack: driver 580.178.04, CUDA 13.0, kernel 7.0, Docker 29.6.2, and
-  nvidia-container-toolkit 1.20.1" with "DGX OS 7.6.0, driver 580.178.04, CUDA 13.0, kernel
-  7.0.0-1019-nvidia, Docker 29.6.2, and nvidia-container-toolkit 1.20.1"
-  (spike-model-engines, docs/findings/llama-gb10-container.md).
-- coordinator · ai-hosting.md, the GB10 host class: add "**CDI spec**: an apt upgrade without a
-  reboot can leave the container toolkit's CDI spec (`/var/run/cdi/nvidia.yaml`) naming a moved
-  driver library, and GPU containers then fail to start until `sudo nvidia-ctk cdi generate
-  --output=/var/run/cdi/nvidia.yaml` regenerates it."
-- coordinator · ai-hosting.md, "Experiment: experiment.hosting", "Hosts and access": extend the
-  last sentence to "every measurement records the engine version, the host's stack, and the
-  laptop's network path to the host (`tailscale ping`): a DERP relay adds its round trip to TTFT
-  and request latency, but not to inter-token latency or the server's own counters."
-- coordinator · roadmap.toml, spike-model-layout's summary (or spike-model-gateway's, as the
-  coordinator places it): weigh serving models on demand, where an engine loads none itself,
-  against keeping them resident; llama-swap in front of vLLM is the existing tool (drives Docker,
-  ships arm64 builds) (spike-model-engines, the vLLM guide).
-- coordinator · ai-hosting.md, "Experiment: experiment.hosting", the spike-model-engines
-  paragraph: after "documents each engine as a guide to setup, models, APIs, updates, and
-  uninstall", add ", and whether it loads models on demand".
-- coordinator · ai-hosting.md, the GB10 host class, "Memory reporting": after "`cudaMemGetInfo`
-  counts the page cache as used." add "On the integrated GPU, vLLM reads the OS's available memory
-  instead, which counts the page cache as free: with 18 GiB cached and 99.7 GiB MemFree, v0.32.0
-  reported 113.42 of 121.63 GiB free at startup." (spike-model-engines,
-  docs/findings/vllm-gb10-container.md, "Serving and the model store").
-- coordinator · ai-hosting.md, "Experiment: experiment.hosting", "The rules": replace the bullet
-  "Sessions are guided, slower, and methodical, … Scripting stays minimal: only what must be
-  idempotent (install, update, uninstall)." with "Sessions are guided where the architect is
-  learning: a new tool's or concept's first walk, every root step, and the last slice, a
-  walkthrough the architect runs from the docs (architect, 2026-10-23 and 2026-10-26). Routine
-  host steps that need no root (downloads and image pulls, engine install, update, and uninstall,
-  model loads, readiness waits, cold-start timing, log and memory read-outs, and health and
-  version checks) the session runs itself over Tailscale SSH and records. Every command a session
-  or the architect runs appears in the docs exactly as run. Scripting stays minimal: only what
-  must be idempotent (install, update, uninstall)." (bench-gb10-container, at the architect's
-  request.)
-- coordinator · ai-hosting.md, "The rules": replace "A benchmark is built and run a step at a
-  time, typed by the architect from the commands the brief agreed, never scripted out of the
-  architect's sight." with "A benchmark is built and run a step at a time from the commands the
-  brief agreed, by the session in the architect's view or by the architect, never scripted out of
-  the architect's sight."
-- coordinator · ai-hosting.md, "Hosts and access": after "root stays the architect's, run from
-  exact commands." add "A root command a session must repeat may be granted once, by the
-  architect, as a sudoers rule naming that one command exactly, such as gb10-1's page-cache drop
-  (`/usr/sbin/sysctl vm.drop_caches=3`)."
-- coordinator · roadmap.toml, spike-model-benchmarks' summary: add "Screens gemma-4-26B-A4B
-  against gpt-oss-120b for the agent role, as a cheaper chat tier for tasks that don't need
-  gpt-oss-120b; gemma-4-E4B and gemma-4-12B take chat, image, and audio in one model
-  (spike-model-engines, bench-gb10-container's speed table)."
-- coordinator · roadmap.toml, spike-model-gateway's summary: add "Weighs routing chat requests to
-  a cheaper tier (such as Gemma 4 26B-A4B) and reserving gpt-oss-120b for the tasks that need
-  it."
-- coordinator · roadmap.toml, bench-gb10-container's summary: replace "No new tool." with "New
-  tool: hf."
+(none: coordinator PR #100, merged 2026-10-26, carried every edit tasks 1–3 owed)
