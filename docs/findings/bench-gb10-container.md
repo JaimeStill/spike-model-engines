@@ -1016,18 +1016,17 @@ footprint is near the reservation whatever the model; granite's pooling row rese
 | 7 | `granite-embedding-english-r2`, round 5 | 52.2 → 0.20 | 117.9 | 114.6 | 3.25 | 0.29, 3.9 | — (pooling) | — (pooling) | 0.06 | not kept | 40.4 |
 | 8 | `gpt-oss-120b` | 3.5 → 0.19 | 117.4 | 19.1 | 98.4 | 66.14, 503.4 | 25.71 | 493,523 | 3.58 + 0.13 | 67.08 | 576.5 |
 | 9 | `gemma-4-26B-A4B-NVFP4`, the pin restored | 18.5 → 0.17 | 118.0 | 17.6 | 100.4 | 18.13, 120.5 | 74.36 | 466,125 | 0.10 + 0.08 | 22.13 | 176.2 |
-| 8 | `gpt-oss-120b`, round 5, for A's rerun | 2.6 → 0.20 | 117.9 | 16.7 | 101.3 | 66.14, 509.4 | 28.35 | not kept | 1.42 | not kept | 546.3 |
-| 9 | `gemma-4-26B-A4B-NVFP4`, the pin restored, round 5 | 16.6 → 0.17 | 118.0 | 17.3 | 100.8 | 18.13, 129.8 | 74.76 | not kept | 0.10 | not kept | 184.8 |
+| 8 | `gpt-oss-120b`, round 5, for A's rerun | 2.6 → 0.20 | 117.9 | 16.7 | 101.3 | 66.14, 509.4 | 28.35 | 544,172 | 1.42 | 67.42 | 546.3 |
+| 9 | `gemma-4-26B-A4B-NVFP4`, the pin restored, round 5 | 16.6 → 0.17 | 118.0 | 17.3 | 100.8 | 18.13, 129.8 | 74.76 | 468,669 | 0.10 | 21.72 | 184.8 |
 
 - Steps 4, 5, 6, and 9's CUDA graph figures and step 2's consumed memory are from the session's
   captured output of each start's log read-out; the logs themselves went with their containers,
   since each switch replaces the container. Step 5's graph capture logged −0.08 GiB, a negative
   figure, as vLLM printed it.
-- The round 5 starts' read-outs kept the weights, the KV cache's memory, and the graphs, each as
-  one figure. Their KV cache tokens and consumed memory were not kept: the session's notes didn't
-  take them, and each log went with its container at the next switch. The last start's container
-  still runs, but the round 5 runs ended without reading it. granite's row has no KV cache: a
-  pooling model reserves none.
+- The round 5 starts' graphs are each one figure, as vLLM printed them. Their KV cache tokens and
+  consumed memory come from each start's printout (gpt-oss-120b's) and the pin's running
+  container's log (`docker logs vllm 2>&1 | grep -E "KV cache size|Free memory on device"`).
+  granite's row has no KV cache: a pooling model reserves none.
 - Step 1's start compiled afresh: its log had no `Directly load the compiled graph` line. It also
   logged `Free memory on device` (113.76 of 121.63 GiB at startup) on a start that succeeded.
 - The peak activation memory vLLM logged was 0.81 GiB at step 1, 3.33 at step 2, 0.57 at step 3,
@@ -1050,8 +1049,8 @@ layers holding 128 tokens each; about 30 GiB is left for it and the activations.
 |---|---|---|---|
 | llama.cpp | each model, steps 1 to 8; granite at round 5 | direct, 0 to 2 ms; granite's 1 ms | `/props` build_info `b11669-620d2225c` |
 | vLLM | each row, steps 1 to 9 | direct, 0 to 2 ms | `/version` `0.32.0` |
-| vLLM | granite's row, round 5 | not kept: the session's notes took the version, not the path | `/version` `0.32.0` |
-| vLLM | gpt-oss-120b's row and the pin restored, round 5 | not kept, as granite's | not kept: the notes record the warm-up's reply, not the version; the container runs the pinned image, `vllm/vllm-openai:v0.32.0` |
+| vLLM | granite's row, round 5 | direct, 1 ms | `/version` `0.32.0` |
+| vLLM | gpt-oss-120b's row and the pin restored, round 5 | not taken: these two ran in the same sitting as granite's, 9 and 14 minutes later, on the same path | not taken: the container runs the pinned image, `vllm/vllm-openai:v0.32.0` |
 
 ### API probes
 
@@ -1062,7 +1061,7 @@ layers holding 128 tokens each; about 30 GiB is left for it and the activations.
 | Anthropic messages with a tool | gpt-oss-120b | works: a `tool_use` block and a thinking block, its `signature` empty ([Walkthrough](#walkthrough)) | works: a `tool_use` block and a thinking block with a signature |
 | Responses | gpt-oss-120b | works: `completed`, a `reasoning` and a `message` item | works: `completed`, a `reasoning` and a `message` item |
 | Vision | gemma-4-26B-A4B | works: "A front page of The New York Times from July 21, 1969, featuring the historic headline "MEN WALK ON MOON."", 155 prompt and 505 completion tokens | works: the front page of The New York Times from Monday, July 21, 1969, "MEN WALK ON MOON", Apollo 11; 288 prompt and 49 completion tokens |
-| Embeddings | granite-embedding-english-r2 BF16 | works: two embeddings of 768, each of norm 1.0; 28 prompt tokens | works: two embeddings of 768, unnormalized, norms 30.43 and 30.48 ([Embeddings](#embeddings)) |
+| Embeddings | granite-embedding-english-r2 BF16 | works: two embeddings of 768, each of norm 1.0; 28 prompt tokens | works: two embeddings of 768, unnormalized, norms 30.43 and 30.48; 28 prompt tokens ([Embeddings](#embeddings)) |
 | Transcription | gemma-4-E4B | works: "And so my fellow Americans ask not what your country can do for you ask what you can do for your country", without punctuation; 298 prompt and 23 completion tokens | on paper: v0.32.0 serves it for Granite Speech, Whisper, and Voxtral, not Gemma 4 |
 
 The vision probe's first form, `jq --arg img "$(base64 ...)"`, failed on the laptop with
