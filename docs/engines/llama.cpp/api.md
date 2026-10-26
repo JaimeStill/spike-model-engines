@@ -128,9 +128,9 @@ A working surface returns one embedding an input, each 768 wide, granite's hidde
 norm 1 to within float rounding. The model doesn't normalize its own output (its
 sentence-transformers modules are the encoder and CLS pooling, with no normalization); llama.cpp
 normalizes each embedding to unit length by default (`embd_normalize` 2, Euclidean). vLLM
-v0.32.0 returns the same model's raw CLS vectors, of norm about 30
-([vLLM's API](../vllm/api.md#embeddings)): cosine similarity is the same on both engines, and
-dot products differ.
+v0.32.0 returns the same model's embeddings unnormalized, of norm about 30
+([vLLM's API](../vllm/api.md#embeddings)): a cosine doesn't depend on the norm, and a dot product
+does.
 
 ### Transcription
 

@@ -139,9 +139,9 @@ The row runs vLLM's pooling runner, which serves `/v1/embeddings` and no chat. A
 returns one embedding an input, each 768 wide, granite's hidden size, and of norm about 30, not 1:
 on gb10-1, 30.43 and 30.48 ([bench-gb10-container](../../findings/bench-gb10-container.md#embeddings)).
 granite ships no `Normalize` module, its sentence-transformers modules being the encoder and CLS
-pooling, and v0.32.0 returns its raw CLS vectors, where llama.cpp normalizes each embedding to
-unit length by default. Cosine similarity is the same on both engines; dot products are not, so
-a client that takes a dot product as a cosine normalizes vLLM's embeddings first.
+pooling, and v0.32.0 returns its embeddings unnormalized, where llama.cpp normalizes each to unit
+length by default. A cosine doesn't depend on the norm and a dot product does, so a client that
+takes a dot product as a cosine normalizes vLLM's embeddings first.
 
 ### Transcription, on paper
 

@@ -839,8 +839,9 @@ level, from the round 5 runs:
 | vLLM | BF16 | 16 | 8853 | 16 | 0 | 295.1 | 151,386 | 513 | 52 | 56 |
 
 The 16 incomplete requests at 16 streams were in flight when the level's 30 s ended. At 1 stream
-llama.cpp leads slightly (58.7 against 55.5 requests/s); at 16, vLLM batches the requests and served 5.3 times llama.cpp's rate,
-while llama.cpp's rate fell slightly and its latency rose about 20-fold.
+llama.cpp led slightly (58.7 against 55.5 requests/s). At 16, vLLM served 5.3 times llama.cpp's
+rate (295.1 against 55.5) at a median of 52 ms, while llama.cpp's rate fell slightly from its 1
+stream's and its median latency rose from 13 to 284 ms.
 
 The servers' figures, by the snapshots' diff ([Reading the figures](#reading-the-figures)):
 llama.cpp computed about 1.766 million prompt tokens over both levels in 44.67 s, 39.5k tok/s
@@ -862,10 +863,11 @@ The loads, from a dropped page cache ([Cold load and footprint](#cold-load-and-f
 
 Both probes returned two embeddings of 768, granite's hidden size
 ([API probes](#api-probes-1)). llama.cpp's were of unit norm, and vLLM's of norms 30.43 and 30.48.
-granite ships no `Normalize` module, so its raw output is the CLS vector; llama.cpp normalizes
-each embedding by default, and vLLM v0.32.0 returned the raw CLS vectors. Cosine similarity is the
-same on both engines; dot products differ, so a client that takes a dot product as a cosine must
-normalize vLLM's embeddings first. Both API pages give the expected norms
+granite's sentence-transformers modules (`modules.json`) are the encoder and CLS pooling, with no
+`Normalize` module; llama.cpp normalizes each embedding to unit length by default (`embd_normalize`
+2, Euclidean, at b11669), and vLLM v0.32.0 returned them unnormalized. A cosine doesn't depend on
+the norm and a dot product does, so a client that takes a dot product as a cosine must normalize
+vLLM's embeddings first. Both API pages give the expected norms
 ([llama.cpp's](../engines/llama.cpp/api.md#embeddings), [vLLM's](../engines/vllm/api.md#embeddings)).
 
 ### Engine limits
@@ -874,11 +876,12 @@ Dated 2026-10-26, llama.cpp b11669 and vLLM v0.32.0, on gb10-1.
 
 EmbeddingGemma 2 was this task's embedding model until the round 5 amendment. llama.cpp served it,
 Q8_0: its cell that day ran 36.8 requests/s at 1 stream and 51.7 at 16, median latency 23 and 306
-ms, and its probe returned two embeddings of 768 of unit norm. vLLM v0.32.0 can't serve it on the
-GB10's SM121 under any attention backend:
+ms, and its probe returned two embeddings of 768 of unit norm. vLLM v0.32.0 didn't serve it on
+the GB10's SM121. This task ran only the row's default backend, Triton; vLLM's issue
+[#60847](https://github.com/vllm-project/vllm/issues/60847) reports the others:
 
-- Triton's encoder attention needs 160 KiB of shared memory, and SM121 has 99 KiB. The row
-  crash-looped at step 7: `/health` never answered 200 within the 10 minutes, the container had
+- Triton's encoder attention, run here, needs 160 KiB of shared memory, and SM121 has 99 KiB.
+  The row crash-looped at step 7: `/health` never answered 200 within the 10 minutes, the container had
   restarted 12 times by 19:36Z, and its log ended in `_forward_encoder_attention`, then
   `context_attention_fwd`:
 
@@ -886,12 +889,12 @@ GB10's SM121 under any attention backend:
   triton.runtime.errors.OutOfResources: out of resource: shared memory, Required: 163840, Hardware limit: 101376
   ```
 
-- FlashAttention 2 has no head size of 512, EmbeddingGemma 2's.
-- FlashInfer has no encoder-only attention.
-- FlexAttention fails at start.
+- `FLASH_ATTN` doesn't support its head size, and `FLASHINFER` doesn't support encoder-only
+  attention, a GB10 user reports there, so Triton is its only path on SM121.
+- `FLEX_ATTENTION` fails too, by the issue's report and on an RTX PRO 6000 Blackwell (SM120);
+  no one reports it on SM121.
 
-vLLM tracks it as [#60847](https://github.com/vllm-project/vllm/issues/60847); the fixes
-[#60631](https://github.com/vllm-project/vllm/pull/60631),
+The issue's proposed fixes, [#60631](https://github.com/vllm-project/vllm/pull/60631),
 [#60848](https://github.com/vllm-project/vllm/pull/60848), and
 [#60942](https://github.com/vllm-project/vllm/pull/60942) were open, unmerged. EmbeddingGemma 2
 was struck from the spike's model set, granite-embedding-english-r2 taking its place on both
@@ -1152,9 +1155,9 @@ The round 5 runs reran A warm, its last row above, under its own name,
 `.state/bench/llama-anchor-a-warm.*` ([The round 5 runs](#the-round-5-runs)): gpt-oss-120b loaded
 from a dropped page cache in 47.2 s, warmed with the chat completion, then A, 41.59 s. The warm-up
 explains the walkthrough's 735 ms p95. Warm, TTFT's p95 fell to 478 ms, near step 1's 436, the
-prompt rate rose to 1533.0 tok/s, step 1's 1528.0, and the server computed 4,138 prompt tokens,
-step 1's count, where the cold run computed 4,198. Decode is the same warm or cold, 53.0 tok/s on the server and an ITL of 18.62 against
-18.63 ms.
+prompt rate rose to 1533.0 tok/s, near step 1's 1528.0, and the server computed 4,138 prompt
+tokens, step 1's count, where the cold run computed 4,198. Decode is the same warm or cold, 53.0
+tok/s on the server and an ITL of 18.62 against 18.63 ms.
 
 At the walkthrough's end, gb10-1 was left with llama.cpp's router running and gpt-oss-120b
 loaded, and vLLM's container stopped on its pin. The round 5 runs end the other way: vLLM serving
@@ -1186,14 +1189,15 @@ vLLM's steps from 18:39Z to 19:57Z and its round 5 runs from 21:12Z to 21:29Z.
   sequences do (26.4 s); neither errors. On the Gemma 4 shapes, in their own formats, llama.cpp
   led at 4 streams too (B: E4B 140.3 against 89.4, 26B-A4B 136.9 against 105.7, 31B 36.4 against
   25.5; 12B even, 90.6 against 90.2).
-- **vLLM batches embeddings; llama.cpp doesn't.** On granite-embedding-english-r2 BF16, the
-  engines are close at 1 stream (llama.cpp 58.7 requests/s, vLLM 55.5). At 16 streams vLLM served
-  295.1 requests/s at a median of 52 ms, about 5 times llama.cpp's 55.5 at 284 ms. Their
-  embeddings differ in norm: llama.cpp normalizes to unit length by default, and vLLM returned
-  granite's raw CLS vectors (norm about 30), so cosine similarity agrees and dot products don't
-  ([Embeddings](#embeddings)).
-- **EmbeddingGemma 2 is out of the spike.** vLLM v0.32.0 can't serve it on SM121 under any
-  attention backend (vLLM #60847, its fixes unmerged); it was struck from the model set and
+- **vLLM's embedding rate scales with streams; llama.cpp's doesn't.** On
+  granite-embedding-english-r2 BF16, the engines are close at 1 stream (llama.cpp 58.7
+  requests/s, vLLM 55.5). At 16 streams vLLM served 295.1 requests/s at a median of 52 ms, 5.3
+  times llama.cpp's 55.5 at 284 ms. Their embeddings differ in norm: llama.cpp's were of unit
+  norm, its default, and vLLM's unnormalized (norms 30.43 and 30.48), so a dot product taken as a
+  cosine needs vLLM's normalized first ([Embeddings](#embeddings)).
+- **EmbeddingGemma 2 is out of the spike.** vLLM v0.32.0 didn't serve it on SM121: Triton's
+  encoder attention ran out of shared memory, and vLLM #60847 reports no other backend that works
+  there, its fixes unmerged; it was struck from the model set and
   removed from the store ([Engine limits](#engine-limits)).
 - **The open runs closed.** llama.cpp's anchor A, rerun warm, put TTFT's p95 at 478 ms against the
   walkthrough's cold 735, so the warm-up explains the cold run's ([Walkthrough](#walkthrough)).
