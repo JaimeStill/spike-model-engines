@@ -1013,7 +1013,7 @@ footprint is near the reservation whatever the model; granite's pooling row rese
 | 4 | `gemma-4-E4B-it-qat-w4a16-ct` | 16.1 → 0.18 | 117.9 | 15.9 | 102.0 | 11.04, 79.8 | 82.51 | 2,238,084 | 0.02 + 0.01 | 14.29 | 176.7 |
 | 5 | `gemma-4-12B-it-qat-w4a16-ct` | 12.9 → 0.18 | 117.9 | 16.5 | 101.4 | 8.28, 82.3 | 85.82 | 357,611 | −0.08 + 0.01 | 11.15 | 190.3 |
 | 6 | `Gemma-4-31B-IT-NVFP4` | 12.1 → 0.20 | 117.9 | 16.8 | 101.1 | 31.19, 216.4 | 61.68 | 96,666 | 0.11 + 0.04 | 34.82 | 353.3 |
-| 7 | `granite-embedding-english-r2`, round 5 | 52.2 → 0.20 | 117.9 | 114.6 | 3.25 | 0.29, 3.9 | — (pooling) | — (pooling) | 0.06 | not kept | 40.4 |
+| 7 | `granite-embedding-english-r2`, round 5 | 52.2 → 0.20 | 117.9 | 114.6 | 3.25 | 0.29, 3.9 | — (pooling) | — (pooling) | 0.06 | not logged (pooling: v0.32.0 printed no consumed-memory line for this start) | 40.4 |
 | 8 | `gpt-oss-120b` | 3.5 → 0.19 | 117.4 | 19.1 | 98.4 | 66.14, 503.4 | 25.71 | 493,523 | 3.58 + 0.13 | 67.08 | 576.5 |
 | 9 | `gemma-4-26B-A4B-NVFP4`, the pin restored | 18.5 → 0.17 | 118.0 | 17.6 | 100.4 | 18.13, 120.5 | 74.36 | 466,125 | 0.10 + 0.08 | 22.13 | 176.2 |
 | 8 | `gpt-oss-120b`, round 5, for A's rerun | 2.6 → 0.20 | 117.9 | 16.7 | 101.3 | 66.14, 509.4 | 28.35 | 544,172 | 1.42 | 67.42 | 546.3 |
