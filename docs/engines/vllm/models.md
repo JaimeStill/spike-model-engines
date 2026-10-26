@@ -132,7 +132,7 @@ backend it fails on SM121: Triton's encoder kernel needs 160 KiB of shared memor
 GB10's 99 KiB, FlashAttention 2 has no head size of 512, FlashInfer has no encoder-only
 attention, and FlexAttention fails at start
 ([vLLM #60847](https://github.com/vllm-project/vllm/issues/60847);
-[bench-gb10-container](../../findings/bench-gb10-container.md#embeddings)).
+[bench-gb10-container](../../findings/bench-gb10-container.md#engine-limits)).
 granite-embedding-english-r2, a ModernBERT encoder with heads of 64, serves in its place, on
 FlashAttention 2.
 

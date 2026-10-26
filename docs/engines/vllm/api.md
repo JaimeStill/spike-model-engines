@@ -136,10 +136,12 @@ curl -s "http://gb10-1:8000/v1/embeddings" -H "Content-Type: application/json" -
 ```
 
 The row runs vLLM's pooling runner, which serves `/v1/embeddings` and no chat. A working surface
-returns one embedding an input, each 768 wide, granite's hidden size, and of norm 1 to within
-float rounding. The model doesn't normalize its own output; vLLM's embedding pooler normalizes
-each embedding by default, as llama.cpp does (`use_activation`, true unless a request turns it
-off).
+returns one embedding an input, each 768 wide, granite's hidden size, and of norm about 30, not 1:
+on gb10-1, 30.43 and 30.48 ([bench-gb10-container](../../findings/bench-gb10-container.md#embeddings)).
+granite ships no `Normalize` module, its sentence-transformers modules being the encoder and CLS
+pooling, and v0.32.0 returns its raw CLS vectors, where llama.cpp normalizes each embedding to
+unit length by default. Cosine similarity is the same on both engines; dot products are not, so
+a client that takes a dot product as a cosine normalizes vLLM's embeddings first.
 
 ### Transcription, on paper
 
