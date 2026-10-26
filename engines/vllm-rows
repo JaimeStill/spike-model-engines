@@ -63,11 +63,14 @@ nvidia/Gemma-4-31B-IT-NVFP4
 --kv-cache-dtype bfloat16
 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
 
-# EmbeddingGemma 2, BF16, served for /v1/embeddings only: vLLM's pooling runner, which its
-# architecture selects anyway, named so the row says what it serves. 16 sequences, one a stream
-# of the embedding cell's 16. No parsers: it generates nothing.
-[embeddinggemma-2]
-google/embeddinggemma-2
+# IBM's granite-embedding-english-r2, BF16, served for /v1/embeddings only: vLLM's pooling runner,
+# which its architecture selects anyway, named so the row says what it serves. A ModernBERT
+# encoder with heads of 64, whose encoder-only attention runs on FlashAttention 2 on the GB10's
+# SM121. 16 sequences, one a stream of the embedding cell's 16. No parsers: it generates nothing.
+# It replaces EmbeddingGemma 2, which doesn't start on SM121 at v0.32.0 under any attention backend
+# (vLLM #60847).
+[granite-embedding-english-r2]
+ibm-granite/granite-embedding-english-r2
 --runner pooling
 --max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.80
 

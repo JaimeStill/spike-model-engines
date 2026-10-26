@@ -37,15 +37,19 @@ The sections, each one model the router lists:
 | `google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | dense mid |
 | `google/gemma-4-31B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | dense large |
 | `google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | MoE; projector with vision |
-| `ggml-org/embeddinggemma-2-GGUF:Q8_0` | 16 × 8192 | none | `embeddings = true`; `batch-size` and `ubatch-size` 8192 |
+| `mrutkows/granite-embedding-english-r2-GGUF:BF16` | 16 × 8192 | none | `embeddings = true`; `batch-size` and `ubatch-size` 8192 |
 
 Gemma 4's sampling is the configuration its cards standardize for every use, temperature 1.0,
 top_p 0.95, top_k 64, which vLLM applies from the checkpoint's generation config; `min-p = 0`
 turns off llama.cpp's other truncation, which vLLM doesn't apply. Every Gemma 4 section attaches
-its projector, as vLLM loads the encoders with the model, so the footprints compare. EmbeddingGemma
-2 serves only `/v1/embeddings`, with the pooling its GGUF declares. It reads each input whole, not
-causally, so one input must fit one physical batch, whose default of 512 tokens is below the
-embedding cell's 512 plus the model's own; the batch is raised to a whole slot.
+its projector, as vLLM loads the encoders with the model, so the footprints compare.
+
+granite-embedding-english-r2 serves only `/v1/embeddings`, in BF16, the weights vLLM serves, with
+the pooling its GGUF declares, CLS. IBM publishes no GGUF of it, so the section names a
+conversion of IBM's weights; the quantization `BF16` picks its `-bf16.gguf` file, and it has no
+projector. It reads each input whole, not causally, so one input must fit one physical batch,
+whose default of 512 tokens is below the embedding cell's 512 plus the model's own; the batch is
+raised to a whole slot.
 
 The context is chosen for the spike's anchor request, 512 tokens in and 256 out: 768 tokens of
 the 8192 each slot holds, which leaves room for gpt-oss's chat template, its reasoning, and longer
@@ -114,7 +118,7 @@ it, which carries the model's vision encoder, and E4B's its audio encoder too:
 | dense mid, QAT Q4_0 | `google/gemma-4-12B-it-qat-q4_0-gguf` | `gemma-4-12b-it-qat-q4_0.gguf`, `mmproj-gemma-4-12b-it-qat-q4_0.gguf` | 7.15 GB |
 | dense large, QAT Q4_0 | `google/gemma-4-31B-it-qat-q4_0-gguf` | `gemma-4-31B_q4_0-it.gguf`, `gemma-4-31B-it-mmproj.gguf` | 18.85 GB |
 | MoE, QAT Q4_0 | `google/gemma-4-26B-A4B-it-qat-q4_0-gguf` | `gemma-4-26B_q4_0-it.gguf`, `gemma-4-26B-it-mmproj.gguf` | 15.63 GB |
-| embedding, Q8_0 | `ggml-org/embeddinggemma-2-GGUF` | `embeddinggemma-2-Q8_0.gguf`, `mmproj-embeddinggemma-2-Q8_0.gguf` | 0.86 GB |
+| embedding, BF16 | `mrutkows/granite-embedding-english-r2-GGUF` | `granite-embedding-english-r2-bf16.gguf` | 0.30 GB |
 | MoE, MXFP4 | `ggml-org/gpt-oss-120b-GGUF` | `gpt-oss-120b-MXFP4.gguf` | 63.39 GB, in the store |
 
 The Q4_0 files are Google's quantization-aware trained ones, which meet the quantization floor;
@@ -125,7 +129,7 @@ files', from Hugging Face's API.
 vLLM's models are listed in [vLLM's Models](../vllm/models.md#pre-staging-models-with-hf), and
 the procedure below stages both engines' together. The two models already in the store,
 gpt-oss-120b's GGUF and vLLM's pinned NVFP4 model, stay as they are; the rest of both engines'
-is about 195 GB.
+is about 193 GB.
 
 ### Pre-staging everything at once
 
@@ -150,12 +154,12 @@ stage google/gemma-4-E4B-it-qat-q4_0-gguf --include gemma-4-E4B_q4_0-it.gguf --i
 stage google/gemma-4-12B-it-qat-q4_0-gguf --include gemma-4-12b-it-qat-q4_0.gguf --include mmproj-gemma-4-12b-it-qat-q4_0.gguf
 stage google/gemma-4-31B-it-qat-q4_0-gguf --include gemma-4-31B_q4_0-it.gguf --include gemma-4-31B-it-mmproj.gguf
 stage google/gemma-4-26B-A4B-it-qat-q4_0-gguf --include gemma-4-26B_q4_0-it.gguf --include gemma-4-26B-it-mmproj.gguf
-stage ggml-org/embeddinggemma-2-GGUF --include embeddinggemma-2-Q8_0.gguf --include mmproj-embeddinggemma-2-Q8_0.gguf
+stage mrutkows/granite-embedding-english-r2-GGUF --include granite-embedding-english-r2-bf16.gguf
 stage google/gemma-4-E4B-it
 stage google/gemma-4-E4B-it-qat-w4a16-ct
 stage google/gemma-4-12B-it-qat-w4a16-ct
 stage nvidia/Gemma-4-31B-IT-NVFP4
-stage google/embeddinggemma-2
+stage ibm-granite/granite-embedding-english-r2 --exclude "*.bin"
 stage openai/gpt-oss-120b --exclude "original/*.safetensors" --exclude "metal/*"
 nohup bash -c 'docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669; echo "exit $?"' > ~/prestage/llama-image.log 2>&1 &
 nohup bash -c 'docker pull vllm/vllm-openai:v0.32.0; echo "exit $?"' > ~/prestage/vllm-image.log 2>&1 &

@@ -1,6 +1,7 @@
-# Embedding cell: EmbeddingGemma 2, 512 synthetic tokens a request to /v1/embeddings, at 1 stream
-# and then 16, each level for 30 s: two benchmarks in one run, one JSON. An embedding has no
-# output tokens, streaming, TTFT, or ITL, so the figures are request latency and throughput.
+# Embedding cell: granite-embedding-english-r2, 512 synthetic tokens a request to
+# /v1/embeddings, at 1 stream and then 16, each level for 30 s: two benchmarks in one run, one
+# JSON. An embedding has no output tokens, streaming, TTFT, or ITL, so the figures are request
+# latency and throughput.
 # Engine-neutral: the model, its tokenizer, and the JSON's path are given on the command line, and
 # the target in GUIDELLM__SPEC__BACKEND__TARGET (docs/findings/bench-gb10-container.md, "Method").
 # Run from the repository root.

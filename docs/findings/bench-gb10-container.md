@@ -109,7 +109,7 @@ request with output tokens set is sent with `ignore_eos`, so it generates exactl
 | Quant pair | `bench/shape-a.yaml` | 512 in, 256 out; 1 × 8 | llama.cpp: E4B Q8_0 (its shape A) and E4B QAT Q4_0; vLLM: E4B BF16 (its shape A) and E4B QAT w4a16 |
 | Vision A, B | `bench/vision-a.yaml`, `vision-b.yaml` | one synthetic 720p JPEG + 200 text tokens, 64 out; 1 × 8, 4 × 32 | 26B-A4B, both engines |
 | ASR A, B | `bench/audio-a.yaml`, `audio-b.yaml` | one LibriSpeech clip + the card's transcription prompt, up to 256 out; 1 × 8, 4 × 32 | llama.cpp: E4B Q8_0; vLLM: E4B BF16 |
-| Embeddings | `bench/embed.yaml` | 512 tokens; 1 then 16 streams, 30 s each | EmbeddingGemma 2, both engines |
+| Embeddings | `bench/embed.yaml` | 512 tokens; 1 then 16 streams, 30 s each | granite-embedding-english-r2 BF16, both engines |
 | Sweep | `bench/sweep.yaml` | 512 in, 256 out; 1, 4, 16, then 32 streams, 60 s each | gpt-oss-120b, 16 slots (llama.cpp) or 16 sequences (vLLM) |
 
 The Gemma 4 shape cells ask the model to reason (`chat_template_kwargs.enable_thinking`), as
@@ -128,7 +128,7 @@ both engines get the same prompts:
 | 12B QAT Q4_0 | `google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0` | `google/gemma-4-12B-it-qat-w4a16-ct` |
 | 31B QAT Q4_0 | `google/gemma-4-31B-it-qat-q4_0-gguf:Q4_0` | `nvidia/Gemma-4-31B-IT-NVFP4` |
 | 26B-A4B QAT Q4_0 | `google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0` | `nvidia/Gemma-4-26B-A4B-NVFP4` |
-| EmbeddingGemma 2 Q8_0 | `ggml-org/embeddinggemma-2-GGUF:Q8_0` | `google/embeddinggemma-2` |
+| granite-embedding-english-r2 BF16 | `mrutkows/granite-embedding-english-r2-GGUF:BF16` | `ibm-granite/granite-embedding-english-r2` |
 
 vLLM serves each model from its own checkpoint, which ships its tokenizer, so `tok` is the served
 model, except for E4B's QAT row, which takes the BF16 model's, as llama.cpp's E4B sections do:
@@ -140,7 +140,7 @@ model, except for E4B's QAT row, which takes the BF16 model's, as llama.cpp's E4
 | `gemma-4-E4B-it-qat-w4a16-ct` | `google/gemma-4-E4B-it-qat-w4a16-ct` | `google/gemma-4-E4B-it` |
 | `gemma-4-12B-it-qat-w4a16-ct` | `google/gemma-4-12B-it-qat-w4a16-ct` | `google/gemma-4-12B-it-qat-w4a16-ct` |
 | `Gemma-4-31B-IT-NVFP4` | `nvidia/Gemma-4-31B-IT-NVFP4` | `nvidia/Gemma-4-31B-IT-NVFP4` |
-| `embeddinggemma-2` | `google/embeddinggemma-2` | `google/embeddinggemma-2` |
+| `granite-embedding-english-r2` | `ibm-granite/granite-embedding-english-r2` | `ibm-granite/granite-embedding-english-r2` |
 | `gpt-oss-120b` | `openai/gpt-oss-120b` | `openai/gpt-oss-120b` |
 
 The rows' flags are in `engines/vllm-rows` ([vLLM's Models](../engines/vllm/models.md#the-rows)).
@@ -168,7 +168,7 @@ llama.cpp, one model loaded at a time, each unloaded before the next:
 | 5 | `google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0` | shape A, shape B |
 | 6 | `google/gemma-4-31B-it-qat-q4_0-gguf:Q4_0` | large A, large B |
 | 7 | `google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0` | shape A, shape B, vision A, vision B; probe: vision |
-| 8 | `ggml-org/embeddinggemma-2-GGUF:Q8_0` | embeddings; probe: embeddings |
+| 8 | `mrutkows/granite-embedding-english-r2-GGUF:BF16` | embeddings; probe: embeddings |
 
 vLLM, after llama.cpp's last step, one row served at a time, each a new container started cold:
 
@@ -180,7 +180,7 @@ vLLM, after llama.cpp's last step, one row served at a time, each a new containe
 | 4 | `gemma-4-E4B-it-qat-w4a16-ct` | shape A (the quant pair's w4a16) |
 | 5 | `gemma-4-12B-it-qat-w4a16-ct` | shape A, shape B |
 | 6 | `Gemma-4-31B-IT-NVFP4` | large A, large B |
-| 7 | `embeddinggemma-2` | embeddings; probe: embeddings |
+| 7 | `granite-embedding-english-r2` | embeddings; probe: embeddings |
 | 8 | `gpt-oss-120b` | A, B, sweep; probes: tools, reasoning, Anthropic messages, responses |
 | 9 | the default, no `VLLM_MODEL` | none: the pin restored, its start timed |
 
@@ -259,7 +259,7 @@ the default, logged none and was redone after the preset changed.
 
 On the laptop, with `model` and `tok` set to the step's values from the table above. The build
 the model runs, the network path, then one warm-up request: the API page's chat completion, or
-for EmbeddingGemma 2 one embedding:
+for granite-embedding-english-r2 one embedding:
 
 ```sh
 model=ggml-org/gpt-oss-120b-GGUF:MXFP4
@@ -269,7 +269,7 @@ curl -sG "http://gb10-1:8080/props" --data-urlencode "model=$model" --data-urlen
 curl -s "http://gb10-1:8080/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}]}" | jq '.choices[0].message.content'
 ```
 
-For EmbeddingGemma 2, the warm-up instead:
+For granite-embedding-english-r2, the warm-up instead:
 
 ```sh
 curl -s "http://gb10-1:8080/v1/embeddings" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"input\": \"Say hello in one sentence.\"}" | jq -c '{model, usage}'
@@ -311,7 +311,7 @@ is 0 when nothing else is using the model. The cells' names:
 | 5 | `shape-a`, `shape-b` | `llama-12b-shape-a`, `llama-12b-shape-b` |
 | 6 | `shape-large-a`, `shape-large-b` | `llama-31b-large-a`, `llama-31b-large-b` |
 | 7 | `shape-a`, `shape-b`, `vision-a`, `vision-b` | `llama-26b-shape-a`, `llama-26b-shape-b`, `llama-26b-vision-a`, `llama-26b-vision-b` |
-| 8 | `embed` | `llama-embed` |
+| 8 | `embed` | `llama-granite-embed` |
 
 ### Reading the figures
 
@@ -345,7 +345,7 @@ read-out, a second one gives its requests per second, input tokens per second, a
 milliseconds:
 
 ```sh
-jq -c '.benchmarks[] | {s: .config.strategy.streams, rps: (.metrics.requests_per_second.successful.mean*10|round/10), in_tok_s: (.metrics.prompt_tokens_per_second.successful.mean|round), lat_ms: (.metrics.request_latency.successful | {median: (.median*1000|round), p95: (.percentiles.p95*1000|round)})}' .state/bench/llama-embed.json
+jq -c '.benchmarks[] | {s: .config.strategy.streams, rps: (.metrics.requests_per_second.successful.mean*10|round/10), in_tok_s: (.metrics.prompt_tokens_per_second.successful.mean|round), lat_ms: (.metrics.request_latency.successful | {median: (.median*1000|round), p95: (.percentiles.p95*1000|round)})}' .state/bench/llama-granite-embed.json
 ```
 
 The server's prompt tokens and seconds are `llamacpp:prompt_tokens_total` and
@@ -353,7 +353,7 @@ The server's prompt tokens and seconds are `llamacpp:prompt_tokens_total` and
 snapshots' changed lines; the rate is the tokens over the seconds:
 
 ```sh
-diff <(grep -v '^#' .state/bench/llama-embed.before.metrics) <(grep -v '^#' .state/bench/llama-embed.after.metrics)
+diff <(grep -v '^#' .state/bench/llama-granite-embed.before.metrics) <(grep -v '^#' .state/bench/llama-granite-embed.after.metrics)
 ```
 
 The sweep's levels at 4 streams and more end with requests in flight, which the successful-only
@@ -429,8 +429,9 @@ for i in $(seq 120); do [ "$(curl -s -o /dev/null -w '%{http_code}' "http://$(ta
 
 `running, restarts 0` beside a time under the 10 minutes means the server answers. A row that
 fails to start restarts under `--restart unless-stopped`; read its log's end, record it, and stop
-it before the next step. Step 7's row ran this way: the poll ran its 10 minutes, the container had
-restarted 12 times, and its cell and probe were skipped:
+it before the next step. EmbeddingGemma 2's row, step 7's before the round 5 amendment, ran this
+way: the poll ran its 10 minutes, the container had restarted 12 times, and its cell and probe
+were skipped ([Embeddings](#embeddings)):
 
 ```sh
 docker logs --tail 50 vllm
@@ -464,9 +465,9 @@ succeeded, logged it too ([Cold load and footprint](#cold-load-and-footprint)).
 On the laptop, with `model` and `tok` set to the row's values from the table above. The network
 path, the release the server runs, the model it serves, then one warm-up request: the API page's
 chat completion, which asks Gemma 4 to reason; for gpt-oss-120b without the `chat_template_kwargs`;
-for EmbeddingGemma 2 one embedding. The reply prints on one line, its reasoning cut to its first
-80 characters (`null` when there is none). Last, the confirmation that the server is warm and
-idle:
+for granite-embedding-english-r2 one embedding. The reply prints on one line, its reasoning cut
+to its first 80 characters (`null` when there is none). Last, the confirmation that the server is
+warm and idle:
 
 ```sh
 model=nvidia/Gemma-4-26B-A4B-NVFP4
@@ -484,8 +485,7 @@ For gpt-oss-120b, the warm-up instead, followed by the same `/metrics` line:
 curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}]}" | jq -c '.choices[0].message | {content, reasoning: (.reasoning|tostring|.[0:80])}'
 ```
 
-For EmbeddingGemma 2, planned but never run, since step 7's row didn't start
-([Embeddings](#embeddings)):
+For granite-embedding-english-r2, the warm-up instead, followed by the same `/metrics` line:
 
 ```sh
 curl -s "http://gb10-1:8000/v1/embeddings" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"input\": \"Say hello in one sentence.\"}" | jq '{model, usage}'
@@ -537,7 +537,7 @@ The cells' names:
 | 4 | `shape-a` | `vllm-e4b-w4a16-shape-a` |
 | 5 | `shape-a`, `shape-b` | `vllm-12b-shape-a`, `vllm-12b-shape-b` |
 | 6 | `shape-large-a`, `shape-large-b` | `vllm-31b-large-a`, `vllm-31b-large-b` |
-| 7 | `embed` | `vllm-embed` |
+| 7 | `embed` | `vllm-granite-embed` |
 | 8 | `anchor-a`, `anchor-b`, `sweep` | `vllm-gptoss-a`, `vllm-gptoss-b`, `vllm-gptoss-sweep` |
 
 ### vLLM: reading the figures
@@ -582,6 +582,66 @@ gb10-1, a second update changes nothing and says so:
 ```sh
 engines/engines vllm update
 ```
+
+### The round 5 runs
+
+The amendment at round 5 moves the embedding cell to granite-embedding-english-r2 on both
+engines, and reruns the two cells the record left open: llama.cpp's anchor A, which the
+walkthrough ran cold, and vLLM's gpt-oss-120b A, which GuideLLM recorded 7 of 8 requests of. Each
+step is the method's sections above, in this order, from the state the walkthrough left: llama.cpp
+serving gpt-oss-120b, vLLM stopped on its pin.
+
+llama.cpp, from [Once, before the first model](#once-before-the-first-model), with
+`GUIDELLM__SPEC__BACKEND__TARGET` set to `http://gb10-1:8080`:
+
+1. Step 8, on granite: the cold load and its footprint with `model` set to
+   `mrutkows/granite-embedding-english-r2-GGUF:BF16` and `prev` to
+   `ggml-org/gpt-oss-120b-GGUF:MXFP4`, the warm-up with `tok` set to
+   `ibm-granite/granite-embedding-english-r2`, the cell `llama-granite-embed`, its read-outs, and
+   the embeddings probe.
+2. Anchor A, warm: the cold load with `model` set to `ggml-org/gpt-oss-120b-GGUF:MXFP4` and `prev`
+   to granite's section, the warm-up with `tok` set to `openai/gpt-oss-120b`, then A under its own
+   name, so the walkthrough's `.state/bench/llama-anchor-a.*` stay, and its read-outs with `f` and
+   `p` set to `.state/bench/llama-anchor-a-warm`'s:
+
+   ```sh
+   curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/llama-anchor-a-warm.before.metrics
+   MISE_ENV=bench mise exec -- guidellm run -c bench/anchor-a.yaml --output "kind=json,path=.state/bench/llama-anchor-a-warm.json" > .state/bench/llama-anchor-a-warm.log 2>&1; echo "llama-anchor-a-warm: guidellm exit $?"
+   curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/llama-anchor-a-warm.after.metrics
+   ```
+
+vLLM, from [vLLM: once, before the first row](#vllm-once-before-the-first-row), each row switched
+with `verb=row`:
+
+3. Step 7, on granite: the switch and the cold start with `row` set to
+   `granite-embedding-english-r2`, the warm-up with `model` and `tok` set to
+   `ibm-granite/granite-embedding-english-r2`, the cell `vllm-granite-embed`, its read-outs, and the
+   embeddings probe.
+4. gpt-oss-120b's A, rerun alone: the switch and the cold start with `row` set to `gpt-oss-120b`,
+   the warm-up with `model` and `tok` set to `openai/gpt-oss-120b`, then A under its own name,
+   `vllm-gptoss-a-rerun`, and its read-outs:
+
+   ```sh
+   scenario=anchor-a
+   cell=vllm-gptoss-a-rerun
+   curl -s "http://gb10-1:8000/metrics" > .state/bench/$cell.before.metrics
+   MISE_ENV=bench mise exec -- guidellm run -c bench/$scenario.yaml --backend "kind=openai_http,model=$model" --tokenizer "kind=huggingface_auto,model=$tok" --output "kind=json,path=.state/bench/$cell.json" > .state/bench/$cell.log 2>&1; echo "$cell: guidellm exit $?"
+   curl -s "http://gb10-1:8000/metrics" > .state/bench/$cell.after.metrics
+   ```
+
+   GuideLLM 0.8.1's JSON keeps every request whole, its timings, tokens, and output, under
+   `.benchmarks[].requests`, grouped as `successful`, `incomplete`, and `errored`, since the
+   cells leave its sample size unset, which keeps them all. The scheduler's own counts are beside
+   them, under `.benchmarks[].scheduler_state`. The JSON is the per-request output kept, and this
+   read-out prints one line a request, then the scheduler's counts, to set beside the server's
+   `request_decode_time_seconds_count`:
+
+   ```sh
+   jq -c '.benchmarks[] | (.requests | {successful, incomplete, errored} | to_entries[] | .key as $status | (.value // [])[] | {status: $status, request_id, start: .request_start_time, end: .request_end_time, prompt_tokens, output_tokens}), (.scheduler_state | {created_requests, processed_requests, processing_requests, successful_requests, errored_requests, cancelled_requests})' .state/bench/vllm-gptoss-a-rerun.json
+   ```
+
+5. Back to the default row: [vLLM: back to the default](#vllm-back-to-the-default), with
+   `verb=default` and `row` unset, its start timed and its footprint read.
 
 ### Run times
 

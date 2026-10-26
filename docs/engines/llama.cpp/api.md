@@ -63,8 +63,9 @@ tokens over seconds is one request's rate, not the server's total when slots run
 One request per surface the spike's consumers need, each against one model, which must be loaded
 first ([Models](models.md#loading-a-model)); the router serves one model's request only while it
 is loaded. Each prints only what shows whether the surface works. Tools, reasoning, Anthropic
-messages, and responses use gpt-oss-120b; vision uses Gemma 4 26B-A4B, embeddings EmbeddingGemma
-2, and transcription Gemma 4 E4B, each by its preset section ([Models](models.md#the-preset)).
+messages, and responses use gpt-oss-120b; vision uses Gemma 4 26B-A4B, embeddings
+granite-embedding-english-r2, and transcription Gemma 4 E4B, each by its preset section
+([Models](models.md#the-preset)).
 
 ### Chat with a tool
 
@@ -120,11 +121,13 @@ beside the text's.
 ### Embeddings
 
 ```sh
-curl -s "http://gb10-1:8080/v1/embeddings" -H "Content-Type: application/json" -d '{"model": "ggml-org/embeddinggemma-2-GGUF:Q8_0", "input": ["The quick brown fox jumps over the lazy dog.", "A fast auburn fox leaps over a sleepy hound."]}' | jq '{model, usage, dimensions: [.data[].embedding | length]}'
+curl -s "http://gb10-1:8080/v1/embeddings" -H "Content-Type: application/json" -d '{"model": "mrutkows/granite-embedding-english-r2-GGUF:BF16", "input": ["The quick brown fox jumps over the lazy dog.", "A fast auburn fox leaps over a sleepy hound."]}' | jq '{model, usage, dimensions: [.data[].embedding | length], norms: [.data[].embedding | map(. * .) | add | sqrt]}'
 ```
 
-A working surface returns one embedding an input, each the model's width, normalized to unit
-length.
+A working surface returns one embedding an input, each 768 wide, granite's hidden size, and of
+norm 1 to within float rounding. The model doesn't normalize its own output (its
+sentence-transformers modules are the encoder and CLS pooling, with no normalization); llama.cpp
+normalizes each embedding to unit length by default (`embd_normalize` 2, Euclidean).
 
 ### Transcription
 

@@ -70,8 +70,8 @@ row at a time, so each probe needs its row served first
 ([Models](models.md#serving-another-row-for-one-run)), and [Models](#models) confirms which.
 Each prints only what shows whether the surface works. Tools, reasoning, Anthropic messages, and
 responses use gpt-oss-120b (`VLLM_MODEL=gpt-oss-120b`); vision uses Gemma 4 26B-A4B, the pin's
-default row; and embeddings EmbeddingGemma 2 (`VLLM_MODEL=embeddinggemma-2`). Transcription is
-recorded on paper.
+default row; and embeddings granite-embedding-english-r2
+(`VLLM_MODEL=granite-embedding-english-r2`). Transcription is recorded on paper.
 
 ### Chat with a tool
 
@@ -132,12 +132,14 @@ beside the text's. The default row loads the vision encoder; the FlashInfer diag
 ### Embeddings
 
 ```sh
-curl -s "http://gb10-1:8000/v1/embeddings" -H "Content-Type: application/json" -d '{"model": "google/embeddinggemma-2", "input": ["The quick brown fox jumps over the lazy dog.", "A fast auburn fox leaps over a sleepy hound."]}' | jq '{model, usage, dimensions: [.data[].embedding | length]}'
+curl -s "http://gb10-1:8000/v1/embeddings" -H "Content-Type: application/json" -d '{"model": "ibm-granite/granite-embedding-english-r2", "input": ["The quick brown fox jumps over the lazy dog.", "A fast auburn fox leaps over a sleepy hound."]}' | jq '{model, usage, dimensions: [.data[].embedding | length], norms: [.data[].embedding | map(. * .) | add | sqrt]}'
 ```
 
 The row runs vLLM's pooling runner, which serves `/v1/embeddings` and no chat. A working surface
-returns one embedding an input, each the model's width. At v0.32.0 on a GB10 the row doesn't
-start, so the probe has no server to reach ([Models](models.md#the-rows)).
+returns one embedding an input, each 768 wide, granite's hidden size, and of norm 1 to within
+float rounding. The model doesn't normalize its own output; vLLM's embedding pooler normalizes
+each embedding by default, as llama.cpp does (`use_activation`, true unless a request turns it
+off).
 
 ### Transcription, on paper
 

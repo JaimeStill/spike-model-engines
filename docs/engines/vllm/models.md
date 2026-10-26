@@ -26,10 +26,12 @@ client this image downloads with, so its files land as the container's own would
 directory in Hugging Face's cache layout, and its weight files in the shared store
 ([The first download](#the-first-download)).
 
-vLLM's models are each a whole repository. gpt-oss-120b's leaves out the weights in `original/`
-and `metal/`, the same weights for OpenAI's reference and Metal implementations, which vLLM
-doesn't read, and keeps `original/`'s three JSON files (`config.json`, `dtypes.json`,
-`model.safetensors.index.json`, about 57 KB), which vLLM's start fetches when they're missing:
+vLLM's models are each a whole repository, but for two. granite-embedding-english-r2's leaves
+out `pytorch_model.bin`, a second copy of `model.safetensors`'s weights. gpt-oss-120b's leaves
+out the weights in `original/` and `metal/`, the same weights for OpenAI's reference and Metal
+implementations, which vLLM doesn't read, and keeps `original/`'s three JSON files
+(`config.json`, `dtypes.json`, `model.safetensors.index.json`, about 57 KB), which vLLM's start
+fetches when they're missing:
 
 | Shape | Repository | Size |
 |---|---|---|
@@ -38,7 +40,7 @@ doesn't read, and keeps `original/`'s three JSON files (`config.json`, `dtypes.j
 | dense mid, QAT w4a16 | `google/gemma-4-12B-it-qat-w4a16-ct` | 10.30 GB |
 | dense large, NVFP4 | `nvidia/Gemma-4-31B-IT-NVFP4` | 32.67 GB |
 | MoE, NVFP4 | `nvidia/Gemma-4-26B-A4B-NVFP4` | 18.83 GB, in the store |
-| embedding, BF16 | `google/embeddinggemma-2` | 1.53 GB |
+| embedding, BF16 | `ibm-granite/granite-embedding-english-r2` | 0.30 GB, without `pytorch_model.bin` |
 | MoE, MXFP4 | `openai/gpt-oss-120b` | 65.28 GB, without the weights in `original/` and `metal/` |
 
 The w4a16 models are Google's quantization-aware trained ones. The sizes are the repositories',
@@ -122,14 +124,17 @@ sets its sampling. Beyond those:
 | `gemma-4-E4B-it-qat-w4a16-ct` | `google/gemma-4-E4B-it-qat-w4a16-ct` | the default's | dense small, QAT w4a16, with its vision and audio |
 | `gemma-4-12B-it-qat-w4a16-ct` | `google/gemma-4-12B-it-qat-w4a16-ct` | the default's | dense mid, QAT w4a16 |
 | `Gemma-4-31B-IT-NVFP4` | `nvidia/Gemma-4-31B-IT-NVFP4` | the default's | dense large, NVFP4 |
-| `embeddinggemma-2` | `google/embeddinggemma-2` | `--runner pooling --max-num-seqs 16` | `/v1/embeddings` only; doesn't start on GB10 at v0.32.0 (below) |
+| `granite-embedding-english-r2` | `ibm-granite/granite-embedding-english-r2` | `--runner pooling --max-num-seqs 16` | `/v1/embeddings` only |
 | `gpt-oss-120b` | `openai/gpt-oss-120b` | `--max-num-seqs 16 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai` | 16 sequences, its KV cache the checkpoint's |
 
-The `embeddinggemma-2` row doesn't start on a GB10 at v0.32.0: it restarts until stopped. Its
-model config defaults to Triton attention, whose encoder kernel needs 160 KiB of shared memory,
-and the GB10's SM121 has 99 KiB (`OutOfResources: out of resource: shared memory, Required:
-163840, Hardware limit: 101376`). The row stays, so a later release can be tried
-([bench-gb10-container](../../findings/bench-gb10-container.md#embeddings)).
+EmbeddingGemma 2 doesn't serve on a GB10 at v0.32.0, so no row names it. Under every attention
+backend it fails on SM121: Triton's encoder kernel needs 160 KiB of shared memory against the
+GB10's 99 KiB, FlashAttention 2 has no head size of 512, FlashInfer has no encoder-only
+attention, and FlexAttention fails at start
+([vLLM #60847](https://github.com/vllm-project/vllm/issues/60847);
+[bench-gb10-container](../../findings/bench-gb10-container.md#embeddings)).
+granite-embedding-english-r2, a ModernBERT encoder with heads of 64, serves in its place, on
+FlashAttention 2.
 
 A row's id is its repository's name without the organization, with a suffix for a second row of
 the same model. The container's command is the row's model, `--host 0.0.0.0 --port 8000`, then
