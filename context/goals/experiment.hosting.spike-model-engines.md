@@ -364,4 +364,14 @@ slices 1/4 committed (slice 1 eb40da3; slice 2 configs 0c41696 and slice 3 confi
 
 ## Pending edits
 
-(none: coordinator PR #100, merged 2026-10-26, carried every edit tasks 1–3 owed)
+(PR #100, merged 2026-10-26, carried every edit tasks 1–3 owed until then.)
+
+- coordinator · roadmap.toml, experiment.hosting.spike-model-engines: add a task after
+  bench-gb10-container, before llama-gb10-native: rename `engines/` so `engines/engines` stops
+  stuttering (the name is decided in its plan round; not `cmd/`, which Go main packages want;
+  `bin/` holds more than executables). It changes the directory, the shellcheck `source=`
+  directives in the llama and vLLM scripts, every doc and mise file that cites `engines/...`, and
+  gb10-1's clone. Its follow-up re-copies the llama.cpp scripts byte-identical into
+  spike-ai-pipeline's `host/` and updates that repo's references and gb10-2's router, through
+  spike-ai-pipeline's own branch and pull request (spike-ai-pipeline's rename request,
+  2026-10-26).
