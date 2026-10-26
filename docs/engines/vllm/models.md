@@ -26,7 +26,7 @@ client this image downloads with, so its files land as the container's own would
 directory in Hugging Face's cache layout, and its weight files in the shared store
 ([The first download](#the-first-download)).
 
-vLLM's models are each a whole repository, but for two. granite-embedding-english-r2's leaves
+Each of vLLM's models is a whole repository, except two. granite-embedding-english-r2's leaves
 out `pytorch_model.bin`, a second copy of `model.safetensors`'s weights. gpt-oss-120b's leaves
 out the weights in `original/` and `metal/`, the same weights for OpenAI's reference and Metal
 implementations, which vLLM doesn't read, and keeps `original/`'s three JSON files

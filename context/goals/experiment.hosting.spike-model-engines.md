@@ -152,7 +152,7 @@ Amended at round 5 (2026-10-26), after the architect's redirect at the brief:
 
 ## Progress
 
-slice 5 (round 5 amendment) in progress · slices 1–4 committed · standards ✓ · spec ✓ · editor ✓ (before the amendment)
+slices 5/5 committed (round 5: 2a6ed66, 4fd0b1d, 6761fd3, 043b043) · standards ✓ (round 5: 7865edc) · spec ✓ after one round (round 5 gaps closed in 043b043) · editor ✓
 
 ## Decisions
 
@@ -402,14 +402,16 @@ slice 5 (round 5 amendment) in progress · slices 1–4 committed · standards �
   rename edit arrived after the brief, at spike-ai-pipeline's request, and stays pending for a
   later coordinator change; it isn't this task's.
 - bench-gb10-container: gb10-1 left with llama.cpp serving gpt-oss-120b and vLLM stopped on its
-  pin.
+  pin. Superseded by round 5's end state, below.
 
 - bench-gb10-container: embeddings on granite-embedding-english-r2 (IBM, Apache-2.0, ModernBERT,
-  head size 64), BF16 on both engines; rejected EmbeddingGemma 2, which can't run on vLLM v0.32.0
-  on SM121 under any backend (Triton encoder kernel 160 KiB shared memory against 99 KiB; FA2 has
-  no head size 512; FlashInfer has no encoder-only attention; FLEX_ATTENTION fails at start;
-  vLLM #60847, fixes #60631/#60848/#60942 unmerged), and harrier-oss-v1-270m (community GGUFs
-  only). Architect's redirect at the brief: no gap in the finding.
+  head size 64), BF16 on both engines; rejected EmbeddingGemma 2, which didn't serve on vLLM
+  v0.32.0 on SM121, and harrier-oss-v1-270m (community GGUFs only). This task ran only the row's
+  default Triton backend, which failed with OutOfResources (shared memory 163840 against 101376).
+  vLLM #60847 reports FLASH_ATTN failing with "head size not supported" on GB10 and FLASHINFER
+  lacking encoder-only attention, and FLEX_ATTENTION failing on other GPUs, not reported on SM121;
+  its fixes, #60631, #60848, and #60942, are open. Architect's redirect at the brief: no gap in the
+  finding.
 - bench-gb10-container: llama.cpp's embedding cell reruns on granite so both engines pair.
 - bench-gb10-container: EmbeddingGemma 2 struck from the spike's model set, kept as a dated
   engine-limit note; at the architect's request, it should no longer be set A's embedding model
@@ -419,6 +421,24 @@ slice 5 (round 5 amendment) in progress · slices 1–4 committed · standards �
   warm), vLLM's gpt-oss A 7 of 8 (rerun, cell A alone, per-request output kept), and the "not
   recorded" figures; vLLM transcription on paper, the NVFP4 cause, and vLLM's offline guard stay
   where the record put them.
+- bench-gb10-container: granite's vLLM row runs its attention on FLASH_ATTN. vLLM returns
+  granite's embeddings unnormalized (norm about 30; granite ships no Normalize module), and
+  llama.cpp normalizes them by default; the finding and both API pages record it. Making vLLM
+  normalize is a configuration change, left out as beyond the brief.
+- bench-gb10-container: on granite, vLLM's embedding rate scales with streams (55.5 to 295.1
+  requests/s, 5.3 times) and llama.cpp's doesn't (58.7 to 55.5).
+- bench-gb10-container: the warm rerun of llama.cpp's anchor A confirms the walkthrough's 735 ms
+  TTFT p95 was the cold first request (478 ms warm).
+- bench-gb10-container: vLLM's gpt-oss-120b A recorded 7 of 8 because GuideLLM finalized with the
+  eighth request in flight (`scheduler_state` processing 1); the rerun recorded 8 of 8, its decode
+  identical.
+- bench-gb10-container: round 5's reruns of llama.cpp's warm A and vLLM's gpt-oss-120b A took no
+  `tailscale ping`; the finding marks their path "not taken", with the reason that every ping this
+  session read direct, at 0 to 2 ms.
+- bench-gb10-container: set A's embedding note landed as coordinator PR #103 (branch
+  `plan-hosting-set-a-embedding`), worded to what vLLM #60847 and the run show.
+- bench-gb10-container: gb10-1 left with vLLM serving its pin and llama.cpp stopped. Supersedes
+  "gb10-1 left with llama.cpp serving gpt-oss-120b and vLLM stopped on its pin".
 
 ## Pending edits
 

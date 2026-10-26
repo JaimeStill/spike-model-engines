@@ -73,7 +73,8 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
   llama.cpp's and vLLM's are written.
 - **Served-load findings:** GuideLLM runs under `docs/findings/`.
   `bench-gb10-container.md` compares both engines on gb10-1 in containers by shape, quantization,
-  concurrency, vision, ASR, and embeddings, with each method's commands. The anchor cells later
+  concurrency, vision, ASR, and embeddings (granite-embedding-english-r2 on both engines), with
+  each method's commands. The anchor cells later
   tasks rerun are first in `llama-gb10-container.md` for llama.cpp and `vllm-gb10-container.md`
   for vLLM.
 - **Raw backend findings:** llama-bench pp/tg per llama.cpp backend.
@@ -154,6 +155,10 @@ The practices every task on the GB10s follows, each with its reason:
 - **Warm-up.** Send each model one request before its first cell. A cold first request raised
   llama.cpp's anchor A's TTFT p95 from 436 to 735 ms, with decode unchanged
   ([bench-gb10-container](../docs/findings/bench-gb10-container.md#walkthrough)).
+- **Embeddings normalize differently.** llama.cpp returns each embedding at unit length by
+  default; vLLM returns granite-embedding-english-r2's unnormalized, of norm about 30, since the
+  model ships no normalization. A client that takes a dot product as a cosine normalizes vLLM's
+  embeddings first ([vLLM's API](../docs/engines/vllm/api.md#embeddings)).
 - **Store-only loads.** llama.cpp's preset sets `offline = true`, so a load never downloads. vLLM
   has no such guard: a start fetches any small file missing from the store without a word, as
   gpt-oss-120b's did for three JSON files from `original/`. Stage every file a model's start reads

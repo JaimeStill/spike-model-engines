@@ -601,10 +601,10 @@ engines/engines vllm update
 
 The amendment at round 5 moves the embedding cell to granite-embedding-english-r2 on both
 engines, and reruns the two cells the record left open: llama.cpp's anchor A, which the
-walkthrough ran cold, and vLLM's gpt-oss-120b A, which GuideLLM recorded 7 of 8 requests of. The
-steps start from the state the walkthrough left, llama.cpp serving gpt-oss-120b and vLLM stopped
-on its pin, and each lists only the commands that ran, which are the method's sections above
-unless written out here. No step ran the once-before sections.
+walkthrough ran cold, and vLLM's gpt-oss-120b A, for which GuideLLM recorded 7 of 8 requests.
+The steps start from the state the walkthrough left, llama.cpp serving gpt-oss-120b and vLLM
+stopped on its pin. Each lists only the commands that ran: the method's sections above, unless
+written out here. No step ran the once-before sections.
 
 llama.cpp, on the laptop with `GUIDELLM__SPEC__BACKEND__TARGET` set to `http://gb10-1:8080`:
 
@@ -961,22 +961,22 @@ the GB10's SM121. This task ran only the row's default backend, Triton; vLLM's i
 [#60847](https://github.com/vllm-project/vllm/issues/60847) reports the others:
 
 - Triton's encoder attention, run here, needs 160 KiB of shared memory, and SM121 has 99 KiB.
-  The row crash-looped at step 7: `/health` never answered 200 within the 10 minutes, the container had
-  restarted 12 times by 19:36Z, and its log ended in `_forward_encoder_attention`, then
-  `context_attention_fwd`:
+  The row crash-looped at step 7: `/health` never answered 200 within the 10 minutes, the
+  container had restarted 12 times by 19:36Z, and its log ended in `_forward_encoder_attention`,
+  then `context_attention_fwd`:
 
   ```text
   triton.runtime.errors.OutOfResources: out of resource: shared memory, Required: 163840, Hardware limit: 101376
   ```
 
-- `FLASH_ATTN` doesn't support its head size, and `FLASHINFER` doesn't support encoder-only
-  attention, a GB10 user reports there, so Triton is its only path on SM121.
-- `FLEX_ATTENTION` fails too, by the issue's report and on an RTX PRO 6000 Blackwell (SM120);
-  no one reports it on SM121.
+- A GB10 user reports there that `FLASH_ATTN` doesn't support its head size and `FLASHINFER`
+  doesn't support encoder-only attention, which leaves Triton as its only path on SM121.
+- The issue reports `FLEX_ATTENTION` failing too, and on an RTX PRO 6000 Blackwell (SM120); no
+  one reports it on SM121.
 
 The issue's proposed fixes, [#60631](https://github.com/vllm-project/vllm/pull/60631),
 [#60848](https://github.com/vllm-project/vllm/pull/60848), and
-[#60942](https://github.com/vllm-project/vllm/pull/60942) were open, unmerged. EmbeddingGemma 2
+[#60942](https://github.com/vllm-project/vllm/pull/60942), were open, unmerged. EmbeddingGemma 2
 was struck from the spike's model set, granite-embedding-english-r2 taking its place on both
 engines, and its two repositories were removed from `/srv/models` on gb10-1, a dry run first:
 
@@ -1106,9 +1106,9 @@ footprint is near the reservation whatever the model; granite's pooling row rese
   captured output of each start's log read-out; the logs themselves went with their containers,
   since each switch replaces the container. Step 5's graph capture logged −0.08 GiB, a negative
   figure, as vLLM printed it.
-- The round 5 starts' graphs are each one figure, as vLLM printed them. Their KV cache tokens and
-  consumed memory come from each start's printout (gpt-oss-120b's) and the pin's running
-  container's log (`docker logs vllm 2>&1 | grep -E "KV cache size|Free memory on device"`).
+- The round 5 starts' CUDA graphs are each one figure, as vLLM printed them. Their KV cache
+  tokens and consumed memory come from gpt-oss-120b's start printout and, for the pin, from its
+  running container's log (`docker logs vllm 2>&1 | grep -E "KV cache size|Free memory on device"`).
   granite's row has no KV cache: a pooling model reserves none.
 - Step 1's start compiled afresh: its log had no `Directly load the compiled graph` line. It also
   logged `Free memory on device` (113.76 of 121.63 GiB at startup) on a start that succeeded.
@@ -1234,8 +1234,8 @@ still the steps'.
 
 The round 5 runs reran A warm, its last row above, under its own name,
 `.state/bench/llama-anchor-a-warm.*` ([The round 5 runs](#the-round-5-runs)): gpt-oss-120b loaded
-from a dropped page cache in 47.2 s, warmed with the chat completion, then A, 41.59 s. The warm-up
-explains the walkthrough's 735 ms p95. Warm, TTFT's p95 fell to 478 ms, near step 1's 436, the
+from a dropped page cache in 47.2 s, warmed with the chat completion, then A, 41.59 s. The
+missing warm-up explains the walkthrough's 735 ms p95. Warm, TTFT's p95 fell to 478 ms, near step 1's 436, the
 prompt rate rose to 1533.0 tok/s, near step 1's 1528.0, and the server computed 4,138 prompt
 tokens, step 1's count, where the cold run computed 4,198. Decode is the same warm or cold, 53.0
 tok/s on the server and an ITL of 18.62 against 18.63 ms.
@@ -1278,13 +1278,13 @@ vLLM's steps from 18:39Z to 19:57Z and its round 5 runs from 21:12Z to 21:29Z.
   cosine needs vLLM's normalized first ([Embeddings](#embeddings)).
 - **EmbeddingGemma 2 is out of the spike.** vLLM v0.32.0 didn't serve it on SM121: Triton's
   encoder attention ran out of shared memory, and vLLM #60847 reports no other backend that works
-  there, its fixes unmerged; it was struck from the model set and
-  removed from the store ([Engine limits](#engine-limits)).
-- **The open runs closed.** llama.cpp's anchor A, rerun warm, put TTFT's p95 at 478 ms against the
-  walkthrough's cold 735, so the warm-up explains the cold run's ([Walkthrough](#walkthrough)).
-  vLLM's gpt-oss-120b A, rerun, recorded 8 of 8: the first run's 7 was GuideLLM finalizing with
-  the 8th request in flight, and its decode was the rerun's, 35.0 tok/s on the server
-  ([Shapes](#shapes)).
+  there, its fixes unmerged. It was struck from the model set and removed from the store
+  ([Engine limits](#engine-limits)).
+- **Both open runs are explained by reruns.** llama.cpp's anchor A, rerun warm, put TTFT's p95
+  at 478 ms against the walkthrough's cold 735, so the missing warm-up explains the cold run's
+  ([Walkthrough](#walkthrough)). vLLM's gpt-oss-120b A, rerun, recorded 8 of 8: the first run's 7
+  was GuideLLM finalizing with the 8th request in flight, and its decode was the rerun's, 35.0
+  tok/s on the server ([Shapes](#shapes)).
 - **Quantization pairs.** On E4B at 1 stream, llama.cpp's QAT Q4_0 generated 66.1 tok/s against
   Q8_0's 42.6, and vLLM's QAT w4a16 52.7 against BF16's 19.8.
 - **vLLM's footprint is its reservation; llama.cpp's is the model's.** vLLM reserves 0.80 of the
