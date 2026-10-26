@@ -1,6 +1,6 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** brief ready
+- **State:** building
 - **Task:** bench-gb10-container
 - **Branch:** bench-gb10-container
 
@@ -139,7 +139,7 @@ Door
 
 ## Progress
 
-slices 4/4 committed · standards ✓ (4dab334, 5b31a8d, b0d25ba) · spec ✓ after one round (gaps closed in f9a6c5b, d2f3f41) · editor ✓
+slices 4/4 committed · standards ✓ (4dab334, 5b31a8d, b0d25ba) · spec ✓ after one round (gaps closed in f9a6c5b, d2f3f41) · editor ✓ · redirected at the brief (2026-10-26): an embedding model clean on both engines; back to PLAN, round 5
 
 ## Decisions
 
