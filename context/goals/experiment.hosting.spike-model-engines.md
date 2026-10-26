@@ -137,9 +137,22 @@ Door
   the guides' delete procedures, the coordinator PR by a later plan or
   retro.
 
+Amended at round 5 (2026-10-26), after the architect's redirect at the brief:
+  10. Embeddings are measured on granite-embedding-english-r2, BF16 on both engines (the same
+      weights): 512-token inputs at 1 and 16 streams, 30 s each, a clean start and run on each.
+  15. The embeddings probe moves to granite-embedding-english-r2 on both engines.
+  22. EmbeddingGemma 2 leaves the spike's model set (llama.cpp's preset, vLLM's row, both guides,
+      the store) and stays only as a dated engine-limit note in the finding.
+  23. The coordinator records that set A's embedding model should no longer be EmbeddingGemma 2,
+      with granite-embedding-english-r2 as the model both engines serve, landed from this
+      session as a coordinator PR.
+  24. The finding has no open run: llama.cpp's anchor A reruns warm beside the walkthrough's cold
+      run; vLLM's gpt-oss-120b cell A reruns with GuideLLM's per-request output kept; every "not
+      recorded" figure is filled or marked "not kept" with its reason.
+
 ## Progress
 
-slices 4/4 committed · standards ✓ (4dab334, 5b31a8d, b0d25ba) · spec ✓ after one round (gaps closed in f9a6c5b, d2f3f41) · editor ✓ · redirected at the brief (2026-10-26): an embedding model clean on both engines; back to PLAN, round 5
+slice 5 (round 5 amendment) in progress · slices 1–4 committed · standards ✓ · spec ✓ · editor ✓ (before the amendment)
 
 ## Decisions
 
@@ -390,6 +403,22 @@ slices 4/4 committed · standards ✓ (4dab334, 5b31a8d, b0d25ba) · spec ✓ af
   later coordinator change; it isn't this task's.
 - bench-gb10-container: gb10-1 left with llama.cpp serving gpt-oss-120b and vLLM stopped on its
   pin.
+
+- bench-gb10-container: embeddings on granite-embedding-english-r2 (IBM, Apache-2.0, ModernBERT,
+  head size 64), BF16 on both engines; rejected EmbeddingGemma 2, which can't run on vLLM v0.32.0
+  on SM121 under any backend (Triton encoder kernel 160 KiB shared memory against 99 KiB; FA2 has
+  no head size 512; FlashInfer has no encoder-only attention; FLEX_ATTENTION fails at start;
+  vLLM #60847, fixes #60631/#60848/#60942 unmerged), and harrier-oss-v1-270m (community GGUFs
+  only). Architect's redirect at the brief: no gap in the finding.
+- bench-gb10-container: llama.cpp's embedding cell reruns on granite so both engines pair.
+- bench-gb10-container: EmbeddingGemma 2 struck from the spike's model set, kept as a dated
+  engine-limit note; at the architect's request, it should no longer be set A's embedding model
+  (a coordinator note; spike-model-hosting and spike-ai-pipeline are not this spike's to change).
+  Supersedes "vLLM's EmbeddingGemma 2 row kept".
+- bench-gb10-container: the finding's cleanup covers the walkthrough's cold anchor A (rerun
+  warm), vLLM's gpt-oss A 7 of 8 (rerun, cell A alone, per-request output kept), and the "not
+  recorded" figures; vLLM transcription on paper, the NVFP4 cause, and vLLM's offline guard stay
+  where the record put them.
 
 ## Pending edits
 
