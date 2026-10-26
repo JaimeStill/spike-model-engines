@@ -1,14 +1,14 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** brief ready
-- **Task:** bench-gb10-container
-- **Branch:** bench-gb10-container
+- **State:** idle
+- **Task:** none
+- **Branch:** none
 
 ## Tasks
 
 1. [x] llama-gb10-container
 2. [x] vllm-gb10-container
-3. [ ] bench-gb10-container
+3. [x] bench-gb10-container
 4. [ ] llama-gb10-native
 5. [ ] vllm-gb10-native
 6. [ ] llama-strix-rocm
@@ -150,9 +150,6 @@ Amended at round 5 (2026-10-26), after the architect's redirect at the brief:
       run; vLLM's gpt-oss-120b cell A reruns with GuideLLM's per-request output kept; every "not
       recorded" figure is filled or marked "not kept" with its reason.
 
-## Progress
-
-slices 5/5 committed (round 5: 2a6ed66, 4fd0b1d, 6761fd3, 043b043) · standards ✓ (round 5: 7865edc) · spec ✓ after one round (round 5 gaps closed in 043b043) · editor ✓
 
 ## Decisions
 
