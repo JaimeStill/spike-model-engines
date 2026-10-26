@@ -12,16 +12,16 @@ engines/engines vllm update
 `update` pulls the pinned image, replaces the `vllm` container with one running it on the pin's
 default row, and removes every other vLLM image, so only the pinned image remains. With
 `VLLM_MODEL=<row id>` before it, it serves that row instead, for one run
-([Models](models.md#serving-another-row-for-one-run)); without, it returns to the default. It compares the
-container's whole command with the pin's, so it replaces the container when its image, its model,
-or any server flag differs; when only a flag differs, the image is already the pin's, and it
-replaces the container without pulling. It pulls before it removes anything, so a failed pull
-leaves the old release serving. When `vllm` already runs the pinned release and the row's model and flags,
-and no other vLLM image is left, it changes nothing and says so; when that `vllm` is stopped, it
-says `docker start vllm` starts it, and leaves it stopped. It fails,
-changing nothing, when vLLM isn't installed, when `VLLM_MODEL` names no row, or while
-llama.cpp's `llama` runs, and, before it
-pulls, when `/srv/models` is missing or the host has no tailnet IPv4 address.
+([Models](models.md#serving-another-row-for-one-run)); without, it returns to the default. It
+compares the container's whole command with the row's, so it replaces the container when its
+image, its model, or any server flag differs; when the image is already the pin's, as when only
+the row changes, it replaces the container without pulling. It pulls before it removes anything,
+so a failed pull leaves the old release serving. When `vllm` already runs the pinned release and
+the row's model and flags, and no other vLLM image is left, it changes nothing and says so; when
+that `vllm` is stopped, it says `docker start vllm` starts it, and leaves it stopped. It fails,
+changing nothing, when vLLM isn't installed, when `VLLM_MODEL` names no row, or while llama.cpp's
+`llama` runs, and, before it pulls, when `/srv/models` is missing or the host has no tailnet IPv4
+address.
 
 The new container starts cold. Follow its log until `Application startup complete.`, then time
 and record the cold start as [Setup](setup.md#6-watch-the-cold-start-and-record-it) shows:
@@ -60,8 +60,7 @@ record; the second may compile again, under the new release.
 
 The pin is `engines/vllm.env`: `VLLM_RELEASE`, the latest GitHub release, from which
 `VLLM_IMAGE` follows, and `VLLM_MODEL`, the row of `engines/vllm-rows` the server serves by
-default. On the laptop,
-`mise run currency` reports when a newer release is out:
+default. On the laptop, `mise run currency` reports when a newer release is out:
 
 ```sh
 mise run currency
@@ -72,5 +71,5 @@ Edit `VLLM_RELEASE` in `engines/vllm.env` to it, and the pin this guide quotes t
 [README](README.md), the image and its `--version` output in
 [Setup](setup.md#2-prove-the-pinned-image-runs-on-the-gpu), and the version in
 [API](api.md#version). A new default row edits `VLLM_MODEL` instead
-([Models](models.md#adding-a-row-or-moving-the-default)). Commit and push; then, on each host, `git pull` and
-`engines/engines vllm update`.
+([Models](models.md#adding-a-row-or-moving-the-default)). Commit and push; then, on the host,
+`git pull` and `engines/engines vllm update`.

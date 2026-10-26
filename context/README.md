@@ -93,8 +93,7 @@ The tasks, in the order they run; each cites the evidence it proves.
    4, 5). Its plan round takes up one question from vllm-gb10-container: vLLM's A' decoded at 30
    tok/s on a 4B-active model, with Triton attention (FA4 not available) and a BF16 KV cache
    named in the log, so whether one diagnostic A' rerun changing one of them precedes the
-   comparison. A' reruns as vLLM's anchor from a
-   confirmed warm start.
+   comparison. A' reruns as vLLM's anchor from a confirmed warm start.
 4. `llama-gb10-native`: llama.cpp native under systemd on gb10-1, llama-bench, anchor cells
    against the container (evidence 1, 6).
 5. `vllm-gb10-native`: vLLM's aarch64 wheel natively on gb10-1, anchor cells against the

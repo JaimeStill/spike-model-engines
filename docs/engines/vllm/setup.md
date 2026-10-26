@@ -78,10 +78,9 @@ engines/engines vllm install
 
 `install` pulls the pinned image and starts one container, `vllm`, running `vllm serve` on the
 pin's default row, `gemma-4-26B-A4B-NVFP4`: the model `nvidia/Gemma-4-26B-A4B-NVFP4` and its
-server flags. It runs as your account, with `--restart
-unless-stopped`, so Docker starts it again after a reboot, and publishes port 8000 on the host's
-tailnet IPv4 address only. The row's flags are in `engines/vllm-rows`
-([Models](models.md#the-rows)):
+server flags. It runs as your account, with `--restart unless-stopped`, so Docker starts it again
+after a reboot, and publishes port 8000 on the host's tailnet IPv4 address only. The row's flags
+are in `engines/vllm-rows` ([Models](models.md#the-rows)):
 
 | Flag | Value | Why |
 |---|---|---|

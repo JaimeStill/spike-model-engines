@@ -202,8 +202,9 @@ Xet off, and its high-performance mode with it, for that download alone, such as
 ```sh
 HF_HUB_DISABLE_XET=1 stage ggml-org/gemma-4-E4B-it-GGUF --include gemma-4-E4B-it-Q8_0.gguf --include mmproj-gemma-4-E4B-it-Q8_0.gguf
 ```
- When every check passes, `rm -r ~/prestage`
-removes the logs; a new shell starts without the exports and `stage`.
+
+When every check passes, `rm -r ~/prestage` removes the logs; a new shell starts without the
+exports and `stage`.
 
 ## The host's address on the laptop
 
@@ -232,8 +233,8 @@ update or a reboot, unloads every model, so load it again after one.
 
 The preset's `offline = true` keeps the router from downloading anything, so this and the next
 section apply only to a preset without it, which lets a load download its model. On the host, the
-store grows by about 60 GiB as the files arrive, and the router's log shows the
-download and then the load:
+store grows by about 60 GiB as the files arrive, and the router's log shows the download and then
+the load:
 
 ```sh
 du -sh /srv/models

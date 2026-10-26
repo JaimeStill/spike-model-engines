@@ -39,9 +39,8 @@ the same weights for OpenAI's reference and Metal implementations, which vLLM do
 | embedding, BF16 | `google/embeddinggemma-2` | 1.53 GB |
 | MoE, MXFP4 | `openai/gpt-oss-120b` | 65.28 GB, without `original/` and `metal/` |
 
-The w4a16 models are Google's quantization-aware trained ones. The sizes are the
-repositories', from Hugging Face's API.
-The pinned model is already in the store, from its first download.
+The w4a16 models are Google's quantization-aware trained ones. The sizes are the repositories',
+from Hugging Face's API. The pinned model is already in the store, from its first download.
 
 ## The first download
 
@@ -132,7 +131,8 @@ and the GB10's SM121 has 99 KiB (`OutOfResources: out of resource: shared memory
 
 A row's id is its repository's name without the organization, with a suffix for a second row of
 the same model. The container's command is the row's model, `--host 0.0.0.0 --port 8000`, then
-the row's flags, which `docker inspect` shows ([Update](update.md#moving-to-the-pinned-release-or-model)).
+the row's flags, which `docker inspect` shows
+([Update](update.md#moving-to-the-pinned-release-or-model)).
 
 ### Serving another row for one run
 
@@ -179,7 +179,7 @@ exported one would keep naming its row for every later command in that shell.
 A new model is a new row in `engines/vllm-rows`, and moving the default is an edit of
 `VLLM_MODEL` in `engines/vllm.env`, with the model this guide, [Setup](setup.md), and
 [API](api.md) quote to match. A Gemma 4 row takes the default row's parser flags; a model of
-another family takes its own. Commit and push; then, on each host, `git pull` and
+another family takes its own. Commit and push; then, on the host, `git pull` and
 `engines/engines vllm update` ([Update](update.md#moving-to-the-pinned-release-or-model)). A
 model the store lacks downloads on its first start, a cold start to record, and an old model
 stays in the store until it is deleted ([Uninstall](uninstall.md#deleting-the-model)).
