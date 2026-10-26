@@ -122,7 +122,7 @@ sent inline as base64:
 ```sh
 mkdir -p .state/probe
 curl -sL -o .state/probe/test-1.jpeg "https://raw.githubusercontent.com/ggml-org/llama.cpp/b11669/tools/mtmd/test-1.jpeg"
-jq -n --arg img "$(base64 -w 0 .state/probe/test-1.jpeg)" '{"model": "nvidia/Gemma-4-26B-A4B-NVFP4", "messages": [{"role": "user", "content": [{"type": "text", "text": "Describe this image in one sentence."}, {"type": "image_url", "image_url": {"url": ("data:image/jpeg;base64," + $img)}}]}]}' | curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d @- | jq '{content: .choices[0].message.content, usage}'
+base64 -w 0 .state/probe/test-1.jpeg > .state/probe/test-1.b64; jq -n --rawfile img .state/probe/test-1.b64 '{"model": "nvidia/Gemma-4-26B-A4B-NVFP4", "messages": [{"role": "user", "content": [{"type": "text", "text": "Describe this image in one sentence."}, {"type": "image_url", "image_url": {"url": ("data:image/jpeg;base64," + $img)}}]}]}' | curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d @- | jq '{content: .choices[0].message.content, usage}'
 ```
 
 A working surface describes the picture, and `usage.prompt_tokens` counts the image's tokens
