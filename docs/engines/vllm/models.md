@@ -127,14 +127,8 @@ sets its sampling. Beyond those:
 | `granite-embedding-english-r2` | `ibm-granite/granite-embedding-english-r2` | `--runner pooling --max-num-seqs 16` | `/v1/embeddings` only |
 | `gpt-oss-120b` | `openai/gpt-oss-120b` | `--max-num-seqs 16 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai` | 16 sequences, its KV cache the checkpoint's |
 
-EmbeddingGemma 2 doesn't serve on a GB10 at v0.32.0, so no row names it. Its default attention
-backend, Triton, needs 160 KiB of shared memory for its encoder kernel against the GB10's 99 KiB,
-and vLLM's issue reports no other backend that works on SM121: `FLASH_ATTN` doesn't support its
-head size and `FLASHINFER` has no encoder-only attention
-([vLLM #60847](https://github.com/vllm-project/vllm/issues/60847);
-[bench-gb10-container](../../findings/bench-gb10-container.md#engine-limits)).
-granite-embedding-english-r2, a ModernBERT encoder with heads of 64, serves in its place, on
-`FLASH_ATTN`.
+granite-embedding-english-r2, a ModernBERT encoder with heads of 64, runs its encoder-only
+attention on `FLASH_ATTN` on the GB10's SM121.
 
 A row's id is its repository's name without the organization, with a suffix for a second row of
 the same model. The container's command is the row's model, `--host 0.0.0.0 --port 8000`, then

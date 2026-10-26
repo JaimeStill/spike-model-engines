@@ -601,22 +601,48 @@ engines/engines vllm update
 
 The amendment at round 5 moves the embedding cell to granite-embedding-english-r2 on both
 engines, and reruns the two cells the record left open: llama.cpp's anchor A, which the
-walkthrough ran cold, and vLLM's gpt-oss-120b A, which GuideLLM recorded 7 of 8 requests of. Each
-step is the method's sections above, in this order, from the state the walkthrough left: llama.cpp
-serving gpt-oss-120b, vLLM stopped on its pin.
+walkthrough ran cold, and vLLM's gpt-oss-120b A, which GuideLLM recorded 7 of 8 requests of. The
+steps start from the state the walkthrough left, llama.cpp serving gpt-oss-120b and vLLM stopped
+on its pin, and each lists only the commands that ran, which are the method's sections above
+unless written out here. No step ran the once-before sections.
 
-llama.cpp, from [Once, before the first model](#once-before-the-first-model), with
-`GUIDELLM__SPEC__BACKEND__TARGET` set to `http://gb10-1:8080`:
+llama.cpp, on the laptop with `GUIDELLM__SPEC__BACKEND__TARGET` set to `http://gb10-1:8080`:
 
-1. Step 8, on granite: the cold load and its footprint with `model` set to
-   `mrutkows/granite-embedding-english-r2-GGUF:BF16` and `prev` to
-   `ggml-org/gpt-oss-120b-GGUF:MXFP4`, the warm-up with `tok` set to
-   `ibm-granite/granite-embedding-english-r2`, the cell `llama-granite-embed`, its read-outs, and
-   the embeddings probe.
-2. Anchor A, warm: the cold load with `model` set to `ggml-org/gpt-oss-120b-GGUF:MXFP4` and `prev`
-   to granite's section, the warm-up with `tok` set to `openai/gpt-oss-120b`, then A under its own
-   name, so the walkthrough's `.state/bench/llama-anchor-a.*` stay, and its read-outs with `f` and
-   `p` set to `.state/bench/llama-anchor-a-warm`'s:
+1. Step 8, on granite. On gb10-1, every command of
+   [Per model: the cold load and its footprint](#per-model-the-cold-load-and-its-footprint), with
+   `model` set to `mrutkows/granite-embedding-english-r2-GGUF:BF16` and `prev` to
+   `ggml-org/gpt-oss-120b-GGUF:MXFP4`. On the laptop, with `tok` set to
+   `ibm-granite/granite-embedding-english-r2`: the network path, the build, and the embedding
+   warm-up of [Per model: the build and the warm-up](#per-model-the-build-and-the-warm-up):
+
+   ```sh
+   tailscale ping -c 3 gb10-1
+   curl -sG "http://gb10-1:8080/props" --data-urlencode "model=$model" --data-urlencode autoload=false | jq -r .build_info
+   curl -s "http://gb10-1:8080/v1/embeddings" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"input\": \"Say hello in one sentence.\"}" | jq -c '{model, usage}'
+   ```
+
+   Then the cell, `scenario=embed` and `cell=llama-granite-embed`, by
+   [Per cell](#per-cell)'s three commands for every other cell, and
+   [Reading the figures](#reading-the-figures)' client read-out and server read-out, whose `awk`
+   divides by zero here. Then the embedding read-outs, the second with only the prompt lines kept:
+
+   ```sh
+   jq -c '.benchmarks[] | {s: .config.strategy.streams, rps: (.metrics.requests_per_second.successful.mean*10|round/10), in_tok_s: (.metrics.prompt_tokens_per_second.successful.mean|round), lat_ms: (.metrics.request_latency.successful | {median: (.median*1000|round), p95: (.percentiles.p95*1000|round)})}' .state/bench/llama-granite-embed.json
+   diff <(grep -v '^#' .state/bench/llama-granite-embed.before.metrics) <(grep -v '^#' .state/bench/llama-granite-embed.after.metrics) | grep "prompt_"
+   ```
+
+   Last, the embeddings probe from
+   [llama.cpp's API page](../engines/llama.cpp/api.md#probes-of-the-api-surface).
+2. Anchor A, warm. On gb10-1, every command of the cold load and its footprint, with `model` set
+   to `ggml-org/gpt-oss-120b-GGUF:MXFP4` and `prev` to
+   `mrutkows/granite-embedding-english-r2-GGUF:BF16`. On the laptop, only the chat warm-up, no
+   network path or build:
+
+   ```sh
+   curl -s "http://gb10-1:8080/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}]}" | jq '.choices[0].message.content'
+   ```
+
+   Then A under its own name, so the walkthrough's `.state/bench/llama-anchor-a.*` stay:
 
    ```sh
    curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/llama-anchor-a-warm.before.metrics
@@ -624,16 +650,66 @@ llama.cpp, from [Once, before the first model](#once-before-the-first-model), wi
    curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/llama-anchor-a-warm.after.metrics
    ```
 
-vLLM, from [vLLM: once, before the first row](#vllm-once-before-the-first-row), each row switched
-with `verb=row`:
+   Then the client read-out and the server read-out of
+   [Reading the figures](#reading-the-figures), with `f` and `p` set to
+   `.state/bench/llama-anchor-a-warm`'s.
 
-3. Step 7, on granite: the switch and the cold start with `row` set to
-   `granite-embedding-english-r2`, the warm-up with `model` and `tok` set to
-   `ibm-granite/granite-embedding-english-r2`, the cell `vllm-granite-embed`, its read-outs, and the
-   embeddings probe.
-4. gpt-oss-120b's A, rerun alone: the switch and the cold start with `row` set to `gpt-oss-120b`,
-   the warm-up with `model` and `tok` set to `openai/gpt-oss-120b`, then A under its own name,
-   `vllm-gptoss-a-rerun`, and its read-outs:
+vLLM, on the laptop with `GUIDELLM__SPEC__BACKEND__TARGET` set to `http://gb10-1:8000`:
+
+3. Step 7, on granite. On gb10-1, llama.cpp's router stopped and no `vllm` container left
+   running:
+
+   ```sh
+   docker stop llama
+   docker ps --all --filter name=vllm
+   ```
+
+   Then every command of
+   [vLLM: per row, the switch, the cold start, and its footprint](#vllm-per-row-the-switch-the-cold-start-and-its-footprint)
+   but the failed row's two, with `row` set to `granite-embedding-english-r2` and `verb` to `row`,
+   and the attention backend the start logged:
+
+   ```sh
+   docker logs vllm 2>&1 | grep -iE "Using .*backend|attention backend" | head -3
+   ```
+
+   On the laptop, with `model` and `tok` set to `ibm-granite/granite-embedding-english-r2`, the
+   commands of
+   [vLLM: per row, the version and the warm-up](#vllm-per-row-the-version-and-the-warm-up), its
+   warm-up the embedding, its reply on one line:
+
+   ```sh
+   tailscale ping -c 3 gb10-1
+   curl -s "http://gb10-1:8000/version"; echo
+   curl -s "http://gb10-1:8000/v1/models" | jq -c '.data[] | {id, max_model_len}'
+   curl -s "http://gb10-1:8000/v1/embeddings" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"input\": \"Say hello in one sentence.\"}" | jq -c '{model, usage}'
+   curl -s "http://gb10-1:8000/metrics" | grep -E '^vllm:(request_success_total|num_requests_running)'
+   ```
+
+   Then the cell, `scenario=embed` and `cell=vllm-granite-embed`, by
+   [vLLM: per cell](#vllm-per-cell)'s three commands for every other cell, and
+   [vLLM: reading the figures](#vllm-reading-the-figures)' client read-out and server read-out,
+   whose `awk` divides by zero here. Then llama.cpp's embedding read-out on the cell's JSON, and
+   the server read-out's prompt figures alone, with `p` set to `.state/bench/vllm-granite-embed`:
+
+   ```sh
+   jq -c '.benchmarks[] | {s: .config.strategy.streams, rps: (.metrics.requests_per_second.successful.mean*10|round/10), in_tok_s: (.metrics.prompt_tokens_per_second.successful.mean|round), lat_ms: (.metrics.request_latency.successful | {median: (.median*1000|round), p95: (.percentiles.p95*1000|round)})}' .state/bench/vllm-granite-embed.json
+   awk '!/^#/ { k = $1; sub(/\{.*/, "", k); d[k] += (NR == FNR ? -$2 : $2) } END { m = "vllm:"; printf "%d requests; prompt %d tokens, %d from the prefix cache, %.1f tok/s\n", d[m "request_prefill_time_seconds_count"], d[m "prompt_tokens_total"], d[m "prompt_tokens_cached_total"], (d[m "prompt_tokens_total"] - d[m "prompt_tokens_cached_total"]) / d[m "request_prefill_time_seconds_sum"] }' $p.before.metrics $p.after.metrics
+   ```
+
+   Last, the embeddings probe from
+   [vLLM's API page](../engines/vllm/api.md#probes-of-the-api-surface).
+4. gpt-oss-120b's A, rerun alone. On gb10-1, the same commands of the switch, the cold start, and
+   its footprint, with `row` set to `gpt-oss-120b` and `verb` to `row`. On the laptop, with
+   `model` and `tok` set to `openai/gpt-oss-120b`, only the gpt-oss-120b warm-up and the
+   `/metrics` line, no network path, version, or model list:
+
+   ```sh
+   curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}]}" | jq -c '.choices[0].message | {content, reasoning: (.reasoning|tostring|.[0:80])}'
+   curl -s "http://gb10-1:8000/metrics" | grep -E '^vllm:(request_success_total|num_requests_running)'
+   ```
+
+   Then A under its own name, `vllm-gptoss-a-rerun`:
 
    ```sh
    scenario=anchor-a
@@ -643,19 +719,23 @@ with `verb=row`:
    curl -s "http://gb10-1:8000/metrics" > .state/bench/$cell.after.metrics
    ```
 
+   Then the client read-out and the server read-out of
+   [vLLM: reading the figures](#vllm-reading-the-figures), with `f` and `p` set to the cell's.
    GuideLLM 0.8.1's JSON keeps every request whole, its timings, tokens, and output, under
    `.benchmarks[].requests`, grouped as `successful`, `incomplete`, and `errored`, since the
    cells leave its sample size unset, which keeps them all. The scheduler's own counts are beside
    them, under `.benchmarks[].scheduler_state`. The JSON is the per-request output kept, and this
-   read-out prints one line a request, then the scheduler's counts, to set beside the server's
-   `request_decode_time_seconds_count`:
+   read-out, the step's last command, prints one line a request, then the scheduler's counts, to
+   set beside the server's `request_decode_time_seconds_count`:
 
    ```sh
    jq -c '.benchmarks[] | (.requests | {successful, incomplete, errored} | to_entries[] | .key as $status | (.value // [])[] | {status: $status, request_id, start: .request_start_time, end: .request_end_time, prompt_tokens, output_tokens}), (.scheduler_state | {created_requests, processed_requests, processing_requests, successful_requests, errored_requests, cancelled_requests})' .state/bench/vllm-gptoss-a-rerun.json
    ```
 
-5. Back to the default row: [vLLM: back to the default](#vllm-back-to-the-default), with
-   `verb=default` and `row` unset, its start timed and its footprint read.
+5. Back to the default row. On gb10-1, the same commands of the switch, the cold start, and its
+   footprint, with `verb=default` and `row` unset. No warm-up and no network path followed, and
+   neither did [vLLM: back to the default](#vllm-back-to-the-default)'s `/version`, `/v1/models`,
+   or second update.
 
 ### Run times
 
@@ -1051,9 +1131,10 @@ layers holding 128 tokens each; about 30 GiB is left for it and the activations.
 | Engine | Model | `tailscale ping` | Build |
 |---|---|---|---|
 | llama.cpp | each model, steps 1 to 8; granite at round 5 | direct, 0 to 2 ms; granite's 1 ms | `/props` build_info `b11669-620d2225c` |
+| llama.cpp | gpt-oss-120b's warm anchor A, round 5 | not taken: the session ran only the warm-up for it. Every `tailscale ping` the session took, before and after, from 14:08 (-04:00) through 21:13Z, read direct at 0 to 2 ms on the LAN; decode figures don't depend on the path, and TTFT and latency include it | `b11669-620d2225c`: the same container and build, the router unchanged since granite's `/props` at round 5's step 1 |
 | vLLM | each row, steps 1 to 9 | direct, 0 to 2 ms | `/version` `0.32.0` |
 | vLLM | granite's row, round 5 | direct, 1 ms | `/version` `0.32.0` |
-| vLLM | gpt-oss-120b's row and the pin restored, round 5 | not taken: these two ran in the same sitting as granite's, 9 and 14 minutes later, on the same path | not taken: the container runs the pinned image, `vllm/vllm-openai:v0.32.0` |
+| vLLM | gpt-oss-120b's row and the pin restored, round 5 | not taken: the session ran only the warm-up for gpt-oss-120b's row, and nothing on the laptop for the pin's. Every `tailscale ping` the session took, before and after, from 14:08 (-04:00) through 21:13Z, read direct at 0 to 2 ms on the LAN; decode figures don't depend on the path, and TTFT and latency include it | not taken: the container runs the pinned image, `vllm/vllm-openai:v0.32.0` |
 
 ### API probes
 

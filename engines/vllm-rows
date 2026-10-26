@@ -67,8 +67,6 @@ nvidia/Gemma-4-31B-IT-NVFP4
 # which its architecture selects anyway, named so the row says what it serves. A ModernBERT
 # encoder with heads of 64, whose encoder-only attention runs on FLASH_ATTN on the GB10's SM121.
 # 16 sequences, one a stream of the embedding cell's 16. No parsers: it generates nothing.
-# EmbeddingGemma 2 has no row: at v0.32.0 it doesn't start on SM121, and vLLM #60847 reports no
-# attention backend that serves it there.
 [granite-embedding-english-r2]
 ibm-granite/granite-embedding-english-r2
 --runner pooling
