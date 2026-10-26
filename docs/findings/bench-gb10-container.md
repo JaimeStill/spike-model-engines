@@ -734,12 +734,26 @@ vLLM's image carries none of `av`, `soundfile`, `soxr`, or `librosa`, but has `t
 first, so the audio decoded without a derived image, as both cells show. The check, on gb10-1:
 
 ```sh
-docker run --rm --entrypoint python3 vllm/vllm-openai:v0.32.0 -c "import importlib; ..."
-docker run --rm --entrypoint sh vllm/vllm-openai:v0.32.0 -c "command -v ffmpeg"
+docker run --rm --entrypoint python3 vllm/vllm-openai:v0.32.0 -c "
+import importlib
+for m in [\"av\",\"soundfile\",\"soxr\",\"librosa\",\"mistral_common\"]:
+    try:
+        mod=importlib.import_module(m); print(m, getattr(mod,\"__version__\",\"ok\"))
+    except Exception as e: print(m, \"MISSING\", type(e).__name__)
+"
+docker run --rm --entrypoint python3 vllm/vllm-openai:v0.32.0 -c "
+import importlib
+for m in [\"torchcodec\",\"torchaudio\"]:
+    try:
+        mod=importlib.import_module(m); print(m, getattr(mod,\"__version__\",\"ok\"))
+    except Exception as e: print(m, \"MISSING\", type(e).__name__, str(e)[:120])
+"
+docker run --rm --entrypoint sh vllm/vllm-openai:v0.32.0 -c "command -v ffmpeg || echo no-ffmpeg; ls /usr/lib/*/libavcodec* 2>/dev/null | head -2"
 ```
 
-The first command tried to import `av`, `soundfile`, `soxr`, `librosa`, `mistral_common`,
-`torchcodec`, and `torchaudio`; the record keeps the module list, not the whole script.
+They printed `av`, `soundfile`, `soxr`, and `librosa` as `MISSING ModuleNotFoundError`,
+`mistral_common 1.12.0`, `torchcodec 0.17.0+cu130`, `torchaudio 2.11.0+cu130`, `/usr/bin/ffmpeg`,
+and `libavcodec.so.60`.
 
 ### Concurrency sweep
 
