@@ -12,7 +12,7 @@ The architecture pages that apply, in the architecture repository:
 ## Scripts
 
 - Only a step that must be idempotent is scripted: install, update, uninstall. Anything else is a
-  documented command the architect types.
+  documented command the session or the architect runs.
 - Scripts are `engines-<group>-<verb>` commands behind one `engines` dispatcher, each with a
   one-line `# engines:summary=` header, run from the clone on each host and never installed.
 - A script is short and does one step; a script that grows past that is split, not extended.
@@ -25,6 +25,6 @@ The architecture pages that apply, in the architecture repository:
   method adds a section, not a file.
 - A guide says how the engine runs now; a finding, under `docs/findings/<task>.md`, says what was
   measured, when, on which engine version and host stack, and stays dated.
-- Every command the architect runs appears in the guide exactly as it is typed. No tailnet
-  identifier is committed, neither an address nor the MagicDNS suffix; hosts go by short name,
-  such as `gb10-1`.
+- Every command a session or the architect runs appears in a guide or the finding's method
+  exactly as run. No tailnet identifier is committed, neither an address nor the MagicDNS
+  suffix; hosts go by short name, such as `gb10-1`.

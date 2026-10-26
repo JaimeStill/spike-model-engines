@@ -1,0 +1,10 @@
+# The download tool the spike runs on a GB10, hf, Hugging Face's command line, and the runtime it
+# needs. It pre-stages models into the shared store (/srv/models) before any engine loads them
+# (docs/engines/llama.cpp/models.md, "Pre-staging models with hf"). It lives in its own
+# environment, not mise.toml, so the laptop's `mise run check` never installs it, and it needs no
+# root. Activate it with MISE_ENV=host, from the clone on the host: `MISE_ENV=host mise install`,
+# then `MISE_ENV=host mise exec -- hf download <repo>`.
+[tools]
+# mise's pipx backend installs huggingface_hub, which provides `hf`, through uv.
+uv = "0.13.5"
+"pipx:huggingface_hub" = "2.3.0"

@@ -1,0 +1,81 @@
+# ASR cell B: gemma-4-E4B's audio through chat, 4 streams sending 32 requests in all, 8 each back
+# to back, one stream per slot of the preset's 4. Each request is one LibriSpeech clip with the
+# model card's transcription prompt, and the reply ends when the model stops, at most 256 tokens.
+# It needs GuideLLM's audio extra (context/README.md, "GuideLLM's extras"). Engine-neutral: the
+# model, its tokenizer, and the JSON's path are given on the command line, and the target in
+# GUIDELLM__SPEC__BACKEND__TARGET (docs/findings/bench-gb10-container.md, "Method"). Run from the
+# repository root.
+spec:
+  backend:
+    kind: openai_http
+    request_format: /v1/chat/completions
+    # A transcript is as long as its clip, so no request sets output tokens or ignore_eos; this
+    # caps each reply, sent as max_completion_tokens, should the model not stop.
+    max_tokens: 256
+  profile:
+    kind: concurrent
+    streams: 4
+  # The two sources are read side by side, one row of each a request, and the run stops when
+  # either runs out. Source 0 is the prompt, from Gemma 4's card ("Transcribe the following speech
+  # segment in {LANGUAGE} into {LANGUAGE} text. ... Only output the transcription, with no
+  # newlines."), once a request. Source 1 is hf-internal-testing/librispeech_asr_dummy, 73 clips
+  # from LibriSpeech's clean validation split, about 9 MB fetched once from Hugging Face; the 32
+  # the cells read run 1.7 to 29.4 s, within the card's 30-second audio limit.
+  data:
+    - kind: in_memory_dict
+      data:
+        prompt:
+          - &prompt "Transcribe the following speech segment in English into English text. Only output the transcription, with no newlines."
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+          - *prompt
+    - kind: huggingface
+      source: hf-internal-testing/librispeech_asr_dummy
+      load_kwargs:
+        name: clean
+        split: validation
+  # Only the prompt and the clip: LibriSpeech's own text column is the reference transcript, which
+  # the mapper's defaults would otherwise send as the prompt.
+  data_column_mapper:
+    kind: generative_column_mapper
+    column_mappings:
+      text_column: 0.prompt
+      audio_column: 1.audio
+  # Every clip re-encoded as 16 kHz mono WAV, which both engines' input_audio accepts; the source
+  # is FLAC, which llama.cpp's doesn't.
+  data_preprocessors:
+    - kind: encode_media
+      audio_kwargs:
+        audio_format: wav
+        encode_sample_rate: 16000
+  constraints:
+    - kind: max_requests
+      count: 32

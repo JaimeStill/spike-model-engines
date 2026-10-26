@@ -1,0 +1,24 @@
+# Concurrency sweep: gpt-oss-120b on 16 slots, 512 synthetic prompt tokens and exactly 256 output
+# tokens a request, at 1, 4, 16, and 32 streams, each level sending requests back to back for 60 s:
+# four benchmarks in one run, one JSON. At 32 streams half the requests wait for a slot, which is
+# what the sweep records past the slots. Engine-neutral: the model, its tokenizer, and the JSON's
+# path are given on the command line, and the target in GUIDELLM__SPEC__BACKEND__TARGET
+# (docs/findings/bench-gb10-container.md, "Method"). GuideLLM sends max_completion_tokens with
+# ignore_eos whenever output_tokens is set, so every request generates its full 256. Run from the
+# repository root.
+spec:
+  backend:
+    kind: openai_http
+    request_format: /v1/chat/completions
+  profile:
+    kind: concurrent
+    streams: [1, 4, 16, 32]
+  data:
+    - kind: synthetic_text
+      prompt_tokens: 512
+      output_tokens: 256
+  # A level stops sending at 60 s; the requests then in flight are cancelled and counted
+  # incomplete, so each level's figures cover its 60 s.
+  constraints:
+    - kind: max_duration
+      seconds: 60

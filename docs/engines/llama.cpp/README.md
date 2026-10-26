@@ -1,7 +1,7 @@
 # llama.cpp
 
 llama.cpp serves GGUF models through `llama-server`, an OpenAI-compatible HTTP server. This spike
-runs it on the GB10s in ggml's CUDA 13 server image first, and natively later. In the container,
+runs it on gb10-1 in ggml's CUDA 13 server image first, and natively later. In the container,
 one `llama-server` runs in router mode: it holds no model itself, and loads each model named in
 its models preset, as a child process, when asked over its API. The router loads models on
 demand, so one server serves every model in the preset.
@@ -12,7 +12,7 @@ in `engines/llama.env`: release v0.7.0, build b11669, image
 newer semver release names a newer one.
 
 The `engines` commands install, update, and uninstall it. They run from a clone of this
-repository on each host, as `engines/engines llama <verb>`:
+repository on the host, as `engines/engines llama <verb>`:
 
 | Command | What it does |
 |---|---|
@@ -25,10 +25,11 @@ install and update refuse while vLLM's `vllm` container runs ([vLLM](../vllm/REA
 
 ## Pages
 
-- [Setup](setup.md): bring a host current, record its stack, prove the image, and install.
-- [Models](models.md): the preset, loading a model, watching or cancelling its download, copying
-  it to the other GB10, and listing models.
+- [Setup](setup.md): bring a host current, record its stack, prove the image, install, and allow
+  the session's page-cache drop.
+- [Models](models.md): the preset, pre-staging every model with hf, loading a model, watching or
+  cancelling its download, copying it to gb10-2 under a borrow, and listing models.
 - [API](api.md): a chat completion from the laptop, `/health`, `/v1/models`, the build a model
   runs (`/props`), and `/metrics`.
 - [Update](update.md): moving to the pinned build, and how the pin moves.
-- [Uninstall](uninstall.md): removing llama.cpp, and deleting models.
+- [Uninstall](uninstall.md): removing llama.cpp, and deleting models, with hf or by hand.

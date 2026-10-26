@@ -1,0 +1,82 @@
+# vLLM's rows: one a model the server can serve, each the model and its server flags, named by
+# the pin (VLLM_ROWS in vllm.env). The pin's VLLM_MODEL names the row the host serves by default;
+# `VLLM_MODEL=<row id> engines/engines vllm update` serves another for one run
+# (docs/engines/vllm/models.md, "Changing the model").
+#
+# A row is its id in brackets, then the model's Hugging Face repository, then its server flags,
+# over as many lines as read well. vllm.sh puts --host and --port after the model, so a row never
+# names them. An id is the repository's name without its organization, with a suffix for a second
+# row of the same model; each is unique. No flag or value holds a space or a #, since the served
+# command is compared joined with spaces and # starts a comment.
+#
+# Every row reserves 0.80 of the GB10's memory, which leaves the rest to the host it shares it
+# with, and serves sequences of 8192 tokens, as each of llama.cpp's slots. The model's own
+# generation config sets its sampling (vLLM's default, --generation-config auto). Gemma 4's rows
+# hold 4 sequences, mirroring llama.cpp's 4 slots; keep a BF16 KV cache, since the NVFP4
+# checkpoints declare a static FP8 one but ship no calibrated k/v scales, so vLLM would quantize it
+# with a scale of 1.0, and every Gemma 4 row matches them; and use Gemma 4's own reasoning and
+# tool-call parsers. Their vision encoder loads (no --language-model-only), and E4B's and 12B's
+# audio encoder too: vLLM allows every modality the model has without --limit-mm-per-prompt.
+
+# The pin: Gemma 4 26B-A4B, MoE, NVIDIA's NVFP4. The anchors A' and B', and vision.
+[gemma-4-26B-A4B-NVFP4]
+nvidia/Gemma-4-26B-A4B-NVFP4
+--max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.80
+--kv-cache-dtype bfloat16
+--reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
+
+# The FlashInfer diagnostic: the pin's row on FlashInfer attention, text-only. Without a backend
+# named, vLLM forces Triton for Gemma 4's mixed head sizes on the GB10, where FA4 isn't available;
+# --language-model-only leaves the vision encoder out, so only the text model's attention runs.
+[gemma-4-26B-A4B-NVFP4-flashinfer]
+nvidia/Gemma-4-26B-A4B-NVFP4
+--max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.80
+--kv-cache-dtype bfloat16
+--reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
+--attention-backend FLASHINFER --language-model-only
+
+# Gemma 4 E4B, dense small, BF16.
+[gemma-4-E4B-it]
+google/gemma-4-E4B-it
+--max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.80
+--kv-cache-dtype bfloat16
+--reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
+
+# Gemma 4 E4B, Google's quantization-aware trained w4a16: the quantization pair beside BF16.
+[gemma-4-E4B-it-qat-w4a16-ct]
+google/gemma-4-E4B-it-qat-w4a16-ct
+--max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.80
+--kv-cache-dtype bfloat16
+--reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
+
+# Gemma 4 12B, dense mid, Google's QAT w4a16.
+[gemma-4-12B-it-qat-w4a16-ct]
+google/gemma-4-12B-it-qat-w4a16-ct
+--max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.80
+--kv-cache-dtype bfloat16
+--reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
+
+# Gemma 4 31B, dense large, NVIDIA's NVFP4; it declares the static FP8 KV cache too.
+[Gemma-4-31B-IT-NVFP4]
+nvidia/Gemma-4-31B-IT-NVFP4
+--max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.80
+--kv-cache-dtype bfloat16
+--reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
+
+# IBM's granite-embedding-english-r2, BF16, served for /v1/embeddings only: vLLM's pooling runner,
+# which its architecture selects anyway, named so the row says what it serves. A ModernBERT
+# encoder with heads of 64, whose encoder-only attention runs on FLASH_ATTN on the GB10's SM121.
+# 16 sequences, one a stream of the embedding cell's 16. No parsers: it generates nothing.
+[granite-embedding-english-r2]
+ibm-granite/granite-embedding-english-r2
+--runner pooling
+--max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.80
+
+# OpenAI's gpt-oss-120b in its native MXFP4, at 16 sequences, mirroring llama.cpp's 16-slot
+# section: its anchor-load cells and the concurrency sweep run on this one start. Its KV cache
+# stays the checkpoint's (BF16), and its parsers are gpt-oss's: openai_gptoss for the reasoning,
+# which vLLM would choose for gpt-oss anyway, and openai for the tool calls.
+[gpt-oss-120b]
+openai/gpt-oss-120b
+--max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.80
+--reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai

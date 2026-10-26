@@ -8,13 +8,148 @@
 
 1. [x] llama-gb10-container
 2. [x] vllm-gb10-container
-3. [ ] bench-gb10-container
+3. [x] bench-gb10-container
 4. [ ] llama-gb10-native
 5. [ ] vllm-gb10-native
 6. [ ] llama-strix-rocm
 7. [ ] vllm-strix
 8. [ ] strix-native
 9. [ ] answer
+
+## Task brief · bench-gb10-container
+
+Problem
+  Tasks 1–2 set up llama.cpp and vLLM in containers on gb10-1 but
+  compared nothing. The spike's answer needs both engines measured
+  against each other in one session on the same versions, by shape,
+  quantization, concurrency, and API surface (evidence 2–5), and vLLM's
+  slow decode diagnosed. gb10-2 is now reserved for spike-ai-pipeline,
+  so the spike's notes and guides must stop routing work through it.
+  The architect also asked that routine host steps move to the session
+  and that downloads stop blocking work; the experiment's rules change
+  to allow both before this task runs.
+
+Behaviors
+  1. Currency reports only the held Python (3.14.10, held while torch
+     publishes no cp315 wheels), covers hf's pin, and the check passes.
+  2. New tool, hf: a pinned `hf` from a mise env in the spike's clone on
+     gb10-1 (no root) downloads any Hugging Face repo, or a filtered part
+     of one, into the shared model store. The models guides say what hf
+     is, how it is set up, and what it provides.
+  3. Before any cell or timed load, every model file both engines serve
+     is pre-staged in the store and both engine images are pulled, all in
+     parallel; each pre-staged model then loads without a download.
+  4. A one-time sudoers rule, installed by the architect, lets the
+     session drop the page cache with exactly one fixed command; the
+     setup guide gives its install and removal.
+  5. vLLM serves any model from a per-model row of model and flags,
+     switched by naming the model to update for one run. The pin stays
+     the host's default, install and update keep comparing the whole
+     served command, and one engine still serves per host at a time.
+  6. Before any comparison, the anchors rerun from a confirmed warm
+     start: llama.cpp's A and B (gpt-oss-120b) and vLLM's A' and B'
+     (Gemma 4 26B-A4B NVFP4). An anchor moved beyond run noise is a
+     finding.
+  7. One diagnostic A' rerun on FlashInfer attention, text-only, records
+     whether decode moves from 30 tok/s; a failure to start is the
+     result.
+  8. Each shape is measured on both engines at the anchors' load (512 in
+     / 256 out; 1 × 8 and 4 × 32; dense large 1 × 4 and 4 × 16), or
+     marked unsupported with its reason:
+       shape        model             llama.cpp         vLLM
+       dense small  gemma-4-E4B       Q8_0              BF16
+       dense mid    gemma-4-12B       Google QAT Q4_0   Google QAT w4a16
+       dense large  gemma-4-31B       Google QAT Q4_0   NVIDIA NVFP4
+       MoE          gemma-4-26B-A4B   Google QAT Q4_0   NVIDIA NVFP4
+       MoE          gpt-oss-120b      MXFP4             MXFP4
+  9. Vision on gemma-4-26B-A4B, both engines: one synthetic 720p JPEG +
+     200 text tokens, 64 out, 1 × 8 and 4 × 32.
+  10. Embeddings on EmbeddingGemma 2 (Q8_0 / BF16): 512-token inputs at
+      1 and 16 streams, 30 s each.
+  11. ASR as gemma-4-E4B's audio through chat on both engines, or marked
+      unsupported with its reason.
+  12. Quantization pairs on gemma-4-E4B, single stream 1 × 8: llama.cpp
+      QAT Q4_0 beside Q8_0; vLLM QAT w4a16 beside BF16.
+  13. Concurrency sweep on gpt-oss-120b, both engines, 16 slots, 1/4/16/32
+      streams, 60 s a level; the finding records behavior past the slots.
+  14. Every model's cold load is timed from a dropped page cache, and its
+      footprint recorded from the engine's logged figures plus the host's
+      available memory before and after the load.
+  15. The API surface is probed on both engines, one model per surface:
+      tools, reasoning, Anthropic messages with a tool, and responses on
+      gpt-oss-120b; vision on 26B-A4B; embeddings on EmbeddingGemma 2;
+      transcription on llama.cpp with E4B, and on paper for vLLM (the
+      endpoint exists, not for Gemma 4). Each API page gains its probes.
+  16. The finding sets gemma-4-26B-A4B beside gpt-oss-120b at the same
+      load on both engines in one speed table.
+  17. Every result records the engine version, the host stack, the
+      laptop's path (tailscale ping), and its model state. No run
+      exceeds 10 minutes.
+  18. At the end, vLLM is back on its pin (Gemma 4 26B-A4B NVFP4, anchor
+      flags), which the guides quote.
+  19. The README, Path, practices, and both engine guides read as gb10-1
+      only; the QSFP copy procedures stay, marked for a named borrow.
+  20. The spike's rules, standards, and project instructions state the
+      split: the session runs routine host steps over SSH (downloads and
+      pulls, engine install/update/uninstall, model loads, readiness
+      waits, cold-start timing, log and memory read-outs, health and
+      version checks) and the GuideLLM cells in the architect's view; the
+      architect keeps root, a new tool's or concept's first walk, the
+      final walkthrough, and every escalation's decision; every command
+      either side runs appears in a guide or the finding's method exactly
+      as run.
+  21. The coordinator carries the session split as the experiment's
+      rule, every pending edit this goal owed it, the Gemma 4 tier
+      question for spike-model-benchmarks and spike-model-gateway, and
+      this task's new tool; the goal record's Pending edits is empty.
+
+Test seams
+  Each engine's HTTP API on gb10-1, as GuideLLM and curl call it from the
+  laptop and the finding's read-outs reduce it.
+
+Slices
+  1. Upgrade and the new split (behaviors 1–4, 19–21): Python 3.14.10;
+     hf pinned in the host env, its first download walked by the
+     architect; every model and both images pre-staged in parallel; the
+     architect installs the sudoers rule; notes, guides, standards, and
+     rules edited; the coordinator PR opened. Done when currency reports
+     only held items, the check passes, and every staged model is
+     complete in the store.
+  2. llama.cpp's cells (6, 8–15, 17 on llama.cpp): anchors first; every
+     model loaded from the store, timed from a dropped cache; the probes.
+     Demo: llama.cpp's half of the finding.
+  3. vLLM's cells (5–18), in order: 26B-A4B (A', B', vision); the
+     FlashInfer diagnostic; E4B BF16, E4B w4a16; 12B, 31B; EmbeddingGemma
+     2; gpt-oss-120b at 16 sequences (cells, sweep); back to the pin.
+     Demo: the finding complete, with the comparison table.
+  4. Walkthrough: the architect runs the API probes from each API page
+     and one cell per engine from the finding's method.
+
+Out of scope
+  gb10-2 (no borrow); bare metal and llama-bench; model quality,
+  tiering, and routing (recorded for benchmarks and gateway); co-resident
+  models and layout; Granite Speech and dedicated ASR models; compose,
+  and a derived vLLM image unless an escalation chooses it; tuning beyond
+  the agreed configurations.
+
+Door
+  Two-way: the sudoers rule goes by deleting its file, staged models by
+  the guides' delete procedures, the coordinator PR by a later plan or
+  retro.
+
+Amended at round 5 (2026-10-26), after the architect's redirect at the brief:
+  10. Embeddings are measured on granite-embedding-english-r2, BF16 on both engines (the same
+      weights): 512-token inputs at 1 and 16 streams, 30 s each, a clean start and run on each.
+  15. The embeddings probe moves to granite-embedding-english-r2 on both engines.
+  22. EmbeddingGemma 2 leaves the spike's model set (llama.cpp's preset, vLLM's row, both guides,
+      the store) and stays only as a dated engine-limit note in the finding.
+  23. The coordinator records that set A's embedding model should no longer be EmbeddingGemma 2,
+      with granite-embedding-english-r2 as the model both engines serve, landed from this
+      session as a coordinator PR.
+  24. The finding has no open run: llama.cpp's anchor A reruns warm beside the walkthrough's cold
+      run; vLLM's gpt-oss-120b cell A reruns with GuideLLM's per-request output kept; every "not
+      recorded" figure is filled or marked "not kept" with its reason.
+
 
 ## Decisions
 
@@ -69,8 +204,6 @@
   the walk adds one `git switch`.
 - llama-gb10-container: a model is downloaded once, on gb10-1, and copied to gb10-2 over QSFP with
   rsync (63.4 GB in 1m50s); rejected a second download.
-- llama-gb10-container: Python held at 3.14.9 in mise.bench.toml, since GuideLLM 0.8.1 needs torch
-  and torch 2.14.1 has no cp315 wheels; the latest Python is 3.15.1.
 - llama-gb10-container: hosts go by short name (`gb10-1`, `gb10-2-qsfp`); only tailnet
   addresses and the MagicDNS suffix stay out, matching ai-hosting.md "Visibility".
 - llama-gb10-container: the preset turns on `metrics = true` so each cell differences the server's
@@ -155,30 +288,165 @@
   <name>) instead of "already runs"; both engines, fixed at the architect's request after
   acceptance; rejected starting it, which would change state on a check.
 
+- bench-gb10-container: held python at 3.14.10 in mise.bench.toml: torch 2.14.1, which GuideLLM
+  0.8.1 needs, publishes no cp315 wheels; the latest Python is 3.15.2.
+- bench-gb10-container: one diagnostic A' rerun on FlashInfer attention, text-only
+  (`--attention-backend FLASHINFER --language-model-only`), after A''s warm rerun; rejected no
+  diagnostic and an FP8 KV cache rerun, since at 768 tokens the KV dtype moves few bytes and on
+  SM121 Triton is forced by vision and by vLLM disabling FA4.
+- bench-gb10-container: shapes from the Gemma 4 family on both engines (E4B Q8_0 / BF16; 12B QAT
+  Q4_0 / QAT w4a16; 31B QAT Q4_0 / NVFP4; 26B-A4B QAT Q4_0 with mmproj / NVFP4; EmbeddingGemma 2
+  Q8_0 / BF16), plus gpt-oss-120b MXFP4 on both; rejected separate pool picks per engine.
+  ggml-org's Gemma 4 Q4_0 is quantized from BF16, below the floor; Google's QAT Q4_0 is used.
+- bench-gb10-container: gpt-oss-120b served on vLLM in this task, closing vllm-gb10-container's
+  deferral.
+- bench-gb10-container: every generative shape runs the anchors' load (512/256, 1 x 8 and 4 x 32),
+  halved for the dense large model (1 x 4, 4 x 16); rejected single-stream only.
+- bench-gb10-container: cold loads timed from a dropped page cache; rejected whatever the cache
+  holds, which also skews vLLM's free-memory reading.
+- bench-gb10-container: memory footprint from each engine's logged figures plus MemAvailable
+  before and after the load; rejected the logs alone.
+- bench-gb10-container: vLLM's per-model server flags live beside the model in the pin file, one
+  row a model; rejected keeping them in the engines script.
+- bench-gb10-container: gb10-2's reservation (coordinator PR #99) reaches README, Path, the
+  practices, and both guides; the QSFP copy procedures stay, marked for a named borrow only.
+  Supersedes setup's "install on both GB10s, benchmark on gb10-1 with a cross-check on gb10-2".
+- bench-gb10-container: the walkthrough is the API probes from each API page plus one cell per
+  engine from the finding's method; rejected probes alone.
+- bench-gb10-container: concurrency swept on gpt-oss-120b, both engines, 16 slots, 1/4/16/32
+  streams, 60 s a level; rejected gemma-4-26B-A4B.
+- bench-gb10-container: quantization pairs on gemma-4-E4B, single stream (llama.cpp QAT Q4_0
+  against Q8_0; vLLM QAT w4a16 against BF16); rejected no pairs.
+- bench-gb10-container: a vision cell on gemma-4-26B-A4B, one synthetic 720p JPEG plus 200 text
+  tokens, 64 out, 1 x 8 and 4 x 32, with GuideLLM's vision extra; rejected a probe alone.
+- bench-gb10-container: an embedding cell on EmbeddingGemma 2, 512-token inputs, 1 and 16
+  streams, 30 s each; rejected a probe alone.
+- bench-gb10-container: vLLM's order is 26B-A4B (A', B', vision), the FlashInfer diagnostic, E4B
+  BF16, E4B w4a16, 12B, 31B, EmbeddingGemma 2, gpt-oss-120b at 16 sequences (its cells and the
+  sweep); gpt-oss serves at 16 sequences once, saving a cold start.
+- bench-gb10-container: vLLM's pin ends on Gemma 4 26B-A4B NVFP4 with its anchor flags, so the
+  pin and the anchor stay one thing for vllm-gb10-native.
+- bench-gb10-container: API probes per surface on one model on both engines: tools, reasoning,
+  Anthropic messages with a tool, and responses on gpt-oss-120b; vision on 26B-A4B; embeddings on
+  EmbeddingGemma 2; transcription probed on llama.cpp with E4B and recorded on paper for vLLM,
+  which implements it for Granite Speech, Whisper, and Voxtral but not Gemma 4.
+- bench-gb10-container: the session runs routine host steps on gb10-1 over SSH, without root
+  (downloads and image pulls, engines install, update, and uninstall, model loads, readiness
+  waits, cold-start timing, log and memory read-outs, health and version checks, tailscale ping),
+  and the administrative actions pre-staging brings; rejected the architect typing every host
+  step. At the architect's request (2026-10-26).
+- bench-gb10-container: the session runs GuideLLM cells from the laptop in the architect's view,
+  printing each command first; rejected the architect typing each cell.
+- bench-gb10-container: the architect installs once on gb10-1 a sudoers rule allowing exactly
+  `/usr/sbin/sysctl vm.drop_caches=3` without a password; the setup guide gives its install and
+  removal; rejected the architect typing it before every load.
+- bench-gb10-container: the architect keeps root, a new tool's or concept's first walk, the final
+  walkthrough, and every escalation's decision.
+- bench-gb10-container: the session split lands in the coordinator from this session, on
+  `plan-hosting-session-split` at BUILD's start, with no separate plan session; this Decision
+  governs the spike until it merges. At the architect's request.
+- bench-gb10-container: every command a session or the architect runs on a host appears in a
+  guide or the finding's method exactly as run, and is run from that text; rejected unrecorded
+  diagnostic commands.
+- bench-gb10-container: hf pinned at an exact version, with uv, in a host mise env in the spike's
+  clone on gb10-1, run as `hf download` into /srv/models, and covered by currency; this task's
+  one new tool. Reverses llama-gb10-container's rejection of the hf CLI: it is installed by mise
+  with no root, and works before any engine image is pulled and on llama.cpp-only hosts.
+  Rejected running hf from vLLM's image, at the same download speed.
+- bench-gb10-container: every model file and both images pre-staged in parallel at BUILD's first
+  host step; no cell or timed load runs until all finish; rejected cells on present models
+  during downloads, whose network, disk, and CPU load would add noise.
+- bench-gb10-container: a vLLM model switch names the model to update for one run
+  (`VLLM_MODEL=<id> engines/engines vllm update`), with no commit; the pin stays the host's
+  default and the whole-command comparison stays. Amends vllm-gb10-container's "changing the
+  model means a pin edit and an update". Rejected compose, which saves none of the 4–6 min cold
+  start, can't refuse beside the other engine, and is a new tool, and rejected a commit per
+  switch.
+- bench-gb10-container: ASR measured as gemma-4-E4B's audio through chat on both engines, with
+  GuideLLM's audio extra; rejected Granite Speech 4.1 2B through /v1/audio/transcriptions, which
+  adds a model and a cold start for an endpoint set A's consumers don't use.
+- bench-gb10-container: Gemma 4 as a cheaper chat tier beside gpt-oss-120b goes to
+  spike-model-benchmarks (quality) and spike-model-gateway (routing); this task adds no cells for
+  it, and the finding sets 26B-A4B beside gpt-oss-120b in one speed table.
+- bench-gb10-container: the coordinator PR carries the session split, all six pending edits, the
+  two tier edits, and this task's new tool, emptying Pending edits; rejected the rule change
+  alone.
+- bench-gb10-container: llama.cpp's preset sets `verbosity = 4`: b11669 logs no buffer sizes at
+  its default of 3, so gpt-oss-120b's first load (47.7 s) was redone (47.6 s) to record them.
+- bench-gb10-container: the sweep's levels at 4 streams and more complete only their first wave
+  in 60 s, so the finding reads GuideLLM's `total` output rate and TTFT; the level length stays as
+  agreed.
+- bench-gb10-container: vLLM's EmbeddingGemma 2 row kept, though it doesn't start on GB10 at
+  v0.32.0: Triton's encoder attention needs 160 KiB of shared memory and SM121 has 99 KiB. Marked
+  unsupported per the brief; another attention backend not tried, as beyond the brief.
+- bench-gb10-container: the FlashInfer diagnostic left NVFP4 decode unchanged (30.0 against 30.5
+  tok/s), so the attention backend isn't the cause. The NVFP4 path on SM121 is the suspect,
+  untested here; a candidate question for vllm-gb10-native's plan round.
+- bench-gb10-container: vLLM decodes audio with the image's torchcodec, so no derived image; the
+  brief's BUILD check settled it without an escalation.
+- bench-gb10-container: the vision probe reads its base64 from a file with `--rawfile`; as a jq
+  argument it exceeds the argument-list limit.
+- bench-gb10-container: a file that failed twice under Xet completed with `HF_HUB_DISABLE_XET=1`;
+  llama.cpp's models guide gives the fallback.
+- bench-gb10-container: gpt-oss-120b's vLLM stage line excludes only the weights in `original/`
+  and `metal/` (`--exclude "original/*.safetensors" --exclude "metal/*"`): the earlier
+  `original/*` exclusion made vLLM fetch three config files (~57 KB) at its start. vLLM has no
+  offline guard like llama.cpp's preset; adding one is left to a later task.
+- bench-gb10-container: the walkthrough's instructions omitted the per-model warm-up, so
+  llama.cpp's A ran cold (TTFT p95 735 against 436 ms, decode unchanged); the finding records it,
+  and its walkthrough procedure names the warm-up.
+- bench-gb10-container: behavior 21's Pending edits were emptied by PR #100. The `engines/`
+  rename edit arrived after the brief, at spike-ai-pipeline's request, and stays pending for a
+  later coordinator change; it isn't this task's.
+- bench-gb10-container: gb10-1 left with llama.cpp serving gpt-oss-120b and vLLM stopped on its
+  pin. Superseded by round 5's end state, below.
+
+- bench-gb10-container: embeddings on granite-embedding-english-r2 (IBM, Apache-2.0, ModernBERT,
+  head size 64), BF16 on both engines; rejected EmbeddingGemma 2, which didn't serve on vLLM
+  v0.32.0 on SM121, and harrier-oss-v1-270m (community GGUFs only). This task ran only the row's
+  default Triton backend, which failed with OutOfResources (shared memory 163840 against 101376).
+  vLLM #60847 reports FLASH_ATTN failing with "head size not supported" on GB10 and FLASHINFER
+  lacking encoder-only attention, and FLEX_ATTENTION failing on other GPUs, not reported on SM121;
+  its fixes, #60631, #60848, and #60942, are open. Architect's redirect at the brief: no gap in the
+  finding.
+- bench-gb10-container: llama.cpp's embedding cell reruns on granite so both engines pair.
+- bench-gb10-container: EmbeddingGemma 2 struck from the spike's model set, kept as a dated
+  engine-limit note; at the architect's request, it should no longer be set A's embedding model
+  (a coordinator note; spike-model-hosting and spike-ai-pipeline are not this spike's to change).
+  Supersedes "vLLM's EmbeddingGemma 2 row kept".
+- bench-gb10-container: the finding's cleanup covers the walkthrough's cold anchor A (rerun
+  warm), vLLM's gpt-oss A 7 of 8 (rerun, cell A alone, per-request output kept), and the "not
+  recorded" figures; vLLM transcription on paper, the NVFP4 cause, and vLLM's offline guard stay
+  where the record put them.
+- bench-gb10-container: granite's vLLM row runs its attention on FLASH_ATTN. vLLM returns
+  granite's embeddings unnormalized (norm about 30; granite ships no Normalize module), and
+  llama.cpp normalizes them by default; the finding and both API pages record it. Making vLLM
+  normalize is a configuration change, left out as beyond the brief.
+- bench-gb10-container: on granite, vLLM's embedding rate scales with streams (55.5 to 295.1
+  requests/s, 5.3 times) and llama.cpp's doesn't (58.7 to 55.5).
+- bench-gb10-container: the warm rerun of llama.cpp's anchor A confirms the walkthrough's 735 ms
+  TTFT p95 was the cold first request (478 ms warm).
+- bench-gb10-container: vLLM's gpt-oss-120b A recorded 7 of 8 because GuideLLM finalized with the
+  eighth request in flight (`scheduler_state` processing 1); the rerun recorded 8 of 8, its decode
+  identical.
+- bench-gb10-container: round 5's reruns of llama.cpp's warm A and vLLM's gpt-oss-120b A took no
+  `tailscale ping`; the finding marks their path "not taken", with the reason that every ping this
+  session read direct, at 0 to 2 ms.
+- bench-gb10-container: set A's embedding note landed as coordinator PR #103 (branch
+  `plan-hosting-set-a-embedding`), worded to what vLLM #60847 and the run show.
+- bench-gb10-container: gb10-1 left with vLLM serving its pin and llama.cpp stopped. Supersedes
+  "gb10-1 left with llama.cpp serving gpt-oss-120b and vLLM stopped on its pin".
+
 ## Pending edits
 
-- coordinator · ai-hosting.md, the GB10 host class, "Stack": replace "DGX OS reports 7.4.0 but
-  carries a newer stack: driver 580.178.04, CUDA 13.0, kernel 7.0, Docker 29.6.2, and
-  nvidia-container-toolkit 1.20.1" with "DGX OS 7.6.0, driver 580.178.04, CUDA 13.0, kernel
-  7.0.0-1019-nvidia, Docker 29.6.2, and nvidia-container-toolkit 1.20.1"
-  (spike-model-engines, docs/findings/llama-gb10-container.md).
-- coordinator · ai-hosting.md, the GB10 host class: add "**CDI spec**: an apt upgrade without a
-  reboot can leave the container toolkit's CDI spec (`/var/run/cdi/nvidia.yaml`) naming a moved
-  driver library, and GPU containers then fail to start until `sudo nvidia-ctk cdi generate
-  --output=/var/run/cdi/nvidia.yaml` regenerates it."
-- coordinator · ai-hosting.md, "Experiment: experiment.hosting", "Hosts and access": extend the
-  last sentence to "every measurement records the engine version, the host's stack, and the
-  laptop's network path to the host (`tailscale ping`): a DERP relay adds its round trip to TTFT
-  and request latency, but not to inter-token latency or the server's own counters."
-- coordinator · roadmap.toml, spike-model-layout's summary (or spike-model-gateway's, as the
-  coordinator places it): weigh serving models on demand, where an engine loads none itself,
-  against keeping them resident; llama-swap in front of vLLM is the existing tool (drives Docker,
-  ships arm64 builds) (spike-model-engines, the vLLM guide).
-- coordinator · ai-hosting.md, "Experiment: experiment.hosting", the spike-model-engines
-  paragraph: after "documents each engine as a guide to setup, models, APIs, updates, and
-  uninstall", add ", and whether it loads models on demand".
-- coordinator · ai-hosting.md, the GB10 host class, "Memory reporting": after "`cudaMemGetInfo`
-  counts the page cache as used." add "On the integrated GPU, vLLM reads the OS's available memory
-  instead, which counts the page cache as free: with 18 GiB cached and 99.7 GiB MemFree, v0.32.0
-  reported 113.42 of 121.63 GiB free at startup." (spike-model-engines,
-  docs/findings/vllm-gb10-container.md, "Serving and the model store").
+(PR #100, merged 2026-10-26, carried every edit tasks 1–3 owed until then.)
+
+- coordinator · roadmap.toml, experiment.hosting.spike-model-engines: add a task after
+  bench-gb10-container, before llama-gb10-native: rename `engines/` so `engines/engines` stops
+  stuttering (the name is decided in its plan round; not `cmd/`, which Go main packages want;
+  `bin/` holds more than executables). It changes the directory, the shellcheck `source=`
+  directives in the llama and vLLM scripts, every doc and mise file that cites `engines/...`, and
+  gb10-1's clone. Its follow-up re-copies the llama.cpp scripts byte-identical into
+  spike-ai-pipeline's `host/` and updates that repo's references and gb10-2's router, through
+  spike-ai-pipeline's own branch and pull request (spike-ai-pipeline's rename request,
+  2026-10-26).
