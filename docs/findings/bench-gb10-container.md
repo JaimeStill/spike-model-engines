@@ -38,24 +38,38 @@ Every model both engines serve, and both images, were staged on gb10-1 in parall
 cell or timed load, with the procedure in
 [Models](../engines/llama.cpp/models.md#pre-staging-everything-at-once).
 
-| Item | Size | Started | Finished | Exit |
-|---|---|---|---|---|
-| `ggml-org/gemma-4-E4B-it-GGUF` (Q8_0 + mmproj) | | | | |
-| `google/gemma-4-E4B-it-qat-q4_0-gguf` | | | | |
-| `google/gemma-4-12B-it-qat-q4_0-gguf` | | | | |
-| `google/gemma-4-31B-it-qat-q4_0-gguf` | | | | |
-| `google/gemma-4-26B-A4B-it-qat-q4_0-gguf` | | | | |
-| `ggml-org/embeddinggemma-2-GGUF` | | | | |
-| `google/gemma-4-E4B-it` | | | | |
-| `google/gemma-4-E4B-it-qat-w4a16-ct` | | | | |
-| `google/gemma-4-12B-it-qat-w4a16-ct` | | | | |
-| `nvidia/Gemma-4-31B-IT-NVFP4` | | | | |
-| `google/embeddinggemma-2` | | | | |
-| `openai/gpt-oss-120b` (no `original/`, `metal/`) | | | | |
-| llama.cpp image | | | | |
-| vLLM image | | | | |
+Every `stage` line and both pulls started together at 11:15:04 (-04:00), and every check passed
+at 14:04. The logs weren't timed one by one, so the table gives each item's size and exit; the
+sizes are the guide's, from Hugging Face's API.
 
-Completion checks (`*.incomplete` files, `hf cache ls`, `du -shL`): to be recorded.
+| Item | Size | Exit |
+|---|---|---|
+| `ggml-org/gemma-4-E4B-it-GGUF` (Q8_0 + mmproj) | 8.59 GB | 1 at 11:59 and again at 12:33 (Xet); 0 with `HF_HUB_DISABLE_XET=1` |
+| `google/gemma-4-E4B-it-qat-q4_0-gguf` | 6.15 GB | 0 |
+| `google/gemma-4-12B-it-qat-q4_0-gguf` | 7.15 GB | 0 |
+| `google/gemma-4-31B-it-qat-q4_0-gguf` | 18.85 GB | 0 |
+| `google/gemma-4-26B-A4B-it-qat-q4_0-gguf` | 15.63 GB | 0 |
+| `ggml-org/embeddinggemma-2-GGUF` | 0.86 GB | 0 |
+| `google/gemma-4-E4B-it` | 16.02 GB | 0 |
+| `google/gemma-4-E4B-it-qat-w4a16-ct` | 11.55 GB | 0 |
+| `google/gemma-4-12B-it-qat-w4a16-ct` | 10.30 GB | 0 |
+| `nvidia/Gemma-4-31B-IT-NVFP4` | 32.67 GB | 0 |
+| `google/embeddinggemma-2` | 1.53 GB | 0 |
+| `openai/gpt-oss-120b` (no `original/`, `metal/`) | 65.28 GB | 0 |
+| llama.cpp image | not recorded | 0 |
+| vLLM image | not recorded | 0 |
+
+About 195 GB of models was new, with vLLM's image, in about 3 hours. The aggregate rate was 23 to
+27 MB/s while many downloads ran and about 14 MB/s once few were left, with gb10-1 otherwise idle,
+so the cap is upstream.
+
+E4B's Q8_0 GGUF failed twice on the same file, each time with Xet's `File reconstruction error:
+CAS Client Error: … error decoding response body`. Its `stage` line was run again after the first
+failure, resuming; after the second, it was run with `HF_HUB_DISABLE_XET=1`, which downloads over plain HTTP
+instead of Xet, for that repository only, and completed ([Models](../engines/llama.cpp/models.md#checking-that-every-download-is-complete)).
+
+The completion checks passed: every log ends with `exit 0`, no `*.incomplete` file is left, `hf
+cache ls` lists 14 repositories, 276.7G, and both images are present.
 
 ## Method
 
@@ -217,6 +231,10 @@ grep ^MemAvailable /proc/meminfo
 docker logs --since "$since" llama 2>&1 | grep -E "buffer size|model size"
 ```
 
+b11669 logs the buffer sizes only at verbosity 4, above its default of 3, which the preset sets
+(`verbosity = 4`, [Models](../engines/llama.cpp/models.md#the-preset)). Step 1's first load, at
+the default, logged none and was redone after the preset changed.
+
 ### Per model: the build and the warm-up
 
 On the laptop, with `model` and `tok` set to the step's values from the table above. The build
@@ -292,6 +310,23 @@ p=.state/bench/$cell
 awk '{ d[$1] += (NR == FNR ? -$2 : $2) } END { m = "llamacpp:"; printf "prompt %d tokens, %.1f tok/s; generated %d tokens, %.1f tok/s\n", d[m "prompt_tokens_total"], d[m "prompt_tokens_total"] / d[m "prompt_seconds_total"], d[m "tokens_predicted_total"], d[m "tokens_predicted_total"] / d[m "tokens_predicted_seconds_total"] }' $p.before.metrics $p.after.metrics
 ```
 
+The embedding cell generates no tokens, so that read-out divides by zero there. Its server
+figure is the prompt alone:
+
+```sh
+p=.state/bench/llama-embed
+awk '{ d[$1] += (NR == FNR ? -$2 : $2) } END { m = "llamacpp:"; printf "prompt %d tokens in %.1f s, %.1f tok/s\n", d[m "prompt_tokens_total"], d[m "prompt_seconds_total"], d[m "prompt_tokens_total"] / d[m "prompt_seconds_total"] }' $p.before.metrics $p.after.metrics
+```
+
+The sweep's levels at 4 streams and more end with requests in flight, which the successful-only
+figures leave out ([Concurrency sweep](#concurrency-sweep)), so its read-out takes the output rate
+and TTFT over every request, GuideLLM's `total`:
+
+```sh
+f=.state/bench/$cell.json
+jq '.benchmarks[] | .metrics as $m | {streams: .config.strategy.streams, requests: $m.request_totals, out_tok_s_total: $m.output_tokens_per_second.total.mean, ttft_ms_total: ($m.time_to_first_token_ms.total | {median, p95: .percentiles.p95}), itl_ms: ($m.inter_token_latency_ms.successful | {median, p95: .percentiles.p95}), latency_s: ($m.request_latency.successful | {median, p95: .percentiles.p95})}' "$f"
+```
+
 ### API probes
 
 From [llama.cpp's API page](../engines/llama.cpp/api.md#probes-of-the-api-surface), exactly as
@@ -349,7 +384,8 @@ for i in $(seq 120); do [ "$(curl -s -o /dev/null -w '%{http_code}' "http://$(ta
 
 `running, restarts 0` beside a time under the 10 minutes means the server answers. A row that
 fails to start restarts under `--restart unless-stopped`; read its log's end, record it, and stop
-it before the next step:
+it before the next step. Step 7's row ran this way: the poll ran its 10 minutes, the container had
+restarted 12 times, and its cell and probe were skipped:
 
 ```sh
 docker logs --tail 50 vllm
@@ -375,8 +411,8 @@ grep ^MemAvailable /proc/meminfo
 docker logs vllm 2>&1 | grep -E "Model loading took|Available KV cache memory|KV cache size|Graph capturing finished|Directly load the compiled graph|Free memory on device"
 ```
 
-v0.32.0 logs `Free memory on device` only when the reservation doesn't fit, so its line is
-expected only from a failed start.
+v0.32.0 logs `Free memory on device` when the reservation doesn't fit, and step 1's start, which
+succeeded, logged it too ([Cold load and footprint](#cold-load-and-footprint)).
 
 ### vLLM: per row, the version and the warm-up
 
@@ -459,7 +495,8 @@ The cells' names:
 ### vLLM: reading the figures
 
 The client figures are read as llama.cpp's are ([Reading the figures](#reading-the-figures)),
-with `f` set to the cell's JSON. The server figures are task 2's read-out, with `p` set to the
+with `f` set to the cell's JSON, adding `out_tok_s_total: $m.output_tokens_per_second.total.mean`
+beside `output_tok_s`, and the sweep's with its read-out. The server figures are task 2's read-out, with `p` set to the
 snapshots' path without its suffix: vLLM labels each series with its engine and model, so it
 drops the labels and adds up a name's series:
 
@@ -527,26 +564,42 @@ models' sizes:
 
 ## Results
 
+Run on 2026-10-26 from the laptop against gb10-1, GuideLLM 0.8.1 on Python 3.14.10: llama.cpp's
+steps from 14:08 to 14:40 (-04:00), vLLM's from 18:39Z to 19:57Z. The client figures are
+GuideLLM's successful requests, except the sweep's output tok/s and TTFT
+([Concurrency sweep](#concurrency-sweep)).
+
 ### Anchors
 
 Rerun first, from the warm start above, against task 1's
-([llama.cpp's anchor cells](llama-gb10-container.md#results)). An anchor moved beyond run noise is
-a finding.
+([llama.cpp's anchor cells](llama-gb10-container.md#results)) and task 2's
+([vLLM's](vllm-gb10-container.md#results)). An anchor moved beyond run noise is a finding.
 
 | Cell | Run | Completed | Errored | Duration s | Output tok/s | TTFT median ms | TTFT p95 ms | ITL median ms | Latency median s | Latency p95 s | Server prompt tok/s | Server gen tok/s |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | A | task 1 | 8 | 0 | 42.0 | 48.8 | 477 | 702 | 18.3 | 5.16 | 5.41 | 1485 | 54.0 |
-| A | this session | | | | | | | | | | | |
+| A | this session | 8 | 0 | 40.98 | 50.0 | 422 | 436 | 18.35 | 5.09 | 5.18 | 1528.0 | 53.8 |
 | B | task 1, rerun | 32 | 0 | 101.3 | 80.9 | 1420 | 1974 | 43.2 | 12.51 | 12.85 | 1627 | 22.5 |
-| B | this session | | | | | | | | | | | |
+| B | this session | 32 | 0 | 101.27 | 80.9 | 1254 | 1262 | 45.47 | 12.75 | 13.31 | 1799.7 | 21.8 |
 | A' | task 2 | 8 | 0 | 68.25 | 30.0 | 237 | 299 | 32.4 | 8.51 | 8.57 | 5061 | 30.4 |
-| A' | this session | | | | | | | | | | | |
+| A' | this session | 8 | 0 | 68.10 | 30.1 | 241 | 320 | 32.33 | 8.49 | 8.56 | 5001.0 | 30.5 |
 | B' | task 2 | 32 | 0 | 77.31 | 106.0 | 426 | 465 | 36.3 | 9.66 | 9.79 | 2261 | 27.1 |
-| B' | this session | | | | | | | | | | | |
+| B' | this session | 32 | 0 | 77.53 | 105.7 | 433 | 447 | 36.41 | 9.69 | 9.79 | 2206.9 | 27.0 |
 
 Task 1 ran over Tailscale's DERP relay (about 55 ms), and task 2 directly over the LAN (1 ms),
-with A''s warm-up unconfirmed; this session's path is recorded with each model, and A' and B' run
-from a confirmed warm start.
+with A''s warm-up unconfirmed. This session's path was direct at every model, 0 to 2 ms, and A'
+and B' ran from a confirmed warm start (the warm-up's reply, `vllm:request_success_total` 1,
+`vllm:num_requests_running` 0).
+
+- Every anchor held. Output tok/s is within 3% of the earlier runs on both engines, and so are
+  ITL and the server's generation rate, except B's against task 1's rerun (ITL 45.47 against
+  43.2 ms, generation 21.8 against 22.5 tok/s), which lie within 3% of task 1's first B (44.5 ms,
+  22.1 tok/s).
+- llama.cpp's TTFT fell (A's median 477 to 422 ms, B's 1420 to 1254 ms), as the relay's round
+  trip left the path; ITL and the server figures, which don't depend on the path, held.
+- The server took 4,138 of A's 4,632 prompt tokens and 12,448 of B's 18,528 to compute,
+  reusing the cached template prefix, as in task 1. vLLM computed all of A''s 4,224 and took
+  4,096 of B''s 16,896 from its prefix cache, as in task 2.
 
 ### The FlashInfer diagnostic
 
@@ -554,49 +607,69 @@ A' on step 2's row, FlashInfer attention and text only, beside this session's A'
 
 | Cell | Attention | Started | Completed | Errored | Duration s | Output tok/s | TTFT median ms | ITL median ms | Latency median s | Server gen tok/s |
 |---|---|---|---|---|---|---|---|---|---|---|
-| A' | Triton, vision loaded | yes | | | | | | | | |
-| A' | FlashInfer, text only | | | | | | | | | |
+| A' | Triton, vision loaded | yes | 8 | 0 | 68.10 | 30.1 | 241 | 32.33 | 8.49 | 30.5 |
+| A' | FlashInfer, text only | yes | 8 | 0 | 68.86 | 29.7 | 214 | 32.86 | 8.60 | 30.0 |
 
-The attention backend vLLM logged at each start: to be recorded.
+Step 2's start logged `Disabled mm_prefix attention mode because multimodal inputs are
+configuration-disabled`, and FlashInfer resolved its decode backend to `xqa` and its prefill to
+FlashInfer's native kernels, for a BF16 KV cache on SM121. Both rows logged NVFP4's MoE backend as
+`FLASHINFER_CUTLASS`. Text only, the weights loaded 17.05 GiB against the default row's 18.13 GiB
+([Cold load and footprint](#cold-load-and-footprint)).
 
 ### Shapes
 
 | Shape | Model | Engine | Format | Cell | Streams × requests | Completed | Errored | Duration s | Output tok/s | TTFT median ms | TTFT p95 ms | ITL median ms | Latency median s | Latency p95 s | Server prompt tok/s | Server gen tok/s |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| dense small | gemma-4-E4B | llama.cpp | Q8_0 | A | 1 × 8 | | | | | | | | | | | |
-| dense small | gemma-4-E4B | llama.cpp | Q8_0 | B | 4 × 32 | | | | | | | | | | | |
-| dense mid | gemma-4-12B | llama.cpp | QAT Q4_0 | A | 1 × 8 | | | | | | | | | | | |
-| dense mid | gemma-4-12B | llama.cpp | QAT Q4_0 | B | 4 × 32 | | | | | | | | | | | |
-| dense large | gemma-4-31B | llama.cpp | QAT Q4_0 | A | 1 × 4 | | | | | | | | | | | |
-| dense large | gemma-4-31B | llama.cpp | QAT Q4_0 | B | 4 × 16 | | | | | | | | | | | |
-| MoE | gemma-4-26B-A4B | llama.cpp | QAT Q4_0 | A | 1 × 8 | | | | | | | | | | | |
-| MoE | gemma-4-26B-A4B | llama.cpp | QAT Q4_0 | B | 4 × 32 | | | | | | | | | | | |
+| dense small | gemma-4-E4B | llama.cpp | Q8_0 | A | 1 × 8 | 8 | 0 | 49.82 | 41.1 | 264 | 344 | 23.30 | 6.21 | 6.31 | 2811.7 | 42.6 |
+| dense small | gemma-4-E4B | llama.cpp | Q8_0 | B | 4 × 32 | 32 | 0 | 58.39 | 140.3 | 650 | 672 | 26.39 | 7.38 | 7.56 | 3818.8 | 37.5 |
+| dense mid | gemma-4-12B | llama.cpp | QAT Q4_0 | A | 1 × 8 | 8 | 0 | 70.30 | 29.1 | 504 | 534 | 32.37 | 8.77 | 8.85 | 1619.8 | 30.6 |
+| dense mid | gemma-4-12B | llama.cpp | QAT Q4_0 | B | 4 × 32 | 32 | 0 | 90.39 | 90.6 | 1597 | 1754 | 38.51 | 11.42 | 11.66 | 1748.5 | 25.7 |
+| dense large | gemma-4-31B | llama.cpp | QAT Q4_0 | A | 1 × 4 | 4 | 0 | 91.02 | 11.3 | 1320 | 1330 | 84.08 | 22.75 | 22.77 | 610.5 | 11.8 |
+| dense large | gemma-4-31B | llama.cpp | QAT Q4_0 | B | 4 × 16 | 16 | 0 | 112.64 | 36.4 | 4085 | 4465 | 96.59 | 28.72 | 29.13 | 706.0 | 10.3 |
+| MoE | gemma-4-26B-A4B | llama.cpp | QAT Q4_0 | A | 1 × 8 | 8 | 0 | 31.15 | 65.7 | 298 | 417 | 13.97 | 3.88 | 3.98 | 2423.6 | 70.8 |
+| MoE | gemma-4-26B-A4B | llama.cpp | QAT Q4_0 | B | 4 × 32 | 32 | 0 | 59.84 | 136.9 | 963 | 1060 | 25.85 | 7.52 | 7.67 | 2889.5 | 38.4 |
 | MoE | gpt-oss-120b | llama.cpp | MXFP4 | A | 1 × 8 | the anchors, above | | | | | | | | | | |
 | MoE | gpt-oss-120b | llama.cpp | MXFP4 | B | 4 × 32 | the anchors, above | | | | | | | | | | |
-| dense small | gemma-4-E4B | vLLM | BF16 | A | 1 × 8 | | | | | | | | | | | |
-| dense small | gemma-4-E4B | vLLM | BF16 | B | 4 × 32 | | | | | | | | | | | |
-| dense mid | gemma-4-12B | vLLM | QAT w4a16 | A | 1 × 8 | | | | | | | | | | | |
-| dense mid | gemma-4-12B | vLLM | QAT w4a16 | B | 4 × 32 | | | | | | | | | | | |
-| dense large | gemma-4-31B | vLLM | NVFP4 | A | 1 × 4 | | | | | | | | | | | |
-| dense large | gemma-4-31B | vLLM | NVFP4 | B | 4 × 16 | | | | | | | | | | | |
+| dense small | gemma-4-E4B | vLLM | BF16 | A | 1 × 8 | 8 | 0 | 103.65 | 19.8 | 255 | 262 | 49.67 | 12.96 | 12.98 | 5834.3 | 19.8 |
+| dense small | gemma-4-E4B | vLLM | BF16 | B | 4 × 32 | 32 | 0 | 91.65 | 89.4 | 462 | 466 | 43.25 | 11.49 | 11.56 | 2142.3 | 22.8 |
+| dense mid | gemma-4-12B | vLLM | QAT w4a16 | A | 1 × 8 | 8 | 0 | 85.26 | 24.0 | 391 | 396 | 40.12 | 10.62 | 10.84 | 2049.0 | 24.6 |
+| dense mid | gemma-4-12B | vLLM | QAT w4a16 | B | 4 × 32 | 32 | 0 | 90.85 | 90.2 | 1085 | 1103 | 41.02 | 11.48 | 11.67 | 913.0 | 23.6 |
+| dense large | gemma-4-31B | vLLM | NVFP4 | A | 1 × 4 | 4 | 0 | 149.84 | 6.8 | 763 | 769 | 143.87 | 37.45 | 37.49 | 1678.6 | 6.9 |
+| dense large | gemma-4-31B | vLLM | NVFP4 | B | 4 × 16 | 16 | 0 | 160.78 | 25.5 | 1570 | 1580 | 152.17 | 40.38 | 40.40 | 546.5 | 6.5 |
 | MoE | gemma-4-26B-A4B | vLLM | NVFP4 | A' | 1 × 8 | the anchors, above | | | | | | | | | | |
 | MoE | gemma-4-26B-A4B | vLLM | NVFP4 | B' | 4 × 32 | the anchors, above | | | | | | | | | | |
-| MoE | gpt-oss-120b | vLLM | MXFP4 | A | 1 × 8 | | | | | | | | | | | |
-| MoE | gpt-oss-120b | vLLM | MXFP4 | B | 4 × 32 | | | | | | | | | | | |
+| MoE | gpt-oss-120b | vLLM | MXFP4 | A | 1 × 8 | 7 | 0 | 52.72 | 34.0 | 330 | 332 | 28.21 | 7.52 | 7.54 | 2217.5 | 35.0 |
+| MoE | gpt-oss-120b | vLLM | MXFP4 | B | 4 × 32 | 32 | 0 | 94.53 | 86.7 | 733 | 752 | 43.70 | 11.76 | 12.28 | 1238.0 | 22.4 |
 
 vLLM's gpt-oss-120b serves 16 sequences in A and B, where llama.cpp's serves 4 slots; the load is
 the same.
 
+- Each Gemma 4 request carried 528 prompt tokens and each gpt-oss request 579: the 512 synthetic
+  tokens plus the chat template.
+- vLLM's gpt-oss-120b A recorded 7 requests in GuideLLM, none errored or incomplete, where the
+  server counted 8 (`request_decode_time_seconds_count`); the scenario sends 8. The record doesn't
+  show why.
+- vLLM's prompt rate counts only the tokens it computed: it took 4,096 of 16,896 prompt tokens in
+  each Gemma 4 B from its prefix cache, 2,048 of 8,448 in the 31B's B, and 512 and 6,144 in
+  gpt-oss-120b's A and B.
+- vLLM's warm-up on E4B returned no reasoning text with `enable_thinking` set.
+
 ### Quantization pairs
 
-gemma-4-E4B, single stream, 1 × 8 (shape A):
+gemma-4-E4B, single stream, 1 × 8 (shape A). The footprint is MemAvailable's fall over the load;
+vLLM's reserves 0.80 of the memory whatever the model, so its row adds what vLLM logged it
+consumed ([Cold load and footprint](#cold-load-and-footprint)).
 
 | Engine | Format | Output tok/s | TTFT median ms | ITL median ms | Latency median s | Server gen tok/s | Footprint GiB |
 |---|---|---|---|---|---|---|---|
-| llama.cpp | Q8_0 | | | | | | |
-| llama.cpp | QAT Q4_0 | | | | | | |
-| vLLM | BF16 | | | | | | |
-| vLLM | QAT w4a16 | | | | | | |
+| llama.cpp | Q8_0 | 41.1 | 264 | 23.30 | 6.21 | 42.6 | 10.5 |
+| llama.cpp | QAT Q4_0 | 63.1 | 207 | 14.98 | 4.03 | 66.1 | 8.0 |
+| vLLM | BF16 | 19.8 | 255 | 49.67 | 12.96 | 19.8 | 101.7 (17.77 consumed) |
+| vLLM | QAT w4a16 | 51.6 | 172 | 18.68 | 4.94 | 52.7 | 102.0 (14.29 consumed) |
+
+E4B QAT Q4_0's TTFT p95 was 312 ms and its latency p95 4.20 s; the server computed 4,159 prompt
+tokens at 3369.6 tok/s. E4B w4a16's were 176 ms and 5.08 s; the server computed 4,224 at
+5105.2 tok/s.
 
 ### Vision
 
@@ -604,21 +677,44 @@ gemma-4-26B-A4B, one synthetic 720p JPEG and 200 text tokens a request, 64 out:
 
 | Engine | Cell | Streams × requests | Completed | Errored | Prompt tokens median | Output tok/s | TTFT median ms | TTFT p95 ms | Latency median s | Latency p95 s |
 |---|---|---|---|---|---|---|---|---|---|---|
-| llama.cpp | A | 1 × 8 | | | | | | | | |
-| llama.cpp | B | 4 × 32 | | | | | | | | |
-| vLLM | A | 1 × 8 | | | | | | | | |
-| vLLM | B | 4 × 32 | | | | | | | | |
+| llama.cpp | A | 1 × 8 | 8 | 0 | 623 | 36.6 | 869 | 1206 | 1.70 | 2.04 |
+| llama.cpp | B | 4 × 32 | 32 | 0 | 623 | 64.5 | 3012 | 3115 | 4.55 | 4.62 |
+| vLLM | A | 1 × 8 | 8 | 0 | 479 | 26.2 | 321 | 793 | 2.38 | 2.84 |
+| vLLM | B | 4 × 32 | 32 | 0 | 479 | 82.7 | 1018 | 1038 | 3.25 | 3.29 |
+
+The prompt token counts are the client's, which counts the image as its tokenizer sees it. The
+servers' figures: llama.cpp computed 4,896 prompt tokens in A at 827.3 tok/s and 14,728 in B at
+904.4 tok/s, and generated at 72.9 and 39.9 tok/s a request; vLLM computed 3,831 in A at 1453.7
+tok/s and 15,325 in B, 3,584 of them from its prefix cache, at 538.9 tok/s, and generated at 30.6
+and 27.8 tok/s a request.
 
 ### Embeddings
 
 EmbeddingGemma 2, 512 tokens a request, 30 s a level:
 
-| Engine | Format | Streams | Completed | Errored | Requests/s | Prompt tokens median | Latency median ms | Latency p95 ms |
-|---|---|---|---|---|---|---|---|---|
-| llama.cpp | Q8_0 | 1 | | | | | | |
-| llama.cpp | Q8_0 | 16 | | | | | | |
-| vLLM | BF16 | 1 | | | | | | |
-| vLLM | BF16 | 16 | | | | | | |
+| Engine | Format | Streams | Completed | Incomplete | Errored | Requests/s | Prompt tokens median | Latency median ms | Latency p95 ms |
+|---|---|---|---|---|---|---|---|---|---|
+| llama.cpp | Q8_0 | 1 | 1105 | 0 | 0 | 36.8 | 513 | 23 | 25 |
+| llama.cpp | Q8_0 | 16 | 1552 | 16 | 0 | 51.7 | 513 | 306 | 313 |
+| vLLM | BF16 | 1 | unsupported: the row doesn't start on GB10 at v0.32.0 | | | | | | |
+| vLLM | BF16 | 16 | unsupported: the row doesn't start on GB10 at v0.32.0 | | | | | | |
+
+llama.cpp's input rate was 18,896 tokens/s at 1 stream and 26,539 at 16. Its server computed
+1,371,252 prompt tokens over both levels in 47.1 s, 29.1k tok/s, by the prompt-only read-out
+([Reading the figures](#reading-the-figures)). The 16 incomplete requests at 16 streams were in
+flight when the level's 30 s ended.
+
+vLLM's `embeddinggemma-2` row crash-looped at step 7: `/health` never answered 200 within the
+10 minutes, and the container had restarted 12 times by 19:36Z. Its log ended in Triton's
+encoder attention (`_forward_encoder_attention`, then `context_attention_fwd`):
+
+```text
+triton.runtime.errors.OutOfResources: out of resource: shared memory, Required: 163840, Hardware limit: 101376
+```
+
+The kernel needs 160 KiB of shared memory, and the GB10's SM121 has 99 KiB. EmbeddingGemma 2's
+model config defaults to Triton attention. The container was stopped, and the embedding cell and
+probe were not run. Another attention backend was not tried.
 
 ### ASR
 
@@ -627,86 +723,130 @@ with the card's prompt:
 
 | Engine | Cell | Streams × requests | Completed | Errored | Audio s/s | Output tokens median | TTFT median ms | Latency median s | Latency p95 s |
 |---|---|---|---|---|---|---|---|---|---|
-| llama.cpp | A | 1 × 8 | | | | | | | |
-| llama.cpp | B | 4 × 32 | | | | | | | |
-| vLLM | A | 1 × 8 | | | | | | | |
-| vLLM | B | 4 × 32 | | | | | | | |
+| llama.cpp | A | 1 × 8 | 8 | 0 | 13.05 | 19 | 200 | 0.68 | 2.29 |
+| llama.cpp | B | 4 × 32 | 32 | 0 | 22.34 | 16 | 392 | 1.08 | 2.77 |
+| vLLM | A | 1 × 8 | 8 | 0 | 7.21 | 20 | 170 | 1.13 | 4.39 |
+| vLLM | B | 4 × 32 | 32 | 0 | 26.44 | 16 | 168 | 0.95 | 2.49 |
+
+vLLM's image carries none of `av`, `soundfile`, `soxr`, or `librosa`, but has `torchcodec`
+0.17.0+cu130, `torchaudio` 2.11.0+cu130, and `ffmpeg`; v0.32.0's audio loader tries torchcodec
+first, so the audio decoded without a derived image, as both cells show. The check, on gb10-1:
+
+```sh
+docker run --rm --entrypoint python3 vllm/vllm-openai:v0.32.0 -c "import importlib; ..."
+docker run --rm --entrypoint sh vllm/vllm-openai:v0.32.0 -c "command -v ffmpeg"
+```
+
+The first command tried to import `av`, `soundfile`, `soxr`, `librosa`, `mistral_common`,
+`torchcodec`, and `torchaudio`; the record keeps the module list, not the whole script.
 
 ### Concurrency sweep
 
 gpt-oss-120b MXFP4 on 16 slots (llama.cpp) or 16 sequences (vLLM), 512 in, 256 out, 60 s a
-level. At 32 streams, 16 requests wait for a slot at a time. Requests in flight when a level's 60 s end are cancelled and counted incomplete.
+level. At 32 streams, 16 requests wait for a slot at a time. Requests in flight when a level's 60 s
+end are cancelled and counted incomplete.
 
-| Engine | Streams | Completed | Incomplete | Errored | Output tok/s | TTFT median ms | TTFT p95 ms | ITL median ms | Latency median s | Latency p95 s |
+At 4 streams and more, a 60 s level completes little more than its first wave of requests, so
+GuideLLM's successful-only output rate is the successful requests' tokens over the level's
+duration (llama.cpp at 16 streams: 16 × 256 / 60 = 68.3 tok/s) and leaves out every token the
+incomplete requests produced. Output tok/s and TTFT here are GuideLLM's `total`, over every
+request, completed or not; ITL and latency are the successful requests'.
+
+| Engine | Streams | Completed | Incomplete | Errored | Output tok/s (total) | TTFT median ms (total) | TTFT p95 ms (total) | ITL median ms | Latency median s | Latency p95 s |
 |---|---|---|---|---|---|---|---|---|---|---|
-| llama.cpp | 1 | | | | | | | | | |
-| llama.cpp | 4 | | | | | | | | | |
-| llama.cpp | 16 | | | | | | | | | |
-| llama.cpp | 32 | | | | | | | | | |
-| vLLM | 1 | | | | | | | | | |
-| vLLM | 4 | | | | | | | | | |
-| vLLM | 16 | | | | | | | | | |
-| vLLM | 32 | | | | | | | | | |
+| llama.cpp | 1 | 11 | 1 | 0 | 48.5 | 418 | 476 | 18.89 | 5.24 | 5.30 |
+| llama.cpp | 4 | 16 | 4 | 0 | 77.1 | 1318 | 1651 | 46.19 | 13.17 | 13.43 |
+| llama.cpp | 16 | 16 | 16 | 0 | 129.0 | 5440 | 5976 | 104.70 | 32.59 | 34.17 |
+| llama.cpp | 32 | 16 | 32 | 0 | 126.2 | 5791 | 37926 | 108.22 | 33.22 | 34.79 |
+| vLLM | 1 | 8 | 1 | 0 | 34.7 | 135 | 140 | 28.34 | 7.36 | 7.37 |
+| vLLM | 4 | 16 | 4 | 0 | 83.4 | 708 | 717 | 44.86 | 12.15 | 12.29 |
+| vLLM | 16 | 32 | 16 | 0 | 168.2 | 2083 | 2160 | 87.04 | 24.28 | 24.68 |
+| vLLM | 32 | 32 | 32 | 0 | 168.7 | 25537 | 26362 | 87.72 | 25.35 | 49.11 |
 
-Server figures over the whole sweep, each engine: to be recorded.
+Server figures over the whole sweep: llama.cpp computed 52,568 prompt tokens at 1564.0 tok/s and
+generated 23,192 at 11.9 tok/s a slot; vLLM served 88 requests, computed 72,375 prompt tokens,
+12,608 of them from its prefix cache, at 935.4 tok/s, and generated 27,430 at 15.9 tok/s a
+request.
 
 ### Cold load and footprint
 
 Each load timed from a dropped page cache, from the load request to `loaded`. The footprint is
-MemAvailable before less after, beside the buffers the engine logged.
+MemAvailable before less after, beside the buffers the engine logged, in MiB, on the GPU (CUDA0)
+and the host (CUDA_Host); a KV figure of two parts is the full-attention layers' and the
+sliding-window layers'. Each projector's line gives its model size and, for E4B Q8_0, its compute
+buffers.
 
-| Engine | Model | Format | Cache before → after drop | MemAvailable before GiB | MemAvailable after GiB | Footprint GiB | Weights (logged) | KV cache (logged) | Compute (logged) | Projector (logged) | Load s |
+| Engine | Model | Format | Cache before → after drop GiB | MemAvailable before GiB | MemAvailable after GiB | Footprint GiB | Weights MiB (logged, GPU + host) | KV cache MiB (logged) | Compute MiB (logged, GPU + host) | Projector MiB (logged) | Load s |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| llama.cpp | gpt-oss-120b, 4 slots | MXFP4 | | | | | | | | — | |
-| llama.cpp | gpt-oss-120b, 16 slots | MXFP4 | | | | | | | | — | |
-| llama.cpp | gemma-4-E4B | Q8_0 | | | | | | | | | |
-| llama.cpp | gemma-4-E4B | QAT Q4_0 | | | | | | | | | |
-| llama.cpp | gemma-4-12B | QAT Q4_0 | | | | | | | | | |
-| llama.cpp | gemma-4-31B | QAT Q4_0 | | | | | | | | | |
-| llama.cpp | gemma-4-26B-A4B | QAT Q4_0 | | | | | | | | | |
-| llama.cpp | EmbeddingGemma 2 | Q8_0 | | | | | | | | | |
+| llama.cpp | gpt-oss-120b, 4 slots | MXFP4 | 54.1 → 0.35 | 117.4 | 55.6 | 61.8 | 59851.68 + 586.82 (output 3.07) | 1152.00 + 108.00 | 98.77 + 31.28 | — | 47.6 |
+| llama.cpp | gpt-oss-120b, 16 slots | MXFP4 | 53.5 → 0.36 | 117.3 | 51.8 | 65.5 | 59851.68 + 586.82 (output 12.27) | 4608.00 + 432.00 | 98.77 + 31.28 | — | 47.8 |
+| llama.cpp | gemma-4-E4B | Q8_0 | 47.2 → 0.36 | 117.4 | 106.9 | 10.5 | 4788.12 + 3536.00 (output 4.00) | 512.00 + 160.00 | 136.02 + 50.03 | 533.83; compute 101.27 + 101.19 | 9.1 |
+| llama.cpp | gemma-4-E4B | QAT Q4_0 | 8.6 → 0.36 | 117.3 | 109.3 | 8.0 | 2696.06 + 2730.00 | 512.00 + 160.00 | 136.02 + 50.03 | 945.51 (BF16) | 6.5 |
+| llama.cpp | gemma-4-12B | QAT Q4_0 | 6.3 → 0.36 | 117.3 | 106.3 | 11.0 | 6637.69 + 787.50 | 512.00 + 1920.00 | 129.52 + 39.53 | not recorded | 7.6 |
+| llama.cpp | gemma-4-31B | QAT Q4_0 | 7.2 → 0.36 | 117.3 | 90.1 | 27.2 | 16818.28 + 1102.50 | 2560.00 + 4800.00 | 177.52 + 51.53 | 1145.08 | 16.9 |
+| llama.cpp | gemma-4-26B-A4B | QAT Q4_0 | 18.1 → 0.36 | 117.3 | 99.1 | 18.1 | 13755.42 + 577.50 | 640.00 + 1200.00 | 152.52 + 31.53 | 1139.46 | 13.3 |
+| llama.cpp | EmbeddingGemma 2 | Q8_0 | 15.2 → 0.36 | 117.1 | 114.0 | 3.1 | 144.44 + 136.00 (output 16.05) | — | 1088.66 + 320.72 | 529.05 | 2.9 |
+
+gpt-oss-120b's first load, at 14:08, took 47.7 s and logged no buffer sizes: b11669 logs them only
+at verbosity 4, above its default of 3. The preset gained `verbosity = 4` (commit 81ccb00), and
+the load was redone at 14:10:37, the row above; its cache before the drop held 108.2 GiB, and
+MemAvailable fell by the same 61.8 GiB. E4B's host buffer is its per-layer embeddings.
+EmbeddingGemma 2's compute buffers are for its 8192-token micro-batch.
 
 vLLM's, each start timed from a dropped page cache, from the container's start to `Application
 startup complete.`, and its footprint MemAvailable before the start less after, beside what vLLM
-logged: the weights (`Model loading took`), the KV cache's memory (`Available KV cache memory`)
-and tokens (`KV cache size`), and the CUDA graphs (`Graph capturing finished`). Every row
-reserves 0.80 of the GB10's memory, so the footprint is near the reservation whatever the model.
+logged: the weights and their load time (`Model loading took`), the KV cache's memory (`Available
+KV cache memory`) and tokens (`KV cache size`), the CUDA graphs (`Graph capturing finished`), and
+the memory its profile consumed. Every row reserves 0.80 of the GB10's memory, so the footprint is
+near the reservation whatever the model.
 
-| Step | Row | Cache before → after drop | MemAvailable before GiB | MemAvailable after GiB | Footprint GiB | Weights GiB (logged) | KV cache GiB (logged) | KV cache tokens (logged) | CUDA graphs GiB (logged) | Compile cache | Cold start |
+| Step | Row | Cache before → after drop GiB | MemAvailable before GiB | MemAvailable after GiB | Footprint GiB | Weights GiB (logged), load s | KV cache GiB (logged) | KV cache tokens (logged) | CUDA graphs GiB (logged) | Consumed GiB (logged) | Cold start s |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | `gemma-4-26B-A4B-NVFP4` | | | | | | | | | | |
-| 2 | `gemma-4-26B-A4B-NVFP4-flashinfer` | | | | | | | | | | |
-| 3 | `gemma-4-E4B-it` | | | | | | | | | | |
-| 4 | `gemma-4-E4B-it-qat-w4a16-ct` | | | | | | | | | | |
-| 5 | `gemma-4-12B-it-qat-w4a16-ct` | | | | | | | | | | |
-| 6 | `Gemma-4-31B-IT-NVFP4` | | | | | | | | | | |
-| 7 | `embeddinggemma-2` | | | | | | | | | | |
-| 8 | `gpt-oss-120b` | | | | | | | | | | |
-| 9 | `gemma-4-26B-A4B-NVFP4`, the pin restored | | | | | | | | | | |
+| 1 | `gemma-4-26B-A4B-NVFP4` | 1.4 → 0.22 | 117.8 | 18.0 | 99.8 | 18.13, 142.1 | 74.9 | 469,557 | 0.10 + 0.06 | 21.58 | 261.6 |
+| 2 | `gemma-4-26B-A4B-NVFP4-flashinfer` | 17.6 → 0.18 | 117.9 | 18.7 | 99.3 | 17.05 (text only), 117.0 | 74.89 | 540,099 | 1.98 + 0.06 | not recorded | 211.5 |
+| 3 | `gemma-4-E4B-it` | 18.1 → 0.19 | 117.9 | 16.2 | 101.7 | 15.08, 123.0 | 78.96 | 2,141,714 | 0.06 + 0.03 | 17.77 | 223.2 |
+| 4 | `gemma-4-E4B-it-qat-w4a16-ct` | 16.1 → 0.18 | 117.9 | 15.9 | 102.0 | 11.04, 79.8 | 82.51 | 2,238,084 | not recorded | 14.29 | 176.7 |
+| 5 | `gemma-4-12B-it-qat-w4a16-ct` | 12.9 → 0.18 | 117.9 | 16.5 | 101.4 | 8.28, 82.3 | 85.82 | 357,611 | not recorded | 11.15 | 190.3 |
+| 6 | `Gemma-4-31B-IT-NVFP4` | 12.1 → 0.20 | 117.9 | 16.8 | 101.1 | 31.19, 216.4 | 61.68 | 96,666 | not recorded | 34.82 | 353.3 |
+| 7 | `embeddinggemma-2` | not recorded | | | | | | | | | did not start: 12 restarts by 19:36Z |
+| 8 | `gpt-oss-120b` | 3.5 → 0.19 | 117.4 | 19.1 | 98.4 | 66.14, 503.4 | 25.71 | 493,523 | 3.58 + 0.13 | 67.08 | 576.5 |
+| 9 | `gemma-4-26B-A4B-NVFP4`, the pin restored | 18.5 → 0.17 | 118.0 | 17.6 | 100.4 | 18.13, 120.5 | 74.36 | 466,125 | not recorded | 22.13 | 176.2 |
+
+- Step 1's start compiled afresh: its log had no `Directly load the compiled graph` line. It also
+  logged `Free memory on device` (113.76 of 121.63 GiB at startup) on a start that succeeded.
+- The peak activation memory vLLM logged was 0.81 GiB at step 1, 3.33 at step 2, 0.57 at step 3,
+  0.51 at step 4, 0.34 at step 5, 0.8 at step 6, and 4.5 at step 8.
+- gpt-oss-120b's row fit the reservation, as the arithmetic below expected: 66.14 GiB of weights,
+  25.71 GiB of KV cache, 493,523 tokens. Its weights loaded in 503.4 s, where llama.cpp's MXFP4
+  file loaded 58.4 GiB onto the GPU in 47.6 s.
 
 gpt-oss-120b's row fits the reservation on paper: 0.80 of 121.63 GiB is 97.30 GiB, its weights
 are 65.28 GB (60.8 GiB) on disk, and its KV cache at 16 sequences of 8192 tokens needs 4.5 GiB in
 BF16 for its 18 full-attention layers (8 KV heads of 64, 36 KiB a token), its 18 sliding-window
-layers holding 128 tokens each; about 30 GiB is left for it and the activations. The logged
-figures confirm or refute that.
+layers holding 128 tokens each; about 30 GiB is left for it and the activations.
+
 ### Network path and build, per model
 
-| Engine | Model | `tailscale ping` | Build (`/props` build_info) |
+| Engine | Model | `tailscale ping` | Build |
 |---|---|---|---|
-| llama.cpp | each model in order | | |
-| vLLM | each row in order | | (`/version`) |
+| llama.cpp | each model, steps 1 to 8 | direct, 0 to 2 ms | `/props` build_info `b11669-620d2225c` |
+| vLLM | each row, steps 1 to 9 | direct, 0 to 2 ms | `/version` `0.32.0` |
 
 ### API probes
 
 | Surface | Model | llama.cpp | vLLM |
 |---|---|---|---|
-| Chat with a tool | gpt-oss-120b | | |
-| Reasoning | gpt-oss-120b | | |
-| Anthropic messages with a tool | gpt-oss-120b | | |
-| Responses | gpt-oss-120b | | |
-| Vision | gemma-4-26B-A4B | | |
-| Embeddings | EmbeddingGemma 2 | | |
-| Transcription | gemma-4-E4B | | on paper: v0.32.0 serves it for Granite Speech, Whisper, and Voxtral, not Gemma 4 |
+| Chat with a tool | gpt-oss-120b | works: `tool_calls`, `get_weather` naming Paris | works: `tool_calls`, `get_weather` naming Paris |
+| Reasoning | gpt-oss-120b | works: 391, reasoning apart in `reasoning_content` | works: 391, reasoning apart in `reasoning` |
+| Anthropic messages with a tool | gpt-oss-120b | works: a `tool_use` block and a thinking block | works: a `tool_use` block and a thinking block with a signature |
+| Responses | gpt-oss-120b | works: `completed`, a `reasoning` and a `message` item | works: `completed`, a `reasoning` and a `message` item |
+| Vision | gemma-4-26B-A4B | works: "A front page of The New York Times from July 21, 1969, featuring the historic headline "MEN WALK ON MOON."", 155 prompt and 505 completion tokens | works: the front page of The New York Times from Monday, July 21, 1969, "MEN WALK ON MOON", Apollo 11; 288 prompt and 49 completion tokens |
+| Embeddings | EmbeddingGemma 2 | works: two embeddings of 768, each of norm 1.0; 25 prompt tokens | unsupported: the row doesn't start on GB10 at v0.32.0 ([Embeddings](#embeddings)) |
+| Transcription | gemma-4-E4B | works: "And so my fellow Americans ask not what your country can do for you ask what you can do for your country", without punctuation; 298 prompt and 23 completion tokens | on paper: v0.32.0 serves it for Granite Speech, Whisper, and Voxtral, not Gemma 4 |
+
+The vision probe's first form, `jq --arg img "$(base64 ...)"`, failed on the laptop with
+`Argument list too long`; both API pages now read the base64 from a file with `--rawfile`, and
+the probe ran in that form.
 
 ### gemma-4-26B-A4B beside gpt-oss-120b
 
@@ -714,7 +854,48 @@ The same load on both engines: 512 in, 256 out, reasoning on.
 
 | Model | Cell | llama.cpp format | llama.cpp output tok/s | llama.cpp TTFT median ms | llama.cpp ITL median ms | vLLM format | vLLM output tok/s | vLLM TTFT median ms | vLLM ITL median ms |
 |---|---|---|---|---|---|---|---|---|---|
-| gemma-4-26B-A4B | A, 1 × 8 | QAT Q4_0 | | | | NVFP4 | | | |
-| gemma-4-26B-A4B | B, 4 × 32 | QAT Q4_0 | | | | NVFP4 | | | |
-| gpt-oss-120b | A, 1 × 8 | MXFP4 | | | | MXFP4 | | | |
-| gpt-oss-120b | B, 4 × 32 | MXFP4 | | | | MXFP4 | | | |
+| gemma-4-26B-A4B | A, 1 × 8 | QAT Q4_0 | 65.7 | 298 | 13.97 | NVFP4 | 30.1 | 241 | 32.33 |
+| gemma-4-26B-A4B | B, 4 × 32 | QAT Q4_0 | 136.9 | 963 | 25.85 | NVFP4 | 105.7 | 433 | 36.41 |
+| gpt-oss-120b | A, 1 × 8 | MXFP4 | 50.0 | 422 | 18.35 | MXFP4 | 34.0 | 330 | 28.21 |
+| gpt-oss-120b | B, 4 × 32 | MXFP4 | 80.9 | 1254 | 45.47 | MXFP4 | 86.7 | 733 | 43.70 |
+
+llama.cpp serves gpt-oss-120b on 4 slots here, vLLM on 16 sequences.
+
+## Findings
+
+Dated 2026-10-26, on gb10-1 in containers, llama.cpp b11669 and vLLM 0.32.0, on the host stack
+above.
+
+- **The anchors held on both engines.** llama.cpp's A and B and vLLM's A' and B' match tasks 1
+  and 2 within 3% in output rate, and within the spread of task 1's two B runs in ITL and the
+  server's generation rate. Task 1's TTFT ran over
+  a DERP relay; this session's path was direct, and llama.cpp's TTFT fell with it.
+- **Attention is not the cause of vLLM's slow NVFP4 decode.** A' decoded at 30.5 tok/s on Triton
+  and 30.0 on FlashInfer, text only. Both NVFP4 rows decode well below llama.cpp's QAT Q4_0 on the
+  same model (26B-A4B 30.5 against 70.8 tok/s; 31B 6.9 against 11.8), while vLLM's w4a16 rows keep
+  pace (E4B 52.7 against llama.cpp's Q4_0 66.1; 12B 24.6 against 30.6), in the servers'
+  generation rates at 1 stream. The NVFP4 path, its MoE on `FLASHINFER_CUTLASS`, on SM121 is the
+  remaining suspect; this task didn't test it.
+- **vLLM's EmbeddingGemma 2 doesn't start on GB10 at v0.32.0.** Triton's encoder attention needs
+  160 KiB of shared memory, and SM121 has 99 KiB (`OutOfResources: out of resource: shared memory,
+  Required: 163840, Hardware limit: 101376`). Its embedding cell and probe are marked unsupported.
+- **vLLM's audio through chat works from the pinned image.** The image has no `av`, `soundfile`,
+  or `librosa`, but its audio loader decodes with `torchcodec`; no derived image is needed.
+- **llama.cpp leads a single stream and loads faster; vLLM leads from 4 streams.** On
+  gpt-oss-120b, llama.cpp's single stream ran at 50.0 output tok/s against vLLM's 34.0, and it
+  loaded in 48 s against vLLM's 577 s cold start. From 4 streams vLLM leads: 86.7 against 80.9 in
+  B, 83.4 against 77.1 in the sweep, 168 against 129 at 16 streams, and 169 against 126 at 32. Past its slots,
+  llama.cpp queues requests (TTFT p95 37.9 s at 32 streams), as vLLM's 16 sequences do (26.4 s);
+  neither errors.
+- **Embeddings on llama.cpp batch little.** EmbeddingGemma 2 went from 36.8 requests/s at 1
+  stream to 51.7 at 16, while its median latency rose from 23 to 306 ms.
+- **Quantization pairs.** On E4B at 1 stream, llama.cpp's QAT Q4_0 generated 66.1 tok/s against
+  Q8_0's 42.6, and vLLM's QAT w4a16 52.7 against BF16's 19.8.
+- **vLLM's footprint is its reservation; llama.cpp's is the model's.** vLLM reserves 0.80 of the
+  memory whatever the row, so MemAvailable fell to 15.9 to 19.1 GiB at every start, from E4B to
+  gpt-oss-120b. llama.cpp takes only the model's buffers: 3.1 GiB for EmbeddingGemma 2 to 65.5
+  GiB for gpt-oss-120b at 16 slots.
+- **Pre-staging took about 3 hours, capped upstream.** About 195 GB of new models and vLLM's image
+  downloaded in parallel from 11:15 to 14:04 (-04:00): 23 to 27 MB/s in aggregate while many
+  streams ran, about 14 MB/s with few, with the host otherwise idle. One file failed twice under
+  Xet and completed over plain HTTP ([Pre-staging](#pre-staging)).

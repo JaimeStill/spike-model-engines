@@ -19,6 +19,7 @@ snapshot hash and resolves the same model hf pre-staged
 | `n-gpu-layers` (`[*]`) | `all` | Every layer on the GB10's GPU. |
 | `dedup-cache-models` (`[*]`) | `true` | Once a model is downloaded, the router lists its preset alone, not the cache entry beside it. |
 | `metrics` (`[*]`) | `true` | Each model serves `/metrics`, its Prometheus counters ([API](api.md#metrics)), which the benchmarks read for the server's own figures. |
+| `verbosity` (`[*]`) | `4` | Each load logs its weight, KV cache, and compute buffer sizes, which the benchmarks read as the engine's own footprint; at b11669 the default, 3, logs none of them. |
 | `offline` (`[*]`) | `true` | Each model resolves from the store alone, with no request to Hugging Face: a load never downloads, and a timed cold load reads only the disk. A model not in the store fails to load; pre-stage it first. |
 | `hf-repo` | `ggml-org/gpt-oss-120b-GGUF:MXFP4` | gpt-oss-120b in its native MXFP4, 63.4 GB, ungated, so no token. |
 | `parallel` | `4` | 4 slots: four requests decode at once, and a fifth waits. |
@@ -193,7 +194,15 @@ docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -E "llama.cpp|vllm-op
 ```
 
 A download that ends in an error, or stops early, resumes from what it fetched: run its `stage`
-line again. A complete model fetches nothing again. When every check passes, `rm -r ~/prestage`
+line again. A complete model fetches nothing again. A file that fails twice under Xet, with
+`File reconstruction error: CAS Client Error: … error decoding response body`, completes over
+plain HTTP: run its `stage` line once more with `HF_HUB_DISABLE_XET=1` before it, which turns
+Xet off, and its high-performance mode with it, for that download alone, such as:
+
+```sh
+HF_HUB_DISABLE_XET=1 stage ggml-org/gemma-4-E4B-it-GGUF --include gemma-4-E4B-it-Q8_0.gguf --include mmproj-gemma-4-E4B-it-Q8_0.gguf
+```
+ When every check passes, `rm -r ~/prestage`
 removes the logs; a new shell starts without the exports and `stage`.
 
 ## The host's address on the laptop

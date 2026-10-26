@@ -136,7 +136,8 @@ curl -s "http://gb10-1:8000/v1/embeddings" -H "Content-Type: application/json" -
 ```
 
 The row runs vLLM's pooling runner, which serves `/v1/embeddings` and no chat. A working surface
-returns one embedding an input, each the model's width.
+returns one embedding an input, each the model's width. At v0.32.0 on a GB10 the row doesn't
+start, so the probe has no server to reach ([Models](models.md#the-rows)).
 
 ### Transcription, on paper
 
