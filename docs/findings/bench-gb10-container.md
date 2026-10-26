@@ -65,8 +65,9 @@ so the cap is upstream.
 
 E4B's Q8_0 GGUF failed twice on the same file, each time with Xet's `File reconstruction error:
 CAS Client Error: … error decoding response body`. Its `stage` line was run again after the first
-failure, resuming; after the second, it was run with `HF_HUB_DISABLE_XET=1`, which downloads over plain HTTP
-instead of Xet, for that repository only, and completed ([Models](../engines/llama.cpp/models.md#checking-that-every-download-is-complete)).
+failure, resuming; after the second, it was run with `HF_HUB_DISABLE_XET=1`, which downloads over
+plain HTTP instead of Xet, for that repository only, and completed
+([Models](../engines/llama.cpp/models.md#checking-that-every-download-is-complete)).
 
 The completion checks passed: every log ends with `exit 0`, no `*.incomplete` file is left, `hf
 cache ls` lists 14 repositories, 276.7G, and both images are present.
@@ -496,9 +497,9 @@ The cells' names:
 
 The client figures are read as llama.cpp's are ([Reading the figures](#reading-the-figures)),
 with `f` set to the cell's JSON, adding `out_tok_s_total: $m.output_tokens_per_second.total.mean`
-beside `output_tok_s`, and the sweep's with its read-out. The server figures are task 2's read-out, with `p` set to the
-snapshots' path without its suffix: vLLM labels each series with its engine and model, so it
-drops the labels and adds up a name's series:
+beside `output_tok_s`, and the sweep's with its read-out. The server figures are task 2's
+read-out, with `p` set to the snapshots' path without its suffix: vLLM labels each series with its
+engine and model, so it drops the labels and adds up a name's series:
 
 ```sh
 p=.state/bench/$cell
@@ -867,26 +868,28 @@ Dated 2026-10-26, on gb10-1 in containers, llama.cpp b11669 and vLLM 0.32.0, on 
 above.
 
 - **The anchors held on both engines.** llama.cpp's A and B and vLLM's A' and B' match tasks 1
-  and 2 within 3% in output rate, and within the spread of task 1's two B runs in ITL and the
-  server's generation rate. Task 1's TTFT ran over
-  a DERP relay; this session's path was direct, and llama.cpp's TTFT fell with it.
-- **Attention is not the cause of vLLM's slow NVFP4 decode.** A' decoded at 30.5 tok/s on Triton
-  and 30.0 on FlashInfer, text only. Both NVFP4 rows decode well below llama.cpp's QAT Q4_0 on the
-  same model (26B-A4B 30.5 against 70.8 tok/s; 31B 6.9 against 11.8), while vLLM's w4a16 rows keep
-  pace (E4B 52.7 against llama.cpp's Q4_0 66.1; 12B 24.6 against 30.6), in the servers'
-  generation rates at 1 stream. The NVFP4 path, its MoE on `FLASHINFER_CUTLASS`, on SM121 is the
-  remaining suspect; this task didn't test it.
+  and 2 within 3% in output rate, ITL, and the server's generation rate; B's ITL and generation
+  rate lie within 3% of task 1's first B, not of its rerun. Task 1's TTFT ran over a DERP relay;
+  this session's path was direct, and llama.cpp's TTFT fell with it.
+- **The attention backend is not the cause of vLLM's slow NVFP4 decode.** A' decoded at 30.5
+  tok/s on Triton and 30.0 on FlashInfer, text only. Both NVFP4 rows decode at about half
+  llama.cpp's QAT Q4_0 rate on the same model (26B-A4B 30.5 against 70.8 tok/s; 31B 6.9 against
+  11.8), while vLLM's w4a16 rows reach about 80% of it (E4B 52.7 against llama.cpp's Q4_0 66.1;
+  12B 24.6 against 30.6), in the servers' generation rates at 1 stream. The NVFP4 path, its MoE
+  on `FLASHINFER_CUTLASS`, on SM121 is the remaining suspect; this task didn't test it.
 - **vLLM's EmbeddingGemma 2 doesn't start on GB10 at v0.32.0.** Triton's encoder attention needs
   160 KiB of shared memory, and SM121 has 99 KiB (`OutOfResources: out of resource: shared memory,
   Required: 163840, Hardware limit: 101376`). Its embedding cell and probe are marked unsupported.
 - **vLLM's audio through chat works from the pinned image.** The image has no `av`, `soundfile`,
   or `librosa`, but its audio loader decodes with `torchcodec`; no derived image is needed.
-- **llama.cpp leads a single stream and loads faster; vLLM leads from 4 streams.** On
-  gpt-oss-120b, llama.cpp's single stream ran at 50.0 output tok/s against vLLM's 34.0, and it
+- **On gpt-oss-120b, llama.cpp leads a single stream and loads faster; vLLM leads from 4
+  streams.** llama.cpp's single stream ran at 50.0 output tok/s against vLLM's 34.0, and it
   loaded in 48 s against vLLM's 577 s cold start. From 4 streams vLLM leads: 86.7 against 80.9 in
-  B, 83.4 against 77.1 in the sweep, 168 against 129 at 16 streams, and 169 against 126 at 32. Past its slots,
-  llama.cpp queues requests (TTFT p95 37.9 s at 32 streams), as vLLM's 16 sequences do (26.4 s);
-  neither errors.
+  B, 83.4 against 77.1 in the sweep, 168 against 129 at 16 streams, and 169 against 126 at 32.
+  Past its slots, llama.cpp queues requests (TTFT p95 37.9 s at 32 streams), as vLLM's 16
+  sequences do (26.4 s); neither errors. On the Gemma 4 shapes, in their own formats, llama.cpp
+  led at 4 streams too (B: E4B 140.3 against 89.4, 26B-A4B 136.9 against 105.7, 31B 36.4 against
+  25.5; 12B even, 90.6 against 90.2).
 - **Embeddings on llama.cpp batch little.** EmbeddingGemma 2 went from 36.8 requests/s at 1
   stream to 51.7 at 16, while its median latency rose from 23 to 306 ms.
 - **Quantization pairs.** On E4B at 1 stream, llama.cpp's QAT Q4_0 generated 66.1 tok/s against
