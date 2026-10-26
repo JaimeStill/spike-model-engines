@@ -1,0 +1,19 @@
+# Embedding cell: EmbeddingGemma 2, 512 synthetic tokens a request to /v1/embeddings, at 1 stream
+# and then 16, each level for 30 s: two benchmarks in one run, one JSON. An embedding has no
+# output tokens, streaming, TTFT, or ITL, so the figures are request latency and throughput.
+# Engine-neutral: the model, its tokenizer, and the JSON's path are given on the command line, and
+# the target in GUIDELLM__SPEC__BACKEND__TARGET (docs/findings/bench-gb10-container.md, "Method").
+# Run from the repository root.
+spec:
+  backend:
+    kind: openai_http
+    request_format: /v1/embeddings
+  profile:
+    kind: concurrent
+    streams: [1, 16]
+  data:
+    - kind: synthetic_text
+      prompt_tokens: 512
+  constraints:
+    - kind: max_duration
+      seconds: 30

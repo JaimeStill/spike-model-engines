@@ -6,17 +6,45 @@ The router serves the models its preset names, `engines/llama-preset/models.ini`
 container reads from the clone at `/etc/llama-preset/models.ini`. Each section is one model,
 named as clients name it in `"model"`; its keys are `llama-server` arguments without the leading
 dashes, and `[*]` holds the keys every model shares. `hf-repo` names the Hugging Face repository
-and quantization the router downloads the model from.
+and quantization the model comes from: the router picks the repository's GGUF whose name carries
+the quantization, such as `gemma-4-E4B_q4_0-it.gguf` for `:Q4_0`, and attaches the repository's
+projector (`mmproj`) beside it, which carries a Gemma 4 model's vision encoder, and E4B's audio
+encoder too. The store is Hugging Face's cache layout, which llama.cpp reads as hf writes it
+(`models--<org>--<repo>`, its `refs/main` naming the snapshot), so a section names no file path or
+snapshot hash and resolves the same model hf pre-staged
+([Pre-staging models with hf](#pre-staging-models-with-hf)).
 
 | Key | Value | Why |
 |---|---|---|
 | `n-gpu-layers` (`[*]`) | `all` | Every layer on the GB10's GPU. |
 | `dedup-cache-models` (`[*]`) | `true` | Once a model is downloaded, the router lists its preset alone, not the cache entry beside it. |
 | `metrics` (`[*]`) | `true` | Each model serves `/metrics`, its Prometheus counters ([API](api.md#metrics)), which the benchmarks read for the server's own figures. |
+| `offline` (`[*]`) | `true` | Each model resolves from the store alone, with no request to Hugging Face: a load never downloads, and a timed cold load reads only the disk. A model not in the store fails to load; pre-stage it first. |
 | `hf-repo` | `ggml-org/gpt-oss-120b-GGUF:MXFP4` | gpt-oss-120b in its native MXFP4, 63.4 GB, ungated, so no token. |
 | `parallel` | `4` | 4 slots: four requests decode at once, and a fifth waits. |
 | `c` | `32768` | The context, split evenly across the slots: 8192 tokens each. |
 | `temp`, `top-p`, `top-k`, `min-p` | `1`, `1`, `0`, `0` | OpenAI's recommended sampling for gpt-oss, temperature 1.0 and top_p 1.0, with the server's other truncations off. |
+
+The sections, each one model the router lists:
+
+| Section | Slots × context | Sampling | Other keys |
+|---|---|---|---|
+| `ggml-org/gpt-oss-120b-GGUF:MXFP4` | 4 × 8192 | gpt-oss's, above | the anchor cells' model |
+| `gpt-oss-120b-MXFP4-16-slots` | 16 × 8192 (`c = 131072`) | gpt-oss's | the same file, for the concurrency sweep; load one of the two gpt-oss sections at a time |
+| `ggml-org/gemma-4-E4B-it-GGUF:Q8_0` | 4 × 8192 | Gemma 4's | dense small; projector with vision and audio |
+| `google/gemma-4-E4B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | E4B's quantization pair, Google's QAT Q4_0 |
+| `google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | dense mid |
+| `google/gemma-4-31B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | dense large |
+| `google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | MoE; projector with vision |
+| `ggml-org/embeddinggemma-2-GGUF:Q8_0` | 16 × 8192 | none | `embeddings = true`; `batch-size` and `ubatch-size` 8192 |
+
+Gemma 4's sampling is the configuration its cards standardize for every use, temperature 1.0,
+top_p 0.95, top_k 64, which vLLM applies from the checkpoint's generation config; `min-p = 0`
+turns off llama.cpp's other truncation, which vLLM doesn't apply. Every Gemma 4 section attaches
+its projector, as vLLM loads the encoders with the model, so the footprints compare. EmbeddingGemma
+2 serves only `/v1/embeddings`, with the pooling its GGUF declares. It reads each input whole, not
+causally, so one input must fit one physical batch, whose default of 512 tokens is below the
+embedding cell's 512 plus the model's own; the batch is raised to a whole slot.
 
 The context is chosen for the spike's anchor request, 512 tokens in and 256 out: 768 tokens of
 the 8192 each slot holds, which leaves room for gpt-oss's chat template, its reasoning, and longer
@@ -185,15 +213,17 @@ The router starts no model by itself. Load gpt-oss-120b through its API:
 curl -s -X POST "http://gb10-1:8080/models/load" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4"}'
 ```
 
-It answers `{"success":true}` at once and loads in the background. A model pre-staged in the
-store ([Pre-staging models with hf](#pre-staging-models-with-hf)) loads from it. Otherwise the
-first load downloads the model into `/srv/models` before loading it, which takes as long as 63.4
-GB takes to download; a later load reads it from the store. A restart of the container, by an
+It answers `{"success":true}` at once and loads in the background. The preset's `offline = true`
+loads every model from the store, so a model must be pre-staged first
+([Pre-staging models with hf](#pre-staging-models-with-hf)); one that isn't fails to load, and
+shows `"failed": true` in [the model list](#listing-models). A restart of the container, by an
 update or a reboot, unloads every model, so load it again after one.
 
 ## Watching the download
 
-On the host, the store grows by about 60 GiB as the files arrive, and the router's log shows the
+The preset's `offline = true` keeps the router from downloading anything, so this and the next
+section apply only to a preset without it, which lets a load download its model. On the host, the
+store grows by about 60 GiB as the files arrive, and the router's log shows the
 download and then the load:
 
 ```sh

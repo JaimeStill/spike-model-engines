@@ -1,0 +1,27 @@
+# Vision cell B: gemma-4-26B-A4B, 4 streams sending 32 requests in all, 8 each back to back, each
+# one synthetic 720p JPEG (1280 x 720, GuideLLM's default gradient at quality 85, different in
+# every request) beside 200 synthetic text tokens, and exactly 64 output tokens: one stream per
+# slot of the preset's 4. It needs GuideLLM's vision extra (context/README.md, "GuideLLM's
+# extras"). Engine-neutral: the model, its tokenizer, and the JSON's path are given on the command
+# line, and the target in GUIDELLM__SPEC__BACKEND__TARGET (docs/findings/bench-gb10-container.md,
+# "Method"). Run from the repository root.
+spec:
+  backend:
+    kind: openai_http
+    request_format: /v1/chat/completions
+  profile:
+    kind: concurrent
+    streams: 4
+  # The two sources are read side by side, one row of each a request: the text, cut to its 200
+  # tokens by the tokenizer, and the image, which carries the request's output tokens. GuideLLM
+  # sends max_completion_tokens with ignore_eos, so every request generates its full 64.
+  data:
+    - kind: synthetic_text
+      prompt_tokens: 200
+    - kind: synthetic_image
+      resolution: 720p
+      format: jpeg
+      output_tokens: 64
+  constraints:
+    - kind: max_requests
+      count: 32
