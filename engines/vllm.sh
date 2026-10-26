@@ -38,10 +38,10 @@ vllm_row_words() {
 }
 
 # Reads the row VLLM_MODEL names into VLLM_ARGS, what the container serves after its image: the
-# row's model, the address it listens on, and the row's flags. vllm_run starts the container with VLLM_ARGS, and vllm_running's comparison reads
-# them back from the container's command, so the two can't drift. No element holds a space, so
-# the command joined with spaces reads back unambiguously. Refuses an id with no row, listing the
-# rows.
+# row's model, the address it listens on, and the row's flags. vllm_run starts the container with
+# VLLM_ARGS, and vllm_running's comparison reads them back from the container's command, so the
+# two can't drift. No element holds a space, so the command joined with spaces reads back
+# unambiguously. Refuses an id with no row, listing the rows.
 vllm_row() {
   local words
   mapfile -t words < <(vllm_row_words "$VLLM_MODEL")
@@ -94,8 +94,8 @@ vllm_preflight() {
   engines_preflight 8000 && VLLM_ADDR=$ENGINES_ADDR
 }
 
-# Starts the container from the image given, serving the row, after vllm_row and vllm_preflight. It
-# creates the compile cache directory first, so Docker doesn't create it as root.
+# Starts the container from the image given, serving the row, after vllm_row and vllm_preflight.
+# It creates the compile cache directory first, so Docker doesn't create it as root.
 vllm_run() {
   mkdir -p "$VLLM_CACHE_DIR"
   docker run --detach --name "$VLLM_CONTAINER" --restart unless-stopped --gpus all --ipc host \

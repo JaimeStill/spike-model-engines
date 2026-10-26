@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# engines:summary=Move vllm to the pinned release and row, or VLLM_MODEL's, and remove every other vLLM image
+# engines:summary=Move vllm to the pinned release and row or VLLM_MODEL's; remove other vLLM images
 # Serves the pin's default row (vllm-rows), or the row VLLM_MODEL names for this run, so a plain
 # update returns to the default. Pulls the pinned image before replacing the container, so a failed
 # pull leaves the old release serving. The container moves when anything it serves differs from

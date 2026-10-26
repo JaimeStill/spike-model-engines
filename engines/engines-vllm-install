@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# engines:summary=Run vllm serve on the pinned row, or VLLM_MODEL's, at the pinned release or the release given
+# engines:summary=Run vllm serve on the pinned row or VLLM_MODEL's, at the pinned or given release
 # Starts the vllm container (vllm.sh) from the pinned image, or from the release given, such as
 # v0.31.0, serving the pin's default row (vllm-rows), or the row VLLM_MODEL names for this run.
 # When the container already serves exactly that (image, model, and server flags) it changes
