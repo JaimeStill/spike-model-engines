@@ -156,7 +156,7 @@ stage google/gemma-4-E4B-it-qat-w4a16-ct
 stage google/gemma-4-12B-it-qat-w4a16-ct
 stage nvidia/Gemma-4-31B-IT-NVFP4
 stage google/embeddinggemma-2
-stage openai/gpt-oss-120b --exclude "original/*" --exclude "metal/*"
+stage openai/gpt-oss-120b --exclude "original/*.safetensors" --exclude "metal/*"
 nohup bash -c 'docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669; echo "exit $?"' > ~/prestage/llama-image.log 2>&1 &
 nohup bash -c 'docker pull vllm/vllm-openai:v0.32.0; echo "exit $?"' > ~/prestage/vllm-image.log 2>&1 &
 ```

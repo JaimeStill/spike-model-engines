@@ -26,8 +26,10 @@ client this image downloads with, so its files land as the container's own would
 directory in Hugging Face's cache layout, and its weight files in the shared store
 ([The first download](#the-first-download)).
 
-vLLM's models are each a whole repository. gpt-oss-120b's leaves out `original/` and `metal/`,
-the same weights for OpenAI's reference and Metal implementations, which vLLM doesn't read:
+vLLM's models are each a whole repository. gpt-oss-120b's leaves out the weights in `original/`
+and `metal/`, the same weights for OpenAI's reference and Metal implementations, which vLLM
+doesn't read, and keeps `original/`'s three JSON files (`config.json`, `dtypes.json`,
+`model.safetensors.index.json`, about 57 KB), which vLLM's start fetches when they're missing:
 
 | Shape | Repository | Size |
 |---|---|---|
@@ -37,7 +39,7 @@ the same weights for OpenAI's reference and Metal implementations, which vLLM do
 | dense large, NVFP4 | `nvidia/Gemma-4-31B-IT-NVFP4` | 32.67 GB |
 | MoE, NVFP4 | `nvidia/Gemma-4-26B-A4B-NVFP4` | 18.83 GB, in the store |
 | embedding, BF16 | `google/embeddinggemma-2` | 1.53 GB |
-| MoE, MXFP4 | `openai/gpt-oss-120b` | 65.28 GB, without `original/` and `metal/` |
+| MoE, MXFP4 | `openai/gpt-oss-120b` | 65.28 GB, without the weights in `original/` and `metal/` |
 
 The w4a16 models are Google's quantization-aware trained ones. The sizes are the repositories',
 from Hugging Face's API. The pinned model is already in the store, from its first download.

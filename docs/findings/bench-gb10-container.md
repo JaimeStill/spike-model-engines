@@ -72,6 +72,24 @@ plain HTTP instead of Xet, for that repository only, and completed
 The completion checks passed: every log ends with `exit 0`, no `*.incomplete` file is left, `hf
 cache ls` lists 14 repositories, 276.7G, and both images are present.
 
+Every model then loaded without a download but one. vLLM's gpt-oss-120b start, at step 8
+(19:36:57Z), fetched three small files from `original/` that its `stage` line had excluded with
+`--exclude "original/*"`: `config.json` (377 B), `dtypes.json` (19,658 B), and
+`model.safetensors.index.json` (37,796 B), about 57 KB and no weights. They are the only files
+added to `/srv/models` after pre-staging ended; the rest are hf's lock files and its empty
+`.no_exist` markers for files a repository doesn't have. On gb10-1:
+
+```sh
+find /srv/models -type f -newermt "2026-10-26 14:17"
+```
+
+llama.cpp can't fetch at a load: its preset sets `offline = true`
+([Models](../engines/llama.cpp/models.md#the-preset)). vLLM has no such guard in this spike, so a
+file missing from the store downloads at the start without a word. Both models guides now stage
+gpt-oss-120b with `--exclude "original/*.safetensors" --exclude "metal/*"`, which keeps every JSON
+file in `original/` and leaves out only the weights. Adding an offline guard to vLLM's container is
+left to a later task.
+
 ## Method
 
 ### The cells
@@ -196,21 +214,22 @@ mkdir -p .state/bench
 
 ### Per model: the cold load and its footprint
 
-On gb10-1, with `model` set to the step's model and `prev` to the previous step's (empty at step
-1). Unload the previous model and wait until it is unloaded:
+On gb10-1, from the clone, with `model` set to the step's model and `prev` to the previous step's
+(empty at step 1). Unload the previous model and wait until it is unloaded:
 
 ```sh
 model=ggml-org/gpt-oss-120b-GGUF:MXFP4
 prev=
+cd ~/repos/spike-model-engines
 [[ -z $prev ]] || curl -s -X POST "http://$(tailscale ip -4):8080/models/unload" -H "Content-Type: application/json" -d "{\"model\": \"$prev\"}"
 [[ -z $prev ]] || until [[ $(curl -s "http://$(tailscale ip -4):8080/models" | jq -r --arg m "$prev" '.data[] | select(.id == $m) | .status.value') == unloaded ]]; do sleep 1; done
 ```
 
 Drop the page cache, showing the cache before and after, and read the memory available before the
-load:
+load (the `echo` ends the unload's reply, which has no newline):
 
 ```sh
-grep ^Cached /proc/meminfo; sync && sudo -n /usr/sbin/sysctl vm.drop_caches=3; grep ^Cached /proc/meminfo
+echo; grep ^Cached /proc/meminfo; sync && sudo -n /usr/sbin/sysctl vm.drop_caches=3; grep ^Cached /proc/meminfo
 grep ^MemAvailable /proc/meminfo
 ```
 
@@ -265,7 +284,7 @@ the scenario's, so task 1's files in `.state/anchor/` stay:
 ```sh
 cell=a
 curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/llama-anchor-$cell.before.metrics
-MISE_ENV=bench mise exec -- guidellm run -c bench/anchor-$cell.yaml --output "kind=json,path=.state/bench/llama-anchor-$cell.json"
+MISE_ENV=bench mise exec -- guidellm run -c bench/anchor-$cell.yaml --output "kind=json,path=.state/bench/llama-anchor-$cell.json" > .state/bench/llama-anchor-$cell.log 2>&1; echo "llama-anchor-$cell: guidellm exit $?"
 curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/llama-anchor-$cell.after.metrics
 ```
 
@@ -276,12 +295,13 @@ its output, the engine, model, and scenario together, such as `llama-e4b-q8-shap
 scenario=shape-a
 cell=llama-e4b-q8-shape-a
 curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/$cell.before.metrics
-MISE_ENV=bench mise exec -- guidellm run -c bench/$scenario.yaml --backend "kind=openai_http,model=$model" --tokenizer "kind=huggingface_auto,model=$tok" --output "kind=json,path=.state/bench/$cell.json"
+MISE_ENV=bench mise exec -- guidellm run -c bench/$scenario.yaml --backend "kind=openai_http,model=$model" --tokenizer "kind=huggingface_auto,model=$tok" --output "kind=json,path=.state/bench/$cell.json" > .state/bench/$cell.log 2>&1; echo "$cell: guidellm exit $?"
 curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/$cell.after.metrics
 ```
 
-`llamacpp:requests_processing` in the first snapshot is 0 when nothing else is using the model.
-The cells' names:
+GuideLLM's own output goes to the cell's log beside its JSON, and the line after it prints only
+its exit status, 0 for a run that completed. `llamacpp:requests_processing` in the first snapshot
+is 0 when nothing else is using the model. The cells' names:
 
 | Step | `scenario` | `cell` |
 |---|---|---|
@@ -295,13 +315,19 @@ The cells' names:
 
 ### Reading the figures
 
-The client figures, one object per benchmark in the JSON (the sweep has four, the embedding cell
-two), with `f` set to the cell's JSON:
+The client figures, one line per benchmark in the JSON (the sweep has four, the embedding cell
+two), with `f` set to the cell's JSON, rounded as the tables give them: the duration to whole
+seconds, output tok/s to a tenth, TTFT to whole milliseconds, ITL and latency to hundredths. This
+is the read-out that produced the tables' figures:
 
 ```sh
 f=.state/bench/$cell.json
-jq '.metadata as $v | .benchmarks[] | .metrics as $m | {guidellm: $v.guidellm_version, python: $v.python_version, streams: .config.strategy.streams, duration_s: .duration, requests: $m.request_totals, requests_per_s: $m.requests_per_second.successful.mean, prompt_tokens: $m.prompt_token_count.successful.median, output_tokens: $m.output_token_count.successful.median, output_tok_s: $m.output_tokens_per_second.successful.mean, ttft_ms: ($m.time_to_first_token_ms.successful | {median, p95: .percentiles.p95}), itl_ms: ($m.inter_token_latency_ms.successful | {median, p95: .percentiles.p95}), latency_s: ($m.request_latency.successful | {median, p95: .percentiles.p95}), audio_s_per_s: $m.audio.seconds.input_per_second.successful.mean}' "$f"
+jq -c '.metadata as $v | .benchmarks[] | .metrics as $m | {streams: .config.strategy.streams, duration_s: (.duration|floor), requests: $m.request_totals, prompt_tokens: $m.prompt_token_count.successful.median, output_tokens: $m.output_token_count.successful.median, output_tok_s: ($m.output_tokens_per_second.successful.mean|.*10|round/10), ttft_ms: ($m.time_to_first_token_ms.successful | {median: (.median|round), p95: (.percentiles.p95|round)}), itl_ms: ($m.inter_token_latency_ms.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)}), latency_s: ($m.request_latency.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)}), audio_s_per_s: $m.audio.seconds.input_per_second.successful.mean}' "$f"
 ```
+
+The anchors' JSON is `.state/bench/llama-anchor-$cell.json`. The tables give the duration to
+hundredths, from the same `.duration`, and the embedding cell's requests per second, which is
+`$m.requests_per_second.successful.mean`; this read-out leaves the latter out.
 
 And the server figures, the counters differenced between the two snapshots, with `p` set to the
 snapshots' path without its suffix:
@@ -355,24 +381,30 @@ mkdir -p .state/bench
 
 ### vLLM: per row, the switch, the cold start, and its footprint
 
-On gb10-1, with `row` set to the step's row. Stop the running container first, so the memory
-available before the start holds no model (step 1 has none to stop; step 9 leaves `row` unset).
-Then drop the page cache, showing the cache before and after, and read the memory available:
+On gb10-1, from the clone, with `row` set to the step's row and `verb` to how the step switches
+(below). Stop the running container first, so the memory available before the start holds no
+model (step 1 has none to stop, and the error is discarded; step 9 leaves `row` unset). Then drop
+the page cache, showing the cache before and after, and read the memory available:
 
 ```sh
 row=gemma-4-26B-A4B-NVFP4
-docker stop vllm
+verb=install
+cd ~/repos/spike-model-engines
+docker stop vllm 2>/dev/null
 grep ^Cached /proc/meminfo; sync && sudo -n /usr/sbin/sysctl vm.drop_caches=3; grep ^Cached /proc/meminfo
 grep ^MemAvailable /proc/meminfo
 ```
 
-Switch to the row. Step 1 installs the default row, steps 2 to 8 serve the step's row for one
-run, and step 9 returns to the default:
+Switch to the row, showing the last three lines the switch prints. Step 1 installs the default
+row (`verb=install`), steps 2 to 8 serve the step's row for one run (`verb=row`), and step 9
+returns to the default (`verb=default`):
 
 ```sh
-engines/engines vllm install
-VLLM_MODEL=$row engines/engines vllm update
-engines/engines vllm update
+case $verb in
+  install) engines/engines vllm install ;;
+  row) VLLM_MODEL=$row engines/engines vllm update ;;
+  default) engines/engines vllm update ;;
+esac 2>&1 | tail -3
 ```
 
 Each prints the row it serves and pulls nothing, since the image is already the pin's. Then wait
@@ -420,15 +452,17 @@ succeeded, logged it too ([Cold load and footprint](#cold-load-and-footprint)).
 On the laptop, with `model` and `tok` set to the row's values from the table above. The network
 path, the release the server runs, the model it serves, then one warm-up request: the API page's
 chat completion, which asks Gemma 4 to reason; for gpt-oss-120b without the `chat_template_kwargs`;
-for EmbeddingGemma 2 one embedding. Last, the confirmation that the server is warm and idle:
+for EmbeddingGemma 2 one embedding. The reply prints on one line, its reasoning cut to its first
+80 characters (`null` when there is none). Last, the confirmation that the server is warm and
+idle:
 
 ```sh
 model=nvidia/Gemma-4-26B-A4B-NVFP4
 tok=nvidia/Gemma-4-26B-A4B-NVFP4
 tailscale ping -c 3 gb10-1
-curl -s "http://gb10-1:8000/version"
-curl -s "http://gb10-1:8000/v1/models" | jq '.data[] | {id, max_model_len}'
-curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}], \"chat_template_kwargs\": {\"enable_thinking\": true}}" | jq '.choices[0].message'
+curl -s "http://gb10-1:8000/version"; echo
+curl -s "http://gb10-1:8000/v1/models" | jq -c '.data[] | {id, max_model_len}'
+curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}], \"chat_template_kwargs\": {\"enable_thinking\": true}}" | jq -c '.choices[0].message | {content, reasoning: (.reasoning|tostring|.[0:80])}'
 curl -s "http://gb10-1:8000/metrics" | grep -E '^vllm:(request_success_total|num_requests_running)'
 ```
 
@@ -457,7 +491,7 @@ On the laptop. A' and B' run their own scenarios, which name their model and tok
 ```sh
 cell=a
 curl -s "http://gb10-1:8000/metrics" > .state/bench/vllm-anchor-$cell.before.metrics
-MISE_ENV=bench mise exec -- guidellm run -c bench/vllm-anchor-$cell.yaml --output "kind=json,path=.state/bench/vllm-anchor-$cell.json"
+MISE_ENV=bench mise exec -- guidellm run -c bench/vllm-anchor-$cell.yaml --output "kind=json,path=.state/bench/vllm-anchor-$cell.json" > .state/bench/vllm-anchor-$cell.log 2>&1; echo "vllm-anchor-$cell: guidellm exit $?"
 curl -s "http://gb10-1:8000/metrics" > .state/bench/vllm-anchor-$cell.after.metrics
 ```
 
@@ -465,7 +499,7 @@ The FlashInfer diagnostic is A' again, on step 2's row, under its own name:
 
 ```sh
 curl -s "http://gb10-1:8000/metrics" > .state/bench/vllm-flashinfer-anchor-a.before.metrics
-MISE_ENV=bench mise exec -- guidellm run -c bench/vllm-anchor-a.yaml --output "kind=json,path=.state/bench/vllm-flashinfer-anchor-a.json"
+MISE_ENV=bench mise exec -- guidellm run -c bench/vllm-anchor-a.yaml --output "kind=json,path=.state/bench/vllm-flashinfer-anchor-a.json" > .state/bench/vllm-flashinfer-anchor-a.log 2>&1; echo "vllm-flashinfer-anchor-a: guidellm exit $?"
 curl -s "http://gb10-1:8000/metrics" > .state/bench/vllm-flashinfer-anchor-a.after.metrics
 ```
 
@@ -476,7 +510,7 @@ llama.cpp's anchor scenarios, with the model given on the command line in place 
 scenario=vision-a
 cell=vllm-26b-vision-a
 curl -s "http://gb10-1:8000/metrics" > .state/bench/$cell.before.metrics
-MISE_ENV=bench mise exec -- guidellm run -c bench/$scenario.yaml --backend "kind=openai_http,model=$model" --tokenizer "kind=huggingface_auto,model=$tok" --output "kind=json,path=.state/bench/$cell.json"
+MISE_ENV=bench mise exec -- guidellm run -c bench/$scenario.yaml --backend "kind=openai_http,model=$model" --tokenizer "kind=huggingface_auto,model=$tok" --output "kind=json,path=.state/bench/$cell.json" > .state/bench/$cell.log 2>&1; echo "$cell: guidellm exit $?"
 curl -s "http://gb10-1:8000/metrics" > .state/bench/$cell.after.metrics
 ```
 
@@ -495,11 +529,19 @@ The cells' names:
 
 ### vLLM: reading the figures
 
-The client figures are read as llama.cpp's are ([Reading the figures](#reading-the-figures)),
-with `f` set to the cell's JSON, adding `out_tok_s_total: $m.output_tokens_per_second.total.mean`
-beside `output_tok_s`, and the sweep's with its read-out. The server figures are task 2's
-read-out, with `p` set to the snapshots' path without its suffix: vLLM labels each series with its
-engine and model, so it drops the labels and adds up a name's series:
+The client figures are llama.cpp's read-out ([Reading the figures](#reading-the-figures)), with
+`f` set to the cell's JSON, adding the output rate over every request, `out_tok_s_total`, beside
+`output_tok_s`; the sweep's are read with its read-out. This is the read-out that produced the
+tables' figures:
+
+```sh
+f=.state/bench/$cell.json
+jq -c '.benchmarks[] | .metrics as $m | {streams: .config.strategy.streams, duration_s: (.duration|floor), requests: $m.request_totals, prompt_tokens: $m.prompt_token_count.successful.median, output_tokens: $m.output_token_count.successful.median, output_tok_s: ($m.output_tokens_per_second.successful.mean|.*10|round/10), out_tok_s_total: ($m.output_tokens_per_second.total.mean|.*10|round/10), ttft_ms: ($m.time_to_first_token_ms.successful | {median: (.median|round), p95: (.percentiles.p95|round)}), itl_ms: ($m.inter_token_latency_ms.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)}), latency_s: ($m.request_latency.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)}), audio_s_per_s: $m.audio.seconds.input_per_second.successful.mean}' "$f"
+```
+
+The server figures are task 2's read-out, with `p` set to the snapshots' path without its suffix:
+vLLM labels each series with its engine and model, so it drops the labels and adds up a name's
+series:
 
 ```sh
 p=.state/bench/$cell
@@ -834,6 +876,9 @@ near the reservation whatever the model.
 - gpt-oss-120b's row fit the reservation, as the arithmetic below expected: 66.14 GiB of weights,
   25.71 GiB of KV cache, 493,523 tokens. Its weights loaded in 503.4 s, where llama.cpp's MXFP4
   file loaded 58.4 GiB onto the GPU in 47.6 s.
+- gpt-oss-120b's start fetched three JSON files from `original/`, about 57 KB, that pre-staging
+  had left out ([Pre-staging](#pre-staging)); no weights were fetched, and every other start and
+  load, on both engines, fetched nothing.
 
 gpt-oss-120b's row fits the reservation on paper: 0.80 of 121.63 GiB is 97.30 GiB, its weights
 are 65.28 GB (60.8 GiB) on disk, and its KV cache at 16 sequences of 8192 tokens needs 4.5 GiB in
@@ -853,7 +898,7 @@ layers holding 128 tokens each; about 30 GiB is left for it and the activations.
 |---|---|---|---|
 | Chat with a tool | gpt-oss-120b | works: `tool_calls`, `get_weather` naming Paris | works: `tool_calls`, `get_weather` naming Paris |
 | Reasoning | gpt-oss-120b | works: 391, reasoning apart in `reasoning_content` | works: 391, reasoning apart in `reasoning` |
-| Anthropic messages with a tool | gpt-oss-120b | works: a `tool_use` block and a thinking block | works: a `tool_use` block and a thinking block with a signature |
+| Anthropic messages with a tool | gpt-oss-120b | works: a `tool_use` block and a thinking block, its `signature` empty ([Walkthrough](#walkthrough)) | works: a `tool_use` block and a thinking block with a signature |
 | Responses | gpt-oss-120b | works: `completed`, a `reasoning` and a `message` item | works: `completed`, a `reasoning` and a `message` item |
 | Vision | gemma-4-26B-A4B | works: "A front page of The New York Times from July 21, 1969, featuring the historic headline "MEN WALK ON MOON."", 155 prompt and 505 completion tokens | works: the front page of The New York Times from Monday, July 21, 1969, "MEN WALK ON MOON", Apollo 11; 288 prompt and 49 completion tokens |
 | Embeddings | EmbeddingGemma 2 | works: two embeddings of 768, each of norm 1.0; 25 prompt tokens | unsupported: the row doesn't start on GB10 at v0.32.0 ([Embeddings](#embeddings)) |
@@ -875,6 +920,75 @@ The same load on both engines: 512 in, 256 out, reasoning on.
 | gpt-oss-120b | B, 4 × 32 | MXFP4 | 80.9 | 1254 | 45.47 | MXFP4 | 86.7 | 733 | 43.70 |
 
 llama.cpp serves gpt-oss-120b on 4 slots here, vLLM on 16 sequences.
+
+## Walkthrough
+
+After step 9, from about 16:10 to 16:15 (-04:00), the architect reran an anchor on each engine and
+llama.cpp's gpt-oss-120b probes, to see that the method reproduces in other hands.
+
+| Cell | Warm-up | Completed | Errored | Output tok/s | TTFT median ms | TTFT p95 ms | ITL median ms | ITL p95 ms | Latency median s | Latency p95 s | Server prompt | Server gen tok/s |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A', vLLM, the default row | the vision probe | 8 | 0 | 29.7 | 214 | 277 | 32.85 | 33.49 | 8.59 | 8.75 | 4,224 tokens, 4761.0 tok/s | 30.0 |
+| A, llama.cpp, gpt-oss-120b, 4 slots | none | 8 | 0 | 49.0 | 415 | 735 | 18.63 | 19.03 | 5.16 | 5.59 | 4,198 tokens, 1431.2 tok/s | 53.0 |
+
+In order:
+
+1. On vLLM's default row, which step 9 left running, the vision probe from
+   [vLLM's API page](../engines/vllm/api.md#probes-of-the-api-surface), which served as the
+   warm-up, then A'. Its decode reproduces step 1's (30.0 against 30.5 tok/s on the server).
+2. On gb10-1, `docker stop vllm`, then `engines/engines llama install`, which reported `llama`
+   stopped, then `docker start llama`.
+3. On the laptop, gpt-oss-120b loaded through the router's `/models/load`, and `/models` listed
+   until it showed `loaded`.
+4. A, with no warm-up request: the server's `/metrics` held only the cell's 2,048 generated
+   tokens. Its decode reproduces step 1's (53.0 against 53.8 tok/s on the server), but the first
+   request of a fresh load added about 300 ms to TTFT's p95, 735 against step 1's 436 ms, and its
+   prompt rate fell to 1431.2 tok/s from 1528.0. That first request is why the method warms each
+   model before its first cell ([Model state](#model-state)).
+5. The four gpt-oss-120b probes on llama.cpp, all passing as at step 1: tools named
+   `get_weather` and Paris; reasoning returned 391 with the reasoning in `reasoning_content`;
+   Anthropic messages returned a `tool_use` block and a thinking block whose `signature` is empty,
+   where vLLM's carries one; responses returned `completed` with a `reasoning` and a `message`
+   item.
+
+The session's instructions for the walkthrough left out the method's warm-up step, so A ran
+cold. The walkthrough with it named, after the method's sections:
+
+1. On the laptop, with vLLM's default row serving: the warm-up
+   ([vLLM: per row, the version and the warm-up](#vllm-per-row-the-version-and-the-warm-up)),
+   with `model` and `tok` set to `nvidia/Gemma-4-26B-A4B-NVFP4`, then A'
+   ([vLLM: per cell](#vllm-per-cell)) and its read-out.
+2. On gb10-1, from the clone:
+
+   ```sh
+   docker stop vllm
+   engines/engines llama install
+   docker start llama
+   ```
+
+3. On the laptop, with `GUIDELLM__SPEC__BACKEND__TARGET` set to `http://gb10-1:8080`: load
+   gpt-oss-120b and list until it shows `loaded`:
+
+   ```sh
+   model=ggml-org/gpt-oss-120b-GGUF:MXFP4
+   tok=openai/gpt-oss-120b
+   curl -s -X POST "http://gb10-1:8080/models/load" -H "Content-Type: application/json" -d "{\"model\": \"$model\"}"; echo
+   curl -s "http://gb10-1:8080/models" | jq -c --arg m "$model" '.data[] | select(.id == $m) | {id, status: .status.value}'
+   ```
+
+4. The warm-up ([Per model: the build and the warm-up](#per-model-the-build-and-the-warm-up)),
+   then A ([Per cell](#per-cell)) and its read-out
+   ([Reading the figures](#reading-the-figures)).
+5. The four gpt-oss-120b probes from
+   [llama.cpp's API page](../engines/llama.cpp/api.md#probes-of-the-api-surface).
+
+Both reruns wrote under the cells' own names, so `.state/bench/vllm-anchor-a.*` and
+`.state/bench/llama-anchor-a.*` now hold the walkthrough's runs, not step 1's; their logs are
+still the steps'.
+
+gb10-1 was left with llama.cpp's router running and gpt-oss-120b loaded, and vLLM's container
+stopped on its pin, the default row. `docker stop llama`, then `docker start vllm`, brings vLLM
+back.
 
 ## Findings
 
@@ -916,3 +1030,7 @@ above.
   downloaded in parallel from 11:15 to 14:04 (-04:00): 23 to 27 MB/s in aggregate while many
   streams ran, about 14 MB/s with few, with the host otherwise idle. One file failed twice under
   Xet and completed over plain HTTP ([Pre-staging](#pre-staging)).
+- **Pre-staged models loaded without a download, but for 57 KB.** vLLM's gpt-oss-120b start
+  fetched `original/`'s three JSON files, which its `stage` line had excluded with the weights;
+  nothing else was fetched. vLLM has no offline guard here, as llama.cpp's preset does, so the
+  fetch was silent ([Pre-staging](#pre-staging)).
