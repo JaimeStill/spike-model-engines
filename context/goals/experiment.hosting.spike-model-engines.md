@@ -139,7 +139,7 @@ Door
 
 ## Progress
 
-slices 1/4 committed (slice 1 eb40da3; host steps pending: hf first walk, sudoers rule, pre-stage) · standards — · spec — · editor —
+slices 1/4 committed (slice 1 eb40da3; slice 2 configs 0c41696 and slice 3 configs 107ab06 written, cells not run) · pre-stage running since 11:15 · standards — · spec — · editor —
 
 ## Decisions
 
