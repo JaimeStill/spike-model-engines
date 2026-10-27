@@ -136,7 +136,7 @@ Door
 
 ## Progress
 
-slices 2/3 committed (slice 1 walked; slice 2 finding) · standards — · spec — · editor —
+slices 3/3 committed (walkthrough done) · standards — · spec — · editor —
 
 ## Decisions
 
