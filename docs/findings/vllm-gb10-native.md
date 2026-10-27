@@ -424,6 +424,14 @@ vLLM's lines, with no `Directly load AOT`, since the start compiled; then `Remov
 "/etc/systemd/system/multi-user.target.wants/vllm-server.service".`, `inactive`, and `disabled`. Its
 figures are in [Startup](#startup) and [Footprint](#footprint).
 
+After the gaps were reviewed, the session read whether the start saved its compile, on gb10-1:
+
+```sh
+journalctl -u vllm-server --since "2026-10-27 14:22:06" --until "2026-10-27 14:29" | grep -c "saved AOT compiled function"; ls /opt/vllm/cache/vllm/torch_compile_cache/torch_aot_compile | wc -l
+```
+
+It printed `1` and `1`: the start saved its AOT compile, and native's next start loads it.
+
 ### Model state
 
 Each method's cells start from the same state: a cold start from a dropped page cache with that
@@ -872,5 +880,5 @@ Also:
   container, native llama.cpp, and the llama container are all stopped and disabled, and none
   starts at boot; native vLLM stays installed at v0.32.0 under `/opt/vllm`. The first start's
   removal deleted native's own torch.compile cache, under `/opt/vllm/cache`, and that start
-  compiled again; its grep read no save line, where each first start in the walk logged `saved AOT
-  compiled function` and the release's next start loaded it.
+  compiled again and saved its AOT compile
+  ([8. Native's first start](#8-natives-first-start)), so native's next start loads it.
