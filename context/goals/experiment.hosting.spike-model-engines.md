@@ -39,8 +39,9 @@ Behaviors
   2. The Framework is brought current by the architect's `omarchy update`.
      An installed kernel newer than the running one is recorded as a
      pending reboot, unless the GTT step's reboot has already taken it.
-  3. The GTT ceiling is all physical RAM, 125 GiB, as on the GB10: ttm
-     pages_limit 32768000 and amdgpu gttsize 128000, built into the boot
+  3. The GTT ceiling is 112 GiB, close to the GB10's (changed from 125 GiB
+     during BUILD, see Decisions): ttm pages_limit 29360128 and amdgpu
+     gttsize 114688, built into the boot
      image, then a reboot. It reads back from the ttm and amdgpu
      parameters and from mem_info_gtt_total. The guide records the earlier
      values (pages_limit 25165824, gttsize 98304), and notes that clearing
@@ -152,7 +153,7 @@ Door
 
 ## Progress
 
-slices 0/4 committed · standards — · spec — · editor —
+slices 0/4 committed (slice 1's guide b84066b; host walk in progress) · standards — · spec — · editor —
 
 ## Decisions
 
@@ -633,6 +634,10 @@ slices 0/4 committed · standards — · spec — · editor —
   architect's root step at BUILD's start; rejected 96 and 112 GiB, and clearing the options,
   which falls to the kernel's half of RAM (~62.5 GiB); personal-agents' preparation doc is the
   architect's to update (r3 q2, r4 q1).
+- llama-strix-rocm: the GTT ceiling is 112 GiB, not 125 (architect, slice 1): amd-ttm warned that
+  125 exceeds 90% of RAM (112.57 GB) and could destabilize the host, and the architect judged
+  112 the safer setting, keeping ~13 GiB for the host; pages_limit 29360128, gttsize 114688.
+  Supersedes the 125 GiB decision above.
 
 ## Pending edits
 

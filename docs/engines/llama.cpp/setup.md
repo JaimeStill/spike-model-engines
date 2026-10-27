@@ -339,20 +339,22 @@ defaults to half of RAM, about 62.5 GiB.
 
 The Framework was set to 96 GiB earlier: TTM's `pages_limit` to 25165824 pages of 4 KiB, with
 `amd-ttm --set 96`, and amdgpu's `gttsize` to 98304 MiB, in `/etc/modprobe.d/amdgpu.conf`. Set
-both to all of physical RAM, 125 GiB, as on the GB10, whose GPU can allocate its whole memory.
+both to 112 GiB, close to the GB10, whose GPU can allocate nearly its whole memory, while keeping
+about 13 GiB of the 125 GiB for the host. 112 GiB is `amd-ttm`'s own limit before it warns: it
+asks before setting more than 90% of RAM, since a GPU that fills memory can starve the host.
 
-`amd-ttm` writes `options ttm pages_limit=32768000` to `/etc/modprobe.d/ttm.conf`:
+`amd-ttm` writes `options ttm pages_limit=29360128` to `/etc/modprobe.d/ttm.conf`:
 
 ```sh
-sudo amd-ttm --set 125
+sudo amd-ttm --set 112
 ```
 
-It warns that 125 GB is more than 90% of RAM and asks whether to continue: answer `y`. It may
-rebuild the initramfs itself; then it asks whether to reboot: answer `n`, since amdgpu's option
-and the boot images come next. amdgpu's `gttsize` is in MiB, 125 × 1024:
+It looks for initramfs images in `/boot` to rebuild, finds none, since Limine keeps them
+elsewhere, and asks whether to reboot: answer `n`, since amdgpu's option and the boot images
+come next. amdgpu's `gttsize` is in MiB, 112 × 1024:
 
 ```sh
-echo 'options amdgpu gttsize=128000' | sudo tee /etc/modprobe.d/amdgpu.conf
+echo 'options amdgpu gttsize=114688' | sudo tee /etc/modprobe.d/amdgpu.conf
 ```
 
 The initramfs loads amdgpu, and TTM with it (its `kms` hook), and carries `/etc/modprobe.d`
@@ -364,9 +366,9 @@ sudo limine-mkinitcpio
 sudo reboot
 ```
 
-After the reboot, check each value. TTM's limit, in 4 KiB pages, prints `32768000`; amdgpu's
-parameter, readable only by root, prints `128000`; and the GTT the GPU reports, in bytes, prints
-`134217728000`:
+After the reboot, check each value. TTM's limit, in 4 KiB pages, prints `29360128`; amdgpu's
+parameter, readable only by root, prints `114688`; and the GTT the GPU reports, in bytes, prints
+`120259084288`:
 
 ```sh
 cat /sys/module/ttm/parameters/pages_limit
