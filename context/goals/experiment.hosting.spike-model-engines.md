@@ -9,7 +9,7 @@
 1. [x] llama-gb10-container
 2. [x] vllm-gb10-container
 3. [x] bench-gb10-container
-4. [ ] host-rename
+4. [x] host-rename
 5. [ ] llama-gb10-native
 6. [ ] vllm-gb10-native
 7. [ ] llama-strix-rocm
@@ -17,73 +17,98 @@
 9. [ ] strix-native
 10. [ ] answer
 
-## Task brief · host-rename
+## Task brief · llama-gb10-native
 
-Approved 2026-10-27. The next task, llama-gb10-native, keeps its approved brief (1985f98),
-restored at this task's SHIP (behavior 7).
+Approved 2026-10-27.
 
 Problem
-  The engines suite lives in a directory named for itself, so every
-  command reads `engines/engines llama install`. spike-ai-pipeline asked
-  for the stutter to go (2026-10-26) before llama-gb10-native adds the
-  native steps and more guide text cites the path. Renaming it also
-  breaks gb10-1's stopped llama container, whose preset mount names the
-  clone's old path.
+  llama.cpp runs on gb10-1 only in ggml's container, so the spike can't
+  yet say whether the GB10 should host it in a container or on bare
+  metal (evidence 6: install, update, rollback, startup, speed parity,
+  GPU and memory access per hosting method). This task runs the same
+  llama.cpp build natively under systemd and measures it against the
+  container in one session, at the engine (llama-bench) and through the
+  served API (the anchors).
 
 Behaviors
-  1. Currency reports only held items (uv 0.13.6 taken; Python held),
-     and the check passes.
-  2. The suite's directory is `host/`: the dispatcher runs as
-     `host/engines <group> <verb>`, and every shellcheck source
-     directive, mise file, configuration comment, guide, README,
-     context note and standard names `host/`. The guides' own
-     directory and the dispatcher's and commands' names are unchanged.
-     No reference to the old script directory remains.
-  3. The three findings' commands and pins cite `host/`, each finding
-     with one line naming the rename's commit; no result changes.
-  4. llama's update also replaces a container whose preset mount isn't
-     the clone's preset directory, pulling nothing when its image is
-     the pin's; llama's install, finding such a container, changes
-     nothing and points at update. Both still refuse while vLLM runs
-     and stay idempotent. llama.cpp's update guide says so.
-  5. gb10-1's clone moves to `host/`; vLLM is stopped; llama's update
-     rebuilds the llama container from the new preset path, and it
-     answers on 8080 over the tailnet with the preset's models listed.
-  6. At the end, the llama and vLLM containers are both stopped on
-     gb10-1, and the record's host line says so and that llama mounts
-     the clone's `host/` preset.
-  7. At SHIP, the goal record's Task brief is llama-gb10-native's
-     approved brief (1985f98) again, with uv dropped from its behavior
-     1 and slice 1 and the "waits for the rename" line removed; its
-     Decisions lines stay.
+  1. Currency reports only held items (Python held), and the check
+     passes.
+  2. llama.cpp's install and update, container and native, take a
+     semver release (resolving its b-build from the release notes) or a
+     b-build. The guides, README and this task's finding name versions
+     by semver, with the b-build once beside it. Earlier findings stay
+     as written.
+  3. Native llama.cpp is ggml's CUDA 13.4 arm64 Linux prebuilt plus its
+     CUDA runtime tarball, each verified against GitHub's sha256, and
+     unpacked into a per-build directory under a jaime-owned
+     /opt/llama.cpp. A `current` link names the serving build, and only
+     the latest build is kept.
+  4. A system unit, modeled on personal-agents' "Run it as a service",
+     runs llama-server as jaime through `current`. It requires and
+     follows tailscaled, binds to the tailnet address at start on port
+     8080, restarts on failure, and serves the container's preset, model
+     store, and router flags unchanged.
+  5. The architect's one-time root steps are in the setup guide with
+     their removal: create and chown /opt/llama.cpp, install the unit
+     file and daemon-reload, and a sudoers rule for exactly `systemctl
+     start|stop|restart|enable|disable llama-router`.
+  6. Idempotent native install, update and uninstall steps in the
+     engines suite. Each refuses while another engine serves, enables
+     the unit while native llama.cpp serves, disables it on stop, and
+     keeps the model store. Uninstall leaves the root steps for the
+     architect's removal procedure.
+  7. Install and rollback walk: native v0.6.0 installs, serves, and
+     updates to v0.7.0. Rolling back to v0.6.0 re-points `current`.
+  8. New tool, llama-bench: the guide says what it is, how it is set
+     up (it ships in the prebuilt, and in ggml's full-cuda13 image),
+     and what it provides.
+  9. llama-bench pp512 / tg256, 5 repetitions, all layers on the GPU,
+     flash attention as the server logs it, on gpt-oss-120b MXFP4 and
+     gemma-4-26B-A4B QAT Q4_0. Each runs natively and in ggml's
+     full-cuda13 image for v0.7.0, in the same session.
+  10. Container anchors A (1 × 8) and B (4 × 32) on gpt-oss-120b rerun
+      warm at v0.7.0 before native A and B at the same load. An anchor
+      that moved beyond run noise is a finding.
+  11. One cold load of gpt-oss-120b per hosting method, from a dropped
+      page cache, timed, with MemAvailable before and after and the
+      engine's logged buffers.
+  12. Every result records the engine version (semver), the host stack,
+      the laptop's path (tailscale ping) and the model state. No run
+      exceeds 10 minutes.
+  13. At the end, native llama.cpp, the llama container and vLLM are
+      all stopped and disabled on gb10-1. The record's host line says
+      so.
 
 Test seams
-  The check; a search for the old script path; the engines commands'
-  output on gb10-1; llama-server's HTTP API from the laptop.
+  llama-server's HTTP API on gb10-1, as GuideLLM and curl call it from
+  the laptop, and llama-bench's output on gb10-1.
 
 Slices
-  1. Upgrade (behavior 1): uv 0.13.6 in both mise envs. Done when
-     currency reports only held items and the check passes.
-  2. The rename (2–3): the move and every reference, findings
-     included. Demo: the check passes, the search finds no old path,
-     and `host/engines` lists its commands.
-  3. Stale-mount update (4): llama's install and update read the
-     preset mount. Demo: on gb10-1's clone, switched to the task's
-     pushed branch, with vLLM stopped by the session, llama's install
-     reports the stale mount and points at update.
-  4. Walkthrough (5–6): the architect, from the update guide, runs
-     llama's update on gb10-1, checks it answers on 8080, and stops
-     it; both engines left stopped.
+  1. Currency and version argument (behaviors 1–2): semver or b-build
+     for llama.cpp's container install and update; the guides lead
+     with semver. Done when currency reports only held
+     items and the check passes.
+  2. Native install (3–8): the architect's root steps, walked; native
+     install at v0.6.0, the unit serving the preset, update to v0.7.0,
+     rollback and forward again; the full-cuda13 image and every model
+     pre-staged. Demo: native v0.7.0 answers on 8080 over the tailnet.
+  3. The comparison (9–13): container anchors, then native anchors;
+     llama-bench native and in the container; the cold loads; then all
+     engines stopped and disabled. Demo: the finding with raw-speed,
+     served-speed and startup/memory tables.
+  4. Walkthrough: the architect installs, updates, rolls back and
+     uninstalls native llama.cpp from the guide, and runs one
+     llama-bench and one anchor cell from the finding's method.
 
 Out of scope
-  The dispatcher's and commands' names; the guides' directory;
-  spike-ai-pipeline and gb10-2 (its own task, host-scripts); native
-  llama.cpp and any measurement (llama-gb10-native); vLLM beyond its
-  paths.
+  gb10-2; vLLM native (vllm-gb10-native); cmake and source builds
+  (strix-native); linking against gb10-1's own CUDA 13.0; llama-bench
+  depth sweeps and the other shapes; tuning; removing the container
+  hosting method (answer); rewriting earlier findings.
 
 Door
-  Two-way: a revert restores the directory, and llama's update
-  rebuilds the container from whichever path the clone has.
+  Two-way: the unit, sudoers rule and /opt/llama.cpp go by the setup
+  guide's removal procedure, the builds by native uninstall.
 
 ## Decisions
 
@@ -398,6 +423,12 @@ Door
   `host/` too.
 - host-rename: the findings' script paths are rewritten, each finding noting the rename commit,
   so their methods still run as written; rejected leaving them as run. No result changes.
+- host-rename: hosts brought current at every session start, this task included though it
+  measures nothing; rejected skipping it for a task without measurement. At the architect's
+  request (2026-10-27).
+- host-rename: gb10-1 brought current on 2026-10-27, CDI spec regenerated, no reboot pending:
+  DGX OS 7.6.0, driver 580.178.04, CUDA 13.0, kernel 7.0.0-1019-nvidia, Docker 29.6.2, NVIDIA
+  Container Toolkit 1.20.1.
 - host-rename: the rename rebuilds gb10-1's stale llama container itself; rejected leaving it to
   llama-gb10-native, which stays native setup and benchmarking. At the architect's request.
 - host-rename: llama's update also replaces a container whose preset mount isn't the clone's,
@@ -409,6 +440,21 @@ Door
   host-rename's SHIP; rejected recovering it from git history at its start.
 - host-rename: spike-ai-pipeline's follow-up is its task `host-scripts`, after client-core, in
   the coordinator roadmap (PR #104); this spike doesn't touch spike-ai-pipeline or gb10-2.
+- host-rename: llama's install checks the preset mount before the image, so a container stale in
+  both gets the mount message; both messages point at update.
+- host-rename: a container with no `/etc/llama-preset` mount counts as stale, printed as `none`.
+- host-rename: update's replacement runs the new container even when the old one was stopped, as
+  an image change already did; the update guide says so.
+- host-rename: the mount check is an exact string match against `LLAMA_PRESET_DIR`, the string
+  `llama_run` mounts, not symlink-resolved; gb10-1's second update read it as matching.
+- host-rename: the old directory is named only in this record's history, the three findings'
+  rename notes, and the update guide's stale-mount example (behavior 4 needs a concrete case);
+  the scripts' comments describe the move generically. README.md and STANDARDS.md never named it.
+- host-rename: each finding's rename note is one sentence, wrapped to 100 columns.
+- host-rename: gb10-1 left on 2026-10-27 with llama and vLLM both stopped: llama rebuilt at b11669
+  mounting the clone's `host/llama-preset` (clone at ~/repos/spike-model-engines, on the
+  host-rename branch until the merge), vLLM stopped on its pin (v0.32.0). Supersedes
+  bench-gb10-container's "gb10-1 left with vLLM serving its pin and llama.cpp stopped".
 
 ## Pending edits
 

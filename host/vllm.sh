@@ -13,9 +13,9 @@
 # update. USER is set too, since Python's getpass.getuser() otherwise fails on a uid with no
 # passwd entry. This is what the image's own non-root variant does in its entrypoint.
 
-# shellcheck source=engines/engines.sh
+# shellcheck source=host/engines.sh
 source "$(dirname "${BASH_SOURCE[0]}")/engines.sh"
-# shellcheck source=engines/vllm.env
+# shellcheck source=host/vllm.env
 source "$(dirname "${BASH_SOURCE[0]}")/vllm.env"
 
 VLLM_CONTAINER=vllm
@@ -46,7 +46,7 @@ vllm_row() {
   local words
   mapfile -t words < <(vllm_row_words "$VLLM_MODEL")
   if ((${#words[@]} == 0)); then
-    echo "vllm has no row $VLLM_MODEL in engines/$VLLM_ROWS; its rows are:" >&2
+    echo "vllm has no row $VLLM_MODEL in host/$VLLM_ROWS; its rows are:" >&2
     vllm_rows | sed 's/^/  /' >&2
     return 1
   fi

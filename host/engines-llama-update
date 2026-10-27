@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# engines:summary=Move llama to the pinned build and remove every other llama.cpp image
+# Pulls the pinned image before replacing the container, so a failed pull leaves the old build
+# serving. The container is replaced when its image isn't the pin's or its preset mount isn't the
+# clone's preset directory (as after the clone's scripts move); one replacement handles both, and
+# when the image is already the pin's it pulls nothing. A replaced container runs, even if the old
+# one was stopped. When llama already runs the pin with the clone's preset and no other image is
+# left, it changes nothing; when that container is stopped, it says docker start starts it, and
+# never starts it itself. It refuses while the vllm container runs, since one engine serves per
+# host at a time.
+set -euo pipefail
+# shellcheck source=host/llama.sh
+source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
+
+engines_refuse_running vllm
+
+running=$(llama_running_image)
+if [[ -z $running ]]; then
+  echo "llama is not installed; engines llama install installs it" >&2
+  exit 1
+fi
+
+mount=$(llama_preset_mount)
+changed=
+if [[ $running != "$LLAMA_IMAGE" || $mount != "$LLAMA_PRESET_DIR" ]]; then
+  llama_preflight
+  [[ $running == "$LLAMA_IMAGE" ]] || docker pull "$LLAMA_IMAGE"
+  docker rm --force "$LLAMA_CONTAINER" >/dev/null
+  llama_run "$LLAMA_IMAGE" >/dev/null
+  if [[ $mount == "$LLAMA_PRESET_DIR" ]]; then
+    echo "llama moved from $running to $LLAMA_IMAGE"
+  elif [[ $running == "$LLAMA_IMAGE" ]]; then
+    echo "llama restarted $LLAMA_IMAGE with its preset mount moved from ${mount:-none}" \
+      "to $LLAMA_PRESET_DIR"
+  else
+    echo "llama moved from $running to $LLAMA_IMAGE, and its preset mount from ${mount:-none}" \
+      "to $LLAMA_PRESET_DIR"
+  fi
+  changed=yes
+fi
+removed=$(llama_remove_images "$LLAMA_IMAGE")
+[[ -n $removed ]] && echo "$removed"
+stopped=
+[[ -n $changed ]] || stopped=$(engines_stopped "$LLAMA_CONTAINER")
+if [[ -n $stopped ]]; then
+  echo "llama is installed with $LLAMA_IMAGE but stopped; docker start llama starts it"
+elif [[ -z $changed$removed ]]; then
+  echo "llama already runs $LLAMA_IMAGE; nothing changed"
+fi

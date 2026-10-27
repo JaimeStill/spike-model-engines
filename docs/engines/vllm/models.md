@@ -3,8 +3,8 @@
 ## The pinned model
 
 A vLLM server serves one model, named on its command line, and loads no other on demand. The
-model and its server flags are a row of `engines/vllm-rows`, and the pin beside the release in
-`engines/vllm.env` names the row the host serves by default, as `VLLM_MODEL`:
+model and its server flags are a row of `host/vllm-rows`, and the pin beside the release in
+`host/vllm.env` names the row the host serves by default, as `VLLM_MODEL`:
 `gemma-4-26B-A4B-NVFP4`. Its model is `nvidia/Gemma-4-26B-A4B-NVFP4`, NVIDIA's NVFP4
 quantization of Gemma 4 26B-A4B, a mixture of experts with 4B of its 26B parameters active per
 token. It is 18.8 GB, ungated, so no token. The server serves another row for one run when it is
@@ -110,7 +110,7 @@ the load and the compile alone; record it.
 
 ### The rows
 
-Every model the server serves is a row of `engines/vllm-rows`: an id in brackets, the model's
+Every model the server serves is a row of `host/vllm-rows`: an id in brackets, the model's
 Hugging Face repository, then its server flags. The file's comments give each flag's reason.
 Every row serves sequences of 8192 tokens and reserves 0.80 of the GB10's memory
 (`--max-model-len 8192 --gpu-memory-utilization 0.80`), and the model's own generation config
@@ -141,7 +141,7 @@ On the host, from the clone, name the row in `VLLM_MODEL` before `update`, in th
 so it applies to that run alone:
 
 ```sh
-VLLM_MODEL=gpt-oss-120b engines/engines vllm update
+VLLM_MODEL=gpt-oss-120b host/engines vllm update
 ```
 
 `update` compares the container's whole command, image, model, and flags, with the row's, so it
@@ -155,7 +155,7 @@ hf](#pre-staging-models-with-hf)).
 An id with no row refuses, changing nothing, and lists the rows:
 
 ```sh
-VLLM_MODEL=gemma-4-E2B-it engines/engines vllm update
+VLLM_MODEL=gemma-4-E2B-it host/engines vllm update
 ```
 
 `install` takes the same `VLLM_MODEL` when `vllm` isn't installed; when it is, `install` refuses
@@ -167,7 +167,7 @@ any row it doesn't already serve and points at `update`. Both still refuse while
 `update` without `VLLM_MODEL` serves the pin's default row again:
 
 ```sh
-engines/engines vllm update
+host/engines vllm update
 ```
 
 It prints `vllm moved from ... to vllm/vllm-openai:v0.32.0 with row gemma-4-26B-A4B-NVFP4
@@ -177,10 +177,10 @@ exported one would keep naming its row for every later command in that shell.
 
 ### Adding a row, or moving the default
 
-A new model is a new row in `engines/vllm-rows`, and moving the default is an edit of
-`VLLM_MODEL` in `engines/vllm.env`, with the model this guide, [Setup](setup.md), and
+A new model is a new row in `host/vllm-rows`, and moving the default is an edit of
+`VLLM_MODEL` in `host/vllm.env`, with the model this guide, [Setup](setup.md), and
 [API](api.md) quote to match. A Gemma 4 row takes the default row's parser flags; a model of
 another family takes its own. Commit and push; then, on the host, `git pull` and
-`engines/engines vllm update` ([Update](update.md#moving-to-the-pinned-release-or-model)). A
+`host/engines vllm update` ([Update](update.md#moving-to-the-pinned-release-or-model)). A
 model the store lacks downloads on its first start, a cold start to record, and an old model
 stays in the store until it is deleted ([Uninstall](uninstall.md#deleting-the-model)).

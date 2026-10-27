@@ -10,7 +10,7 @@
 # listing the rows, and refuses while the llama container runs, since one engine serves per host
 # at a time.
 set -euo pipefail
-# shellcheck source=engines/vllm.sh
+# shellcheck source=host/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 
 engines_refuse_running llama

@@ -5,9 +5,9 @@
 # (/srv/models) as llama.cpp's download cache. It runs as the invoking user, so the store's files
 # stay that user's, and publishes port 8080 on the host's tailnet IPv4 address only.
 
-# shellcheck source=engines/engines.sh
+# shellcheck source=host/engines.sh
 source "$(dirname "${BASH_SOURCE[0]}")/engines.sh"
-# shellcheck source=engines/llama.env
+# shellcheck source=host/llama.env
 source "$(dirname "${BASH_SOURCE[0]}")/llama.env"
 
 LLAMA_CONTAINER=llama
@@ -25,6 +25,16 @@ llama_running_image() {
   local id
   id=$(docker container ls --all --quiet --filter "name=^$LLAMA_CONTAINER\$") || return
   [[ -z $id ]] || docker container inspect --format '{{.Config.Image}}' "$id"
+}
+
+# The source of the container's preset mount (what /etc/llama-preset binds), or nothing when it has
+# none, after llama_running_image finds a container. Update replaces a container whose source isn't
+# LLAMA_PRESET_DIR, as when the clone's scripts move. Fails when Docker does, so an unreachable
+# daemon is never read as a stale mount.
+llama_preset_mount() {
+  docker container inspect --format \
+    '{{range .Mounts}}{{if eq .Destination "/etc/llama-preset"}}{{.Source}}{{end}}{{end}}' \
+    "$LLAMA_CONTAINER"
 }
 
 # Checks what llama_run needs before anything is pulled or removed (engines_preflight), and sets

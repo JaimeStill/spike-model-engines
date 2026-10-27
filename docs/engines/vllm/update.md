@@ -6,7 +6,7 @@ On the host, from the clone, bring the clone current, then update:
 
 ```sh
 git pull
-engines/engines vllm update
+host/engines vllm update
 ```
 
 `update` pulls the pinned image, replaces the `vllm` container with one running it on the pin's
@@ -48,8 +48,8 @@ the second lists the pinned image alone. The laptop confirms the version the ser
 To walk an update before the pin moves, install an older release, then update to the pin:
 
 ```sh
-engines/engines vllm install v0.31.0
-engines/engines vllm update
+host/engines vllm install v0.31.0
+host/engines vllm update
 ```
 
 `install` refuses an older release while `vllm` already runs another, so rehearse from a host
@@ -58,18 +58,18 @@ record; the second may compile again, under the new release.
 
 ## How the pin moves
 
-The pin is `engines/vllm.env`: `VLLM_RELEASE`, the latest GitHub release, from which
-`VLLM_IMAGE` follows, and `VLLM_MODEL`, the row of `engines/vllm-rows` the server serves by
+The pin is `host/vllm.env`: `VLLM_RELEASE`, the latest GitHub release, from which
+`VLLM_IMAGE` follows, and `VLLM_MODEL`, the row of `host/vllm-rows` the server serves by
 default. On the laptop, `mise run currency` reports when a newer release is out:
 
 ```sh
 mise run currency
 ```
 
-A line beginning `engines/vllm.env: vLLM` means the pin is behind, and names the new release.
-Edit `VLLM_RELEASE` in `engines/vllm.env` to it, and the pin this guide quotes to match: the
+A line beginning `host/vllm.env: vLLM` means the pin is behind, and names the new release.
+Edit `VLLM_RELEASE` in `host/vllm.env` to it, and the pin this guide quotes to match: the
 [README](README.md), the image and its `--version` output in
 [Setup](setup.md#2-prove-the-pinned-image-runs-on-the-gpu), and the version in
 [API](api.md#version). A new default row edits `VLLM_MODEL` instead
 ([Models](models.md#adding-a-row-or-moving-the-default)). Commit and push; then, on the host,
-`git pull` and `engines/engines vllm update`.
+`git pull` and `host/engines vllm update`.

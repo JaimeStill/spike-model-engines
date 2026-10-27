@@ -2,7 +2,7 @@
 # engines:summary=Remove the llama container and every llama.cpp image, keeping /srv/models
 # The model store stays; deleting models is a typed command (docs/engines/llama.cpp/uninstall.md).
 set -euo pipefail
-# shellcheck source=engines/llama.sh
+# shellcheck source=host/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
 
 changed=

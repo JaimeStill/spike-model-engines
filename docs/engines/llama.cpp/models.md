@@ -2,7 +2,7 @@
 
 ## The preset
 
-The router serves the models its preset names, `engines/llama-preset/models.ini`, which the
+The router serves the models its preset names, `host/llama-preset/models.ini`, which the
 container reads from the clone at `/etc/llama-preset/models.ini`. Each section is one model,
 named as clients name it in `"model"`; its keys are `llama-server` arguments without the leading
 dashes, and `[*]` holds the keys every model shares. `hf-repo` names the Hugging Face repository
@@ -145,8 +145,8 @@ mkdir -p ~/prestage
 stage() { nohup bash -c 'mise exec -- hf download "$@"; echo "exit $?"' stage "$@" > ~/prestage/"${1//\//--}".log 2>&1 & }
 ```
 
-Then start every download, and both engines' pinned images (`engines/llama.env`,
-`engines/vllm.env`), together:
+Then start every download, and both engines' pinned images (`host/llama.env`,
+`host/vllm.env`), together:
 
 ```sh
 stage ggml-org/gemma-4-E4B-it-GGUF --include gemma-4-E4B-it-Q8_0.gguf --include mmproj-gemma-4-E4B-it-Q8_0.gguf

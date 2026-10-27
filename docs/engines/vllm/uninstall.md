@@ -5,7 +5,7 @@
 On the host, from the clone:
 
 ```sh
-engines/engines vllm uninstall
+host/engines vllm uninstall
 ```
 
 `uninstall` removes the `vllm` container, every vLLM image, and the compile cache,

@@ -6,7 +6,7 @@ On the host, from the clone, bring the clone current, then update:
 
 ```sh
 git pull
-engines/engines llama update
+host/engines llama update
 ```
 
 `update` pulls the pinned image, replaces the `llama` container with one running it, and removes
@@ -29,14 +29,32 @@ The first prints the pinned image; the second lists it alone. Once the model is 
 laptop confirms the build the model itself runs ([API](api.md#build)), which reads
 `b11669-620d2225c` at the pin.
 
+`update` also replaces a `llama` container whose preset mount isn't the clone's preset
+directory, `host/llama-preset`, such as one installed before the scripts moved from `engines/` to
+`host/`, which still mounts the missing `engines/llama-preset`. When its image is already the
+pin's, it pulls nothing and says
+
+```text
+llama restarted <pinned image> with its preset mount moved from <old directory> to <new directory>
+```
+
+When the image moves too, one replacement handles both, and it says `llama moved from <old
+image> to <pinned image>, and its preset mount from <old directory> to <new directory>`. Either
+way the new container runs, even when the old one was stopped. `install` changes nothing for
+such a `llama`, whatever image it runs, and fails with
+
+```text
+llama's preset mount is <old directory>, not <new directory>; engines llama update moves it to the pin
+```
+
 ## Rehearsing an update
 
 To walk an update before the pin moves, install an older build, then update to the pin. b11429
 is the build v0.6.0 names:
 
 ```sh
-engines/engines llama install b11429
-engines/engines llama update
+host/engines llama install b11429
+host/engines llama update
 ```
 
 `install` refuses an older build while `llama` already runs another, so rehearse from a host
@@ -44,7 +62,7 @@ where it isn't installed, or after [uninstalling](uninstall.md).
 
 ## How the pin moves
 
-The pin is `engines/llama.env`: `LLAMA_RELEASE`, the latest semver release, and `LLAMA_BUILD`,
+The pin is `host/llama.env`: `LLAMA_RELEASE`, the latest semver release, and `LLAMA_BUILD`,
 the b-build its notes name ("Nightly build:"), from which `LLAMA_IMAGE` follows. On the laptop,
 `mise run currency` reports when a newer release names a newer build:
 
@@ -52,8 +70,8 @@ the b-build its notes name ("Nightly build:"), from which `LLAMA_IMAGE` follows.
 mise run currency
 ```
 
-A line beginning `engines/llama.env: llama.cpp` means the pin is behind, and names the new build
-and its release. Edit `LLAMA_RELEASE` and `LLAMA_BUILD` in `engines/llama.env` to the release
+A line beginning `host/llama.env: llama.cpp` means the pin is behind, and names the new build
+and its release. Edit `LLAMA_RELEASE` and `LLAMA_BUILD` in `host/llama.env` to the release
 and build it names, and the pin this guide quotes to match: the [README](README.md), and the
 image and its `--version` output in [Setup](setup.md#3-prove-the-pinned-image-runs-on-the-gpu).
-Commit and push; then, on each host, `git pull` and `engines/engines llama update`.
+Commit and push; then, on each host, `git pull` and `host/engines llama update`.

@@ -18,8 +18,8 @@ trailing=$(for env in bench host; do
     exit
 done | sort -u)
 
-# shellcheck source=engines/llama.env
-source engines/llama.env
+# shellcheck source=host/llama.env
+source host/llama.env
 release=$(curl -fsSL https://api.github.com/repos/ggml-org/llama.cpp/releases/latest)
 latest=$(jq -r '.body | capture("Nightly build:[^b]*(?<b>b[0-9]+)").b' <<<"$release")
 tag=$(jq -r .tag_name <<<"$release")
@@ -28,11 +28,11 @@ if [[ -z $latest ]]; then
   exit 2
 fi
 if [[ $latest != "$LLAMA_BUILD" ]]; then
-  trailing+="${trailing:+$'\n'}engines/llama.env: llama.cpp $LLAMA_BUILD -> $latest ($tag)"
+  trailing+="${trailing:+$'\n'}host/llama.env: llama.cpp $LLAMA_BUILD -> $latest ($tag)"
 fi
 
-# shellcheck source=engines/vllm.env
-source engines/vllm.env
+# shellcheck source=host/vllm.env
+source host/vllm.env
 tag=$(curl -fsSL https://api.github.com/repos/vllm-project/vllm/releases/latest |
   jq -r '.tag_name // empty')
 if [[ -z $tag ]]; then
@@ -40,7 +40,7 @@ if [[ -z $tag ]]; then
   exit 2
 fi
 if [[ $tag != "$VLLM_RELEASE" ]]; then
-  trailing+="${trailing:+$'\n'}engines/vllm.env: vLLM $VLLM_RELEASE -> $tag"
+  trailing+="${trailing:+$'\n'}host/vllm.env: vLLM $VLLM_RELEASE -> $tag"
 fi
 
 if [[ -n $trailing ]]; then

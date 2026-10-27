@@ -2,7 +2,7 @@
 # engines:summary=Remove vllm, every vLLM image, and the compile cache, keeping /srv/models
 # The model store stays; deleting models is a typed command (docs/engines/vllm/uninstall.md).
 set -euo pipefail
-# shellcheck source=engines/vllm.sh
+# shellcheck source=host/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 
 changed=

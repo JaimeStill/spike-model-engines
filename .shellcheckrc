@@ -1,2 +1,2 @@
-# Follow the files a script sources, such as engines/llama.env, so shellcheck checks their use.
+# Follow the files a script sources, such as host/llama.env, so shellcheck checks their use.
 external-sources=true
