@@ -107,10 +107,11 @@ vllm_native_serving() {
 # Checks the architect's root steps before anything is built or started (engines_root_steps):
 # /opt/vllm, the unit, and its sudoers rule. Then checks that the host env's uv is installed, and
 # what serving needs (engines_preflight), and sets VLLM_ADDR to the tailnet address the unit
-# binds.
+# binds. uv is checked with `mise which`, which fails when the pinned uv isn't installed, since
+# `mise exec` would then run any uv on the PATH instead, or install the pin through mise's shims.
 vllm_native_preflight() {
   engines_root_steps "$VLLM_NATIVE_DIR" "$VLLM_UNIT" "$VLLM_ROOT_STEPS" || return
-  if ! vllm_native_exec uv --version >/dev/null; then
+  if ! (cd "$VLLM_CLONE" && MISE_ENV=host mise which uv >/dev/null 2>&1); then
     echo "the host env's uv isn't installed; MISE_ENV=host mise install, from the clone," \
       "installs it (docs/engines/vllm/setup.md, \"uv\")" >&2
     return 1
@@ -198,11 +199,12 @@ vllm_native_serve() {
 }
 
 # Prints what the serving release reports, after vllm_native_serve: the server's /version, and
-# the CUDA version torch was built for in current's environment, 13.0 from the cu130 index.
+# the CUDA version torch was built for in current's environment, 13.0 from the cu130 index, with
+# VLLM_NATIVE_ENV set, as for every command run in a release's environment.
 vllm_native_versions() {
   local version torch
   version=$(curl -fs --max-time 5 "http://$VLLM_ADDR:8000/version") || return
-  torch=$("$VLLM_NATIVE_DIR/current/bin/python" -c \
+  torch=$(env "${VLLM_NATIVE_ENV[@]}" "$VLLM_NATIVE_DIR/current/bin/python" -c \
     'import torch; print(f"torch {torch.__version__}, CUDA {torch.version.cuda}")') || return
   echo "/version answers $version; $torch"
 }
