@@ -210,6 +210,69 @@ HF_HUB_DISABLE_XET=1 stage ggml-org/gemma-4-E4B-it-GGUF --include gemma-4-E4B-it
 When every check passes, `rm -r ~/prestage` removes the logs; a new shell starts without the
 exports and `stage`.
 
+## Seeding the Framework's store
+
+The Framework already holds two of the models, in spike-model-hosting's Hugging Face cache on its
+models drive, `/mnt/models/hf-cache`: gpt-oss-120b MXFP4 and gemma-4-E4B Q8_0, each with the
+files the preset resolves. Seeding copies them into `/srv/models` instead of downloading them
+again, once the architect has created the store ([Setup](setup.md#framework-in-a-container),
+step 7). The models drive belongs to spike-model-hosting: the copy reads it and changes nothing
+on it.
+
+The two caches differ in one level: hosting's keeps each model under `hub/`, as
+`/mnt/models/hf-cache/hub/models--<org>--<repo>`, and the store keeps it at the top, as
+`/srv/models/models--<org>--<repo>`, as on gb10-1. Each model's directory is self-contained:
+`refs/main` names the snapshot, the snapshot's files are relative links into the model's own
+`blobs/`, and `blobs/` holds the files, each named by its content's sha256. Hosting's cache also
+keeps an older snapshot of each model beside the one `refs/main` names; the store takes only the
+one `refs/main` names, which is gb10-1's: `7200b74b` for gpt-oss-120b and `a69f018d` for
+gemma-4-E4B.
+
+On the Framework, the session copies each model's `refs/`, its `blobs/`, and the snapshot
+`refs/main` names. `cp -a` keeps the links as links, so the snapshot still points into the
+copied `blobs/`, and keeps `jaime` as the owner:
+
+```sh
+src=/mnt/models/hf-cache/hub
+for repo in models--ggml-org--gpt-oss-120b-GGUF models--ggml-org--gemma-4-E4B-it-GGUF; do
+  snap=$(cat "$src/$repo/refs/main")
+  mkdir -p "/srv/models/$repo/snapshots"
+  cp -a "$src/$repo/refs" "$src/$repo/blobs" "/srv/models/$repo/"
+  cp -a "$src/$repo/snapshots/$snap" "/srv/models/$repo/snapshots/"
+done
+```
+
+It copies about 72 GB from one drive to the other.
+
+### Checking that the copy is complete
+
+The checks of [Checking that every download is complete](#checking-that-every-download-is-complete)
+that apply to a copy. No partial file is in the store, and no link points at a missing file;
+both commands print nothing:
+
+```sh
+find /srv/models -name "*.incomplete"
+find /srv/models -xtype l
+```
+
+Each model's size, following its links, matches its row of
+[the models this spike stages](#the-models-this-spike-stages), in GiB (the table gives GB): about
+59 GiB for gpt-oss-120b and 8 GiB for gemma-4-E4B:
+
+```sh
+du -shL /srv/models/models--*
+```
+
+And every file holds what its name says: each blob's sha256 is its name, so `sha256sum` checks
+each copy against it and prints `OK` after each path:
+
+```sh
+for f in /srv/models/models--*/blobs/*; do echo "${f##*/}  $f"; done | sha256sum -c
+```
+
+It reads all 72 GB, so it takes some minutes. A blob that prints `FAILED` is copied again with
+its model's lines above.
+
 ## The host's address on the laptop
 
 The commands below run on the laptop and name the host by its short name, `gb10-1`, which

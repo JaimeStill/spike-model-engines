@@ -83,3 +83,60 @@ sudo rmdir /opt/llama.cpp
 `rmdir` fails when anything is left in `/opt/llama.cpp`, such as a build from before an uninstall;
 `host/engines llama-native uninstall` removes it while the rule is still in place. Then
 `systemctl status llama-router` says `Unit llama-router.service could not be found.`
+
+## The Framework
+
+On the Framework, `host/engines llama uninstall` removes the `llama` container, started by hand or
+by `install`, and every llama.cpp image, the ROCm ones among them
+([Removing llama.cpp](#removing-llamacpp)). It keeps `/srv/models`.
+
+### Removing the Framework's root steps
+
+After `uninstall`, the architect undoes the root steps of
+[Setup](setup.md#framework-in-a-container), each with a root step. `jaime` leaves the `docker`
+group, which takes effect at the next login, and, when nothing else on the host uses Docker, Docker
+stops and no longer starts at boot:
+
+```sh
+sudo gpasswd -d jaime docker
+sudo systemctl disable --now docker
+```
+
+The page-cache rule:
+
+```sh
+sudo rm /etc/sudoers.d/drop-caches
+```
+
+The model store, with the models seeded into it. Their originals stay on the models drive, in
+`/mnt/models/hf-cache`, which seeding never changed:
+
+```sh
+sudo rm -rf /srv/models
+```
+
+The space comes back once the last Omarchy snapshot holding the models ages out
+([Setup](setup.md#framework-in-a-container), step 7).
+
+The GTT ceiling, back to its earlier 96 GiB: TTM's `pages_limit` to 25165824 and amdgpu's
+`gttsize` to 98304, rebuilt into the boot images, then a reboot. `amd-ttm` asks whether to reboot:
+answer `n`, and reboot last:
+
+```sh
+sudo amd-ttm --set 96
+echo 'options amdgpu gttsize=98304' | sudo tee /etc/modprobe.d/amdgpu.conf
+sudo limine-mkinitcpio
+sudo reboot
+```
+
+After the reboot, `cat /sys/module/ttm/parameters/pages_limit` prints `25165824`, and `cat
+/sys/class/drm/card*/device/mem_info_gtt_total` prints `103079215104`.
+
+Last, spike-model-hosting's router, stopped by the setup, starts again and at every boot. It
+holds port 8080, so the `llama` container must be gone first:
+
+```sh
+sudo systemctl enable --now llama-router
+```
+
+`systemctl is-active llama-router` prints `active`.

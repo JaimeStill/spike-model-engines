@@ -292,6 +292,312 @@ sudo -n systemctl stop llama-router && sudo -n systemctl disable llama-router
 Install, given the version `current` names, enables and starts it again: with no version at the
 pin, or `host/engines llama-native install v0.6.0` at b11429.
 
+## Framework, in a container
+
+Run these steps on the Framework, `framework`: Omarchy, which is Arch Linux, on an AMD Strix Halo
+whose GPU is gfx1151, with 125 GiB of RAM. ggml's ROCm image runs the pinned build, v0.7.0
+(b11669), as on the GB10. The image brings its own ROCm runtime; the host gives it only the
+kernel's GPU driver, through two device files, `/dev/kfd` and `/dev/dri`, in place of the NVIDIA
+Container Toolkit's `--gpus all`.
+
+Each step says whose it is. Commands with `sudo` are root steps, the architect's; the rest the
+session runs, as `jaime`. Each Framework session owns the host: nothing else serves on it while
+one runs.
+
+### 1. Bring the host current
+
+The architect's step. Omarchy updates the whole host with one command, which takes a Snapper
+snapshot of the root filesystem first, then updates every package, the kernel, Mesa, and
+Docker among them. It restarts no service:
+
+```sh
+omarchy update
+```
+
+When the kernel changed, it ends by offering a reboot. Decline it; step 2 reboots, after its own
+changes.
+
+A new kernel takes effect only after a reboot. The host boots the `linux-omarchy` kernel, so
+compare the running kernel with that package. `uname -r` prints the running one, such as
+`7.2.8-9-omarchy`, and `pacman -Q` the installed one, such as `linux-omarchy 7.2.8-9`:
+
+```sh
+uname -r
+pacman -Q linux-omarchy
+```
+
+When the two differ, the host is waiting on a reboot, which step 2's reboot takes. Arch's own
+kernel, `linux`, is installed beside it and isn't the one that boots.
+
+### 2. Set the GTT ceiling
+
+The architect's root step. The GPU shares the host's RAM. The firmware carves out only 512 MiB
+of it as the GPU's own memory; the rest the GPU reaches as GTT, system RAM it maps on demand and
+frees when a model unloads. The GTT size is a ceiling, not a reservation: memory the GPU isn't
+using stays the host's. With no option set, the kernel's TTM limit, and amdgpu's GTT with it,
+defaults to half of RAM, about 62.5 GiB.
+
+The Framework was set to 96 GiB earlier: TTM's `pages_limit` to 25165824 pages of 4 KiB, with
+`amd-ttm --set 96`, and amdgpu's `gttsize` to 98304 MiB, in `/etc/modprobe.d/amdgpu.conf`. Set
+both to all of physical RAM, 125 GiB, as on the GB10, whose GPU can allocate its whole memory.
+
+`amd-ttm` writes `options ttm pages_limit=32768000` to `/etc/modprobe.d/ttm.conf`:
+
+```sh
+sudo amd-ttm --set 125
+```
+
+It warns that 125 GB is more than 90% of RAM and asks whether to continue: answer `y`. It may
+rebuild the initramfs itself; then it asks whether to reboot: answer `n`, since amdgpu's option
+and the boot images come next. amdgpu's `gttsize` is in MiB, 125 × 1024:
+
+```sh
+echo 'options amdgpu gttsize=128000' | sudo tee /etc/modprobe.d/amdgpu.conf
+```
+
+The initramfs loads amdgpu, and TTM with it (its `kms` hook), and carries `/etc/modprobe.d`
+(its `modconf` hook), so the options apply only once they are built into it. Rebuild the boot
+images with Omarchy's Limine hook, then reboot:
+
+```sh
+sudo limine-mkinitcpio
+sudo reboot
+```
+
+After the reboot, check each value. TTM's limit, in 4 KiB pages, prints `32768000`; amdgpu's
+parameter, readable only by root, prints `128000`; and the GTT the GPU reports, in bytes, prints
+`134217728000`:
+
+```sh
+cat /sys/module/ttm/parameters/pages_limit
+sudo cat /sys/module/amdgpu/parameters/gttsize
+cat /sys/class/drm/card*/device/mem_info_gtt_total
+```
+
+The reboot also takes step 1's new kernel, if there was one: `uname -r` now matches `pacman -Q
+linux-omarchy`.
+
+Going back sets the earlier values and rebuilds the same way
+([Uninstall](uninstall.md#the-framework)).
+
+### 3. Docker for jaime
+
+The architect's root step, as on gb10-1: `jaime` joins the `docker` group, so Docker needs no
+`sudo`, and Docker starts now and at every boot:
+
+```sh
+sudo usermod -aG docker jaime
+sudo systemctl enable --now docker
+```
+
+The group takes effect at the next login: a new SSH session, or `newgrp docker` in this one.
+Then, as `jaime`, `docker info` prints the server's details, not `permission denied`:
+
+```sh
+docker info
+```
+
+The GPU's device files, `/dev/kfd` and `/dev/dri/renderD128`, are readable and writable by every
+account on this host (`0666`), so a container running as `jaime` reaches the GPU with no
+`--group-add`. Check with:
+
+```sh
+command ls -l /dev/kfd /dev/dri/renderD128
+```
+
+### 4. Stop the router
+
+The architect's root step. spike-model-hosting's native router, `llama-router`, serves on the
+Framework: it holds port 8080 and, with its set A loaded, most of the GTT. A Framework session
+owns the host, and the `engines` commands refuse while any `llama-router` unit is active, so stop
+it and keep it from starting at boot:
+
+```sh
+sudo systemctl disable --now llama-router
+```
+
+`systemctl is-active llama-router` prints `inactive`, and nothing listens on port 8080; the
+second command prints only its header:
+
+```sh
+systemctl is-active llama-router
+ss -ltn 'sport = :8080'
+```
+
+Retiring the router for good is a later task's: the Framework's native task, or the spike's
+answer. Until then it comes back with:
+
+```sh
+sudo systemctl enable --now llama-router
+```
+
+### 5. Record the host stack
+
+The session's step. Each command prints one item of the stack. Record each output, with the
+date, in the task's finding.
+
+```sh
+omarchy version
+uname -r
+pacman -Q mesa vulkan-radeon linux-firmware docker rocm-core
+docker version --format "{{.Server.Version}}"
+cat /sys/class/drm/card*/device/mem_info_gtt_total
+```
+
+In order, they print Omarchy's version, the kernel, the packages (Mesa, its Vulkan driver for
+Radeon, the GPU's firmware, Docker, and the host's ROCm), Docker's server, and the GTT ceiling, in
+bytes. The container doesn't use the host's ROCm, `rocm-core`; it is recorded beside the image's
+own, ROCm 7.2.1, for the native task.
+
+### 6. Get the clone onto the host
+
+The session's step. The `engines` commands run from a clone of this repository, in
+`~/repos`; nothing is installed:
+
+```sh
+mkdir -p ~/repos
+git clone https://github.com/JaimeStill/spike-model-engines.git ~/repos/spike-model-engines
+cd ~/repos/spike-model-engines
+```
+
+Until the task's branch merges, these steps and the scripts they run are on that branch alone,
+so check it out; after the merge, `main` holds them:
+
+```sh
+git switch llama-strix-rocm
+```
+
+Every later command on the host runs from `~/repos/spike-model-engines`.
+
+### 7. Create the model store
+
+The architect's root step. The models live in `/srv/models`, outside the container, as on gb10-1:
+a plain directory on the root drive, owned by `jaime`, since the container writes the store as
+`jaime`, not as root:
+
+```sh
+sudo install -d -o "$(id -un)" -g "$(id -gn)" /srv/models
+```
+
+The root drive is the subvolume Omarchy snapshots before every update, so a snapshot taken after
+the models arrive keeps them: a model deleted from the store frees its space only once the last
+snapshot holding it ages out. Snapper keeps five.
+
+The session then seeds the store from the models drive, with no download
+([Models](models.md#seeding-the-frameworks-store)).
+
+### 8. Prove the pinned image runs on the GPU
+
+The architect's first walk of ggml's ROCm image; the session walks them through it. The pin
+(`host/llama.env`) is v0.7.0 (b11669), and the ROCm image of that build carries gfx1151 among
+its targets.
+
+First, the full image, which holds every tool of the build, llama-bench among them. Its
+entrypoint picks the tool from its first argument ([llama-bench](#llama-bench)): `--server` runs
+`llama-server`, and `--bench` runs `llama-bench`. Pull it, ask `llama-server` for its build, then
+list the devices llama-bench finds with the GPU attached, running as `jaime`:
+
+```sh
+docker pull ghcr.io/ggml-org/llama.cpp:full-rocm-b11669
+docker run --rm --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-rocm-b11669 --server --version
+docker run --rm --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-rocm-b11669 --bench --list-devices
+```
+
+`--version` prints `version: 0.7.0-dev (build 11669, commit 620d2225c)`, as on the GB10.
+`--list-devices` lists one ROCm device, `ROCm0`, with its memory, total and free, and the log
+before it names the GPU as `gfx1151`. An empty list means the container didn't reach the GPU.
+Record the device line in the task's finding, with the memory it reports: whether ROCm counts
+the GTT ceiling or only the 512 MiB carve-out decides how much a model may hold.
+
+Then the server image, started by hand as the `llama` container, with the same arguments
+`host/llama.sh` passes on the GB10: the clone's preset read-only, the store mounted as
+llama.cpp's download cache (`LLAMA_CACHE`), port 8080 published on the host's tailnet address
+only, and the router started with no model. The device files take the place of `--gpus all`.
+From the clone:
+
+```sh
+docker run --detach --name llama --restart unless-stopped --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" --publish "$(tailscale ip -4):8080:8080" --volume /srv/models:/srv/models --env LLAMA_CACHE=/srv/models --volume "$PWD/host/llama-preset:/etc/llama-preset:ro" ghcr.io/ggml-org/llama.cpp:server-rocm-b11669 --models-preset /etc/llama-preset/models.ini --no-models-autoload --host 0.0.0.0 --port 8080
+```
+
+This hand start is the viability check: whether ggml's ROCm image serves on the Framework at
+all. The task's next slice folds it into `host/engines llama install`, with the image's flavor
+as an option, and the container started here is then replaced by one the `engines` commands
+started.
+
+Check that the container is up and the router answers:
+
+```sh
+docker ps --filter name=llama
+curl -s "http://$(tailscale ip -4):8080/health"
+```
+
+`docker ps` shows `llama` with status `Up`, and `(healthy)` once the image's health check passes;
+`/health` prints `{"status":"ok"}`.
+
+Load gpt-oss-120b over the API ([Models](models.md#loading-a-model)), from the laptop, naming the
+host `framework`, and list the models until it shows `loaded`:
+
+```sh
+curl -s -X POST "http://framework:8080/models/load" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4"}'
+curl -s "http://framework:8080/models" | jq '.data[] | {id, status: .status.value}'
+```
+
+On the host, the router's log shows where the layers went. `offloaded 37/37 layers to GPU`
+means every layer is on the GPU, and the `ROCm0` buffers hold the weights, the KV cache, and the
+compute buffer; a `CPU` model buffer beyond a small one for the token embeddings means layers
+stayed on the CPU:
+
+```sh
+docker logs llama 2>&1 | grep -E "gfx1151|offloaded|buffer size"
+```
+
+The build the model runs, from the laptop, prints `b11669-620d2225c` ([API](api.md#build)):
+
+```sh
+curl -sG "http://framework:8080/props" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false | jq -r .build_info
+```
+
+The warm-up request and the anchor A cell follow the GB10's methods, with `framework` in place
+of `gb10-1`: the warm-up as in
+[bench-gb10-container](../../findings/bench-gb10-container.md#per-model-the-build-and-the-warm-up),
+and anchor A as in [llama-gb10-container](../../findings/llama-gb10-container.md#running-the-cells).
+
+### 9. Allow the page-cache drop
+
+The architect's root step, as on the GB10
+([7. Allow the page-cache drop](#7-allow-the-page-cache-drop)), which explains the drop: a sudoers
+rule naming that one command exactly. Arch keeps `sysctl` in `/usr/bin`; its `/usr/sbin` is a
+link to `/usr/bin`, so the rule names `/usr/bin/sysctl`. Write the rule into its own file:
+
+```sh
+sudo visudo -f /etc/sudoers.d/drop-caches
+```
+
+The file holds one line:
+
+```text
+jaime ALL=(root) NOPASSWD: /usr/bin/sysctl vm.drop_caches=3
+```
+
+Check it without the password `visudo` just cached: `sudo -k` forgets it, and `sudo -n -l` lists
+the rules `sudo -n` may run, which include the one line above:
+
+```sh
+sudo -k
+sudo -n -l | grep drop_caches
+```
+
+A session drops the cache as below. The drop prints `vm.drop_caches = 3`, and `Cached` in
+`/proc/meminfo` falls by what it freed:
+
+```sh
+grep ^Cached /proc/meminfo
+sync && sudo -n /usr/bin/sysctl vm.drop_caches=3
+grep ^Cached /proc/meminfo
+```
+
+The rule goes when its file does ([Uninstall](uninstall.md#the-framework)).
+
 ## llama-bench
 
 ### What it is
