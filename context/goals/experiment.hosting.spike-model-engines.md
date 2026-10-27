@@ -1,8 +1,8 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** idle
-- **Task:** none
-- **Branch:** none
+- **State:** building
+- **Task:** host-rename
+- **Branch:** host-rename
 
 ## Tasks
 
@@ -84,6 +84,10 @@ Out of scope
 Door
   Two-way: a revert restores the directory, and llama's update
   rebuilds the container from whichever path the clone has.
+
+## Progress
+
+slices 0/4 committed · standards — · spec — · editor —
 
 ## Decisions
 
