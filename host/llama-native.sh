@@ -108,7 +108,7 @@ llama_native_fetch() (
       exit 1
     fi
     digest=${BASH_REMATCH[1]}
-    curl -fL --progress-bar --output "$stage/$asset" \
+    curl -fsSL --output "$stage/$asset" \
       "https://github.com/ggml-org/llama.cpp/releases/download/$build/$asset"
     if ! echo "$digest  $stage/$asset" | sha256sum --check --status; then
       echo "$asset doesn't match its sha256 digest on GitHub, $digest" >&2

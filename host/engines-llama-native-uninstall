@@ -10,8 +10,7 @@ set -euo pipefail
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama-native.sh"
 
 changed=
-state=$(systemctl is-active "$LLAMA_UNIT") || true
-if [[ $state == active || $state == activating || $state == reloading ]]; then
+if engines_unit_up "$LLAMA_UNIT"; then
   sudo -n systemctl stop "$LLAMA_UNIT"
   echo "stopped $LLAMA_UNIT"
   changed=yes
