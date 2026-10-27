@@ -526,6 +526,125 @@ minutes ago`, each with restart `unless-stopped`, stopped by hand so it stays st
 `v0.32.0`. Native vLLM, the vllm container, native llama.cpp, and the llama container are all
 stopped, and none starts at boot.
 
+## Walkthrough
+
+On 2026-10-27, after the results above, the architect walked native vLLM from the guides, on
+gb10-1 from `~/repos/spike-model-engines` at abfbe1f, and on the laptop. Times are -04:00 on gb10-1
+and UTC on the laptop. Each command is as the architect ran it.
+
+### Uninstall, install, update, and rollback
+
+On gb10-1: the uninstall and its check, the install at v0.31.0 and setup's checks
+([4. Check it serves](../engines/vllm/setup.md#4-check-it-serves)) with uv's read-back
+([Reading it back](../engines/vllm/setup.md#reading-it-back)), the update to the pin, the
+rollback, and forward again, each with its check, then a second install and the last start's
+time and ready line:
+
+```sh
+host/engines vllm-native uninstall
+command ls /opt/vllm
+host/engines vllm-native install v0.31.0
+systemctl status vllm-server --no-pager
+readlink /opt/vllm/current
+cat /opt/vllm/row
+/opt/vllm/current/bin/vllm --version
+/opt/vllm/current/bin/python -c "import torch; print(torch.__version__, torch.version.cuda)"
+curl -s "http://$(tailscale ip -4):8000/version"
+MISE_ENV=host mise exec -- uv pip list --python /opt/vllm/current | grep -E "^(vllm|torch|flashinfer)"
+host/engines vllm-native update v0.32.0
+readlink /opt/vllm/current; command ls /opt/vllm
+host/engines vllm-native update v0.31.0
+readlink /opt/vllm/current
+host/engines vllm-native update
+readlink /opt/vllm/current; command ls /opt/vllm
+host/engines vllm-native install
+systemctl show vllm-server --property ActiveEnterTimestamp
+journalctl -u vllm-server -o short-iso-precise --no-pager | grep "Application startup complete" | tail -n 1
+```
+
+| Step | Printed | Checks |
+|---|---|---|
+| `host/engines vllm-native uninstall` | removed `/opt/vllm/current`, `/opt/vllm/v0.32.0`, `/opt/vllm/row`, `/opt/vllm/python`, and `/opt/vllm/cache`; `the architect's root steps stay: …` | `command ls /opt/vllm` printed nothing |
+| `host/engines vllm-native install v0.31.0` | `Using CPython 3.12.16`; `Resolved 199 packages in 1.54s`, `Prepared 199 packages in 1m 53s`, `Installed 199 packages in 94ms`, `vllm==0.31.0` and `torch==2.13.0+cu130` among them; the cubin `Prepared 1 package in 46.16s`; the jit-cache `Resolved 9 packages in 43.99s`, `Prepared 9 packages in 42.37s`, its eight `sm*` wheels with `sm121a`; `built /opt/vllm/v0.31.0`; the unit's `Created symlink …`; `vllm-server serves v0.31.0 with row gemma-4-26B-A4B-NVFP4 (nvidia/Gemma-4-26B-A4B-NVFP4) on port 8000 of the tailnet address`; `/version answers {"version":"0.31.0"}; torch 2.13.0+cu130, CUDA 13.0` | setup's [4. Check it serves](../engines/vllm/setup.md#4-check-it-serves): status `enabled`, `active (running)` since 13:30:36 EDT, the main process `/opt/vllm/v0.31.0/bin/python /opt/vllm/current/bin/vllm serve nvidia/Gemma-4-26B-A4B-NVFP4 --host <addr> --port 8000 …`, `Memory: 5.7G (peak: 13.5G swap: 1.5G swap peak: 1.5G)`, and the journal's last lines `Application startup complete.` at 13:36:46 and `/health` and `/version` answering 200; `readlink` `v0.31.0`; `cat` the pin's row, its model and then its flags one a line; `--version` `0.31.0`; torch `2.13.0+cu130 13.0`; `/version` `{"version":"0.31.0"}`; uv's list, after `Using Python 3.12.16 environment at: /opt/vllm/current`, `flashinfer-cubin` `0.7.0.post1`, `flashinfer-jit-cache` `0.7.0.post1+cu130` and its eight `sm*` variants, `flashinfer-python` `0.7.0.post1`, `torch` `2.13.0+cu130`, `torch-c-dlpack-ext` `0.1.5`, `torchaudio` `2.11.0+cu130`, `torchcodec` `0.17.0+cu130`, `torchvision` `0.28.0+cu130`, and `vllm` `0.31.0` |
+| `host/engines vllm-native update v0.32.0` | `Resolved 198 packages in 639ms`, `Prepared 17 packages in 17.19s`, `Installed 198 packages in 111ms`; the `FlashInfer kernels are disabled: …` line; the cubin prepared in 259ms; the jit-cache resolved in 652ms and prepared in 113ms; `built /opt/vllm/v0.32.0`; `vllm-server moved from v0.31.0 to v0.32.0`; `removed /opt/vllm/v0.31.0`; `/version answers {"version":"0.32.0"}; torch 2.13.0+cu130, CUDA 13.0` | `readlink` `v0.32.0`; `command ls /opt/vllm` lists `cache`, `current`, `python`, `row`, and `v0.32.0` |
+| `host/engines vllm-native update v0.31.0`, the rollback | `Resolved 199 packages in 332ms`, `Prepared 5 packages in 18ms`, `Installed 199 packages in 124ms`; the cubin prepared in 250ms; the jit-cache resolved in 598ms and prepared in 100ms; `built /opt/vllm/v0.31.0`; `vllm-server moved from v0.32.0 to v0.31.0`; `removed /opt/vllm/v0.32.0`; `/version answers {"version":"0.31.0"}; torch 2.13.0+cu130, CUDA 13.0` | `readlink` `v0.31.0` |
+| `host/engines vllm-native update`, forward again | `Resolved 198 packages in 540ms`, `Prepared 5 packages in 20ms`, `Installed 198 packages in 124ms`; the `FlashInfer kernels are disabled: …` line; the cubin prepared in 165ms; the jit-cache resolved in 694ms and prepared in 113ms; `built /opt/vllm/v0.32.0`; `vllm-server moved from v0.31.0 to v0.32.0`; `removed /opt/vllm/v0.31.0`; `/version answers {"version":"0.32.0"}; torch 2.13.0+cu130, CUDA 13.0` | `readlink` `v0.32.0`; `command ls /opt/vllm` lists `cache`, `current`, `python`, `row`, and `v0.32.0` |
+| `host/engines vllm-native install`, a second time | `vllm-server already serves v0.32.0 with row gemma-4-26B-A4B-NVFP4 (nvidia/Gemma-4-26B-A4B-NVFP4); nothing changed` | `ActiveEnterTimestamp` `Tue 2026-10-27 13:53:51 EDT`; the ready line `2026-10-27T13:59:21.029659-04:00 … Application startup complete.` |
+
+The uninstall removed `/opt/vllm/cache`, uv's package cache with it
+([Removing native vLLM](../engines/vllm/uninstall.md#removing-native-vllm)), so the install
+downloaded everything again: 199 packages in 1m 53s, and the kernel wheels in 46 and 42 s. The
+update to the pin then downloaded the 17 packages v0.31.0 doesn't share, and the rollback and the
+forward update rebuilt from the cache, as in the walk above ([Install, update, and
+rollback](#install-update-and-rollback)).
+
+### The four starts
+
+The session read the four starts from the unit's journal after the walk; these reads aren't among
+the architect's commands. From each start to `Application startup complete.`, with the weights'
+load time, torch.compile's time, the engine's init, and when FlashInfer's autotune ended:
+
+| Start | Release | Started | Ready | Cold start s | Weights s | torch.compile s | Init engine s | FlashInfer autotune |
+|---|---|---|---|---|---|---|---|---|
+| `install v0.31.0` | v0.31.0 | 13:30:36 | 13:36:46 | 370 | 114.56 | 26.76 | 219.31 | ends 13:36:34 |
+| `update v0.32.0` | v0.32.0 | 13:39:53 | 13:46:01 | 368 | 124.51 | 26.30 | 219.61 | ends 13:45:56 |
+| `update v0.31.0`, the rollback | v0.31.0 | 13:46:39 | 13:52:27 | 348 | 118.38 | 0.34 | 199.14 | `Loaded 0 configs` at 13:49:35; ends 13:52:20 |
+| `update`, forward again | v0.32.0 | 13:53:51 | 13:59:21 | 330 | 116.11 | 0.74 | 189.76 | ends 13:59:17 |
+
+The walk above started in 387, 386, 361, and 335 s ([Startup](#startup)); the walkthrough's starts
+have the same shape. Each release's first start compiles, in about 27 s, since the uninstall
+emptied the compile caches too; its later start loads that compile in under a second; and every
+start tunes FlashInfer's MoE kernels again, the rollback's after loading 0 configs, so each start's
+init takes 190 to 220 s.
+
+### From the laptop
+
+From the clone, each line at its own prompt: the path, the release, and the warm-up, then one
+cell, `walk-a`, on `bench/vllm-anchor-a.yaml`, and its read-out:
+
+```sh
+mkdir -p .state/bench
+date -u +%FT%TZ; tailscale ping -c 3 gb10-1
+curl -s -m5 http://gb10-1:8000/version; echo
+model=nvidia/Gemma-4-26B-A4B-NVFP4
+curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}], \"chat_template_kwargs\": {\"enable_thinking\": true}}" | jq -c '.choices[0].message | {content, reasoning: (.reasoning|tostring|.[0:80])}'
+export GUIDELLM__SPEC__BACKEND__TARGET="http://gb10-1:8000"
+cell=walk-a
+curl -s "http://gb10-1:8000/metrics" > .state/bench/vllm-native-$cell.before.metrics
+MISE_ENV=bench mise exec -- guidellm run -c bench/vllm-anchor-a.yaml --output "kind=json,path=.state/bench/vllm-native-$cell.json" > .state/bench/vllm-native-$cell.log 2>&1; echo "vllm-native-$cell: guidellm exit $?"
+curl -s "http://gb10-1:8000/metrics" > .state/bench/vllm-native-$cell.after.metrics
+jq -c '.benchmarks[] | .metrics as $m | {streams: .config.strategy.streams, requests: $m.request_totals, output_tok_s: ($m.output_tokens_per_second.successful.mean|.*10|round/10), ttft_ms: ($m.time_to_first_token_ms.successful | {median: (.median|round), p95: (.percentiles.p95|round)}), itl_ms: ($m.inter_token_latency_ms.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)})}' .state/bench/vllm-native-walk-a.json
+```
+
+At 2026-10-27T18:09:23Z, `tailscale ping` went direct on the LAN, 2 ms (addresses left out);
+`/version` `{"version":"0.32.0"}`; the warm-up answered `Hello!`, with its reasoning. guidellm
+exited 0:
+
+| Cell | Completed | Output tok/s | TTFT median / p95 ms | ITL median / p95 ms |
+|---|---|---|---|---|
+| `walk-a` | 8 of 8 | 29.4 | 218 / 226 | 33.21 / 33.26 |
+| Native A', above | 8 of 8 | 29.4 | 220 / 227 | 33.30 / 33.37 |
+
+Every request carried 528 prompt tokens and generated 256, as in the cells above.
+
+### Stop and end state
+
+On gb10-1, from the home directory:
+
+```sh
+sudo -n systemctl stop vllm-server && sudo -n systemctl disable vllm-server
+systemctl is-active vllm-server llama-router; systemctl is-enabled vllm-server llama-router
+```
+
+The first line removed the unit's `wants` symlink, and the second printed `inactive` and
+`inactive`, then `disabled` and `disabled`, for `vllm-server` and `llama-router`. The end state is
+otherwise unchanged: the `llama` and `vllm` containers exited. Native vLLM stays installed at
+v0.32.0 under `/opt/vllm`, stopped and disabled.
+
+Nothing in the walkthrough failed. The one request for clearer guidance came in slice 1's walk,
+for more detail on uv's first install, and is folded into setup's [What the native install
+runs](../engines/vllm/setup.md#what-the-native-install-runs).
+
 ## Findings
 
 Dated 2026-10-27, on gb10-1, vLLM v0.32.0 in vLLM's image (CPython 3.12.3) and natively from its
@@ -572,6 +691,14 @@ Also:
   "Application startup complete"` returned 2026-10-26's line for this day's start. The setup and
   update guides now read the line from the container's start only
   ([6. Watch the cold start](../engines/vllm/setup.md#6-watch-the-cold-start-and-record-it)).
-- **gb10-1's end state.** Native vLLM, the vllm container, native llama.cpp, and the llama
-  container are all stopped and disabled, and none starts at boot; native vLLM stays installed at
-  v0.32.0.
+- **The walkthrough reproduced native within run noise.** Its A' ran 29.4 tok/s, TTFT 218 / 226
+  ms, ITL 33.21 / 33.26 ms, against native's 29.4, 220 / 227, and 33.30 / 33.37. Its four starts,
+  370, 368, 348, and 330 s, kept the walk's shape (387, 386, 361, 335 s): each release's first
+  start compiles in about 27 s, a later one loads the compile, and every start tunes FlashInfer's
+  MoE kernels again.
+- **A reinstall after `uninstall` downloads everything again.** `uninstall` removes
+  `/opt/vllm/cache`, uv's cache and the compile caches with it, so the next install fetched all 199
+  packages (1m 53s) and the kernel wheels (46 and 42 s) and compiled each release afresh.
+- **gb10-1's end state.** After the walkthrough, native vLLM, the vllm container, native
+  llama.cpp, and the llama container are all stopped and disabled, and none starts at boot; native
+  vLLM stays installed at v0.32.0 under `/opt/vllm`.
