@@ -27,7 +27,7 @@ docker image ls ghcr.io/ggml-org/llama.cpp
 
 The first prints the pinned image; the second lists it alone. Once the model is loaded, the
 laptop confirms the build the model itself runs ([API](api.md#build)), which reads
-`b11669-620d2225c` at the pin.
+`b11669-620d2225c` at the pin, v0.7.0 (b11669).
 
 `update` also replaces a `llama` container whose preset mount isn't the clone's preset
 directory, `host/llama-preset`, such as one installed before the scripts moved from `engines/` to
@@ -47,13 +47,47 @@ such a `llama`, whatever image it runs, and fails with
 llama's preset mount is <old directory>, not <new directory>; engines llama update moves it to the pin
 ```
 
-## Rehearsing an update
+## Moving to another version
 
-To walk an update before the pin moves, install an older build, then update to the pin. b11429
-is the build v0.6.0 names:
+`update` and `install` take a version, which replaces the pin for that run: a semver release,
+such as v0.6.0, or a b-build, such as b11429. A release runs the b-build its notes name ("Nightly
+build:"), which the command reads from GitHub, so the host needs to reach `api.github.com`; a
+b-build runs as given. Both of these move `llama` to v0.6.0 (b11429), the image
+`ghcr.io/ggml-org/llama.cpp:server-cuda13-b11429`:
 
 ```sh
-host/engines llama install b11429
+host/engines llama update v0.6.0
+host/engines llama update b11429
+```
+
+It says `llama moved from <old image> to <new image>`, and removes every other llama.cpp image,
+the pin's among them, so only the version given remains. Run a second time, it changes nothing
+and says so. With no version, `update` moves back to the pin:
+
+```sh
+host/engines llama update
+```
+
+A version that is neither fails before anything is read from Docker, such as
+
+```text
+0.6.0 is neither a semver release, such as v0.7.0, nor a b-build, such as b11669
+```
+
+and so does a release GitHub doesn't have, after curl's own error, or one whose notes name no
+b-build:
+
+```text
+curl: (22) The requested URL returned error: 404
+llama.cpp's release v9.9.9 can't be read from GitHub
+```
+
+## Rehearsing an update
+
+To walk an update before the pin moves, install an older version, then update to the pin:
+
+```sh
+host/engines llama install v0.6.0
 host/engines llama update
 ```
 
@@ -64,7 +98,8 @@ where it isn't installed, or after [uninstalling](uninstall.md).
 
 The pin is `host/llama.env`: `LLAMA_RELEASE`, the latest semver release, and `LLAMA_BUILD`,
 the b-build its notes name ("Nightly build:"), from which `LLAMA_IMAGE` follows. On the laptop,
-`mise run currency` reports when a newer release names a newer build:
+`mise run currency` reports when a newer release names a newer build, reading the notes the same
+way `update` and `install` read a release given (`host/llama-release.sh`):
 
 ```sh
 mise run currency

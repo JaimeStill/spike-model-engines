@@ -19,7 +19,7 @@ snapshot hash and resolves the same model hf pre-staged
 | `n-gpu-layers` (`[*]`) | `all` | Every layer on the GB10's GPU. |
 | `dedup-cache-models` (`[*]`) | `true` | Once a model is downloaded, the router lists its preset alone, not the cache entry beside it. |
 | `metrics` (`[*]`) | `true` | Each model serves `/metrics`, its Prometheus counters ([API](api.md#metrics)), which the benchmarks read for the server's own figures. |
-| `verbosity` (`[*]`) | `4` | Each load logs its weight, KV cache, and compute buffer sizes, which the benchmarks read as the engine's own footprint; at b11669 the default, 3, logs none of them. |
+| `verbosity` (`[*]`) | `4` | Each load logs its weight, KV cache, and compute buffer sizes, which the benchmarks read as the engine's own footprint; at v0.7.0 (b11669) the default, 3, logs none of them. |
 | `offline` (`[*]`) | `true` | Each model resolves from the store alone, with no request to Hugging Face: a load never downloads, and a timed cold load reads only the disk. A model not in the store fails to load; pre-stage it first. |
 | `hf-repo` | `ggml-org/gpt-oss-120b-GGUF:MXFP4` | gpt-oss-120b in its native MXFP4, 63.4 GB, ungated, so no token. |
 | `parallel` | `4` | 4 slots: four requests decode at once, and a fifth waits. |

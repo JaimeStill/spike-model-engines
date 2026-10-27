@@ -7,21 +7,23 @@ its models preset, as a child process, when asked over its API. The router loads
 demand, so one server serves every model in the preset.
 
 The spike follows llama.cpp's semver releases and runs the b-build each one names. The pin lives
-in `host/llama.env`: release v0.7.0, build b11669, image
-`ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669`. `mise run currency` reports the build when a
-newer semver release names a newer one.
+in `host/llama.env`: v0.7.0 (b11669), image `ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669`.
+`mise run currency` reports the build when a newer semver release names a newer one.
 
 The `engines` commands install, update, and uninstall it. They run from a clone of this
 repository on the host, as `host/engines llama <verb>`:
 
 | Command | What it does |
 |---|---|
-| `host/engines llama install` | Runs the router at the pin, or at the b-build given |
-| `host/engines llama update` | Moves the router to the pin and removes every other llama.cpp image |
+| `host/engines llama install [version]` | Runs the router at the pin, or at the version given |
+| `host/engines llama update [version]` | Moves the router to the pin, or to the version given, and removes every other llama.cpp image |
 | `host/engines llama uninstall` | Removes the router and every llama.cpp image, keeping `/srv/models` |
 
 Each changes nothing, and says so, when run a second time. One engine serves per host at a time:
-install and update refuse while vLLM's `vllm` container runs ([vLLM](../vllm/README.md)).
+install and update refuse while vLLM's `vllm` container runs ([vLLM](../vllm/README.md)). The
+version install and update take is a semver release, such as `v0.6.0`, which runs the b-build its
+notes name, or a b-build, such as `b11429`, which runs as given
+([Update](update.md#moving-to-another-version)).
 
 ## Pages
 
@@ -31,5 +33,6 @@ install and update refuse while vLLM's `vllm` container runs ([vLLM](../vllm/REA
   cancelling its download, copying it to gb10-2 under a borrow, and listing models.
 - [API](api.md): a chat completion from the laptop, `/health`, `/v1/models`, the build a model
   runs (`/props`), and `/metrics`.
-- [Update](update.md): moving to the pinned build, and how the pin moves.
+- [Update](update.md): moving to the pinned build or another version, rehearsing an update, and
+  how the pin moves.
 - [Uninstall](uninstall.md): removing llama.cpp, and deleting models, with hf or by hand.

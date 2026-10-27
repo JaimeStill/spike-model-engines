@@ -50,7 +50,9 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
   architect's view, printing each command first. A run takes at most 10 minutes unless the
   brief decides otherwise.
 - **Current hosts and engines.** Every session starts by bringing the hosts current. llama.cpp
-  follows its semver releases, running the b-build each one names; vLLM follows its releases.
+  follows its semver releases, running the b-build each one names, and the guides name its
+  version by release first, with the b-build beside it, as v0.7.0 (b11669); vLLM follows its
+  releases.
   Every result records the engine version and the host stack.
 - **Comparisons.** Only cells run in the same session on the same versions are compared. A task
   that compares with an earlier one first reruns one anchor cell per engine.
@@ -167,8 +169,8 @@ The practices every task on the GB10s follows, each with its reason:
   has no such guard: a start fetches any small file missing from the store without a word, as
   gpt-oss-120b's did for three JSON files from `original/`. Stage every file a model's start reads
   ([Pre-staging](../docs/findings/bench-gb10-container.md#pre-staging)).
-- **Buffer sizes.** llama.cpp's preset sets `verbosity = 4`, since b11669 logs a load's weight, KV
-  cache, and compute buffers only above its default of 3
+- **Buffer sizes.** llama.cpp's preset sets `verbosity = 4`, since v0.7.0 (b11669) logs a load's
+  weight, KV cache, and compute buffers only above its default of 3
   ([models](../docs/engines/llama.cpp/models.md#the-preset)).
 - **Base64 from a file.** The vision probes read the image's base64 with `jq --rawfile`, since
   the base64 passed as a jq argument exceeds the shell's argument-list limit

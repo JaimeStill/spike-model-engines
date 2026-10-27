@@ -49,8 +49,8 @@ needs.
 
 ### 3. Prove the pinned image runs on the GPU
 
-Pull the pinned image (`host/llama.env`), ask its `llama-server` for its build, then list the
-devices it finds with the GPU attached:
+Pull the pinned image (`host/llama.env`), v0.7.0 (b11669), ask its `llama-server` for its
+build, then list the devices it finds with the GPU attached:
 
 ```sh
 docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669
@@ -106,8 +106,10 @@ nothing and says so; when `llama` is stopped, it says `docker start llama` start
 it stopped. It fails, changing nothing, while vLLM's `vllm` container runs, since one
 engine serves per host at a time (`docker stop vllm` stops it), when `/srv/models` is missing,
 when the host has no tailnet IPv4 address, or when `llama` already runs another build;
-[Update](update.md) moves a running build. Given a b-build, such as `b11429`, it installs that
-build instead of the pin.
+[Update](update.md) moves a running build. Given a version, it installs that version's build
+instead of the pin: a semver release, such as `v0.6.0`, runs the b-build its notes name
+(`b11429`), and a b-build, such as `b11429`, runs as given
+([Update](update.md#moving-to-another-version)).
 
 Check that the container is up and the router answers:
 

@@ -3,7 +3,8 @@
 # prints nothing when all are current. Covers the mise tools, those of mise.toml, of the bench
 # environment (mise.bench.toml, GuideLLM's), and of the host environment (mise.host.toml, hf's);
 # the llama.cpp build, whose latest is the b-build named in the notes of llama.cpp's latest semver
-# release; and the vLLM release, whose latest is vLLM's latest GitHub release. Reads the network.
+# release (host/llama-release.sh); and the vLLM release, whose latest is vLLM's latest GitHub
+# release. Reads the network.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -18,15 +19,10 @@ trailing=$(for env in bench host; do
     exit
 done | sort -u)
 
-# shellcheck source=host/llama.env
-source host/llama.env
-release=$(curl -fsSL https://api.github.com/repos/ggml-org/llama.cpp/releases/latest)
-latest=$(jq -r '.body | capture("Nightly build:[^b]*(?<b>b[0-9]+)").b' <<<"$release")
-tag=$(jq -r .tag_name <<<"$release")
-if [[ -z $latest ]]; then
-  echo "currency: llama.cpp $tag's notes name no b-build (\"Nightly build:\")" >&2
-  exit 2
-fi
+# shellcheck source=host/llama-release.sh
+source host/llama-release.sh
+release=$(llama_release latest) || exit 2
+tag=${release% *} latest=${release#* }
 if [[ $latest != "$LLAMA_BUILD" ]]; then
   trailing+="${trailing:+$'\n'}host/llama.env: llama.cpp $LLAMA_BUILD -> $latest ($tag)"
 fi

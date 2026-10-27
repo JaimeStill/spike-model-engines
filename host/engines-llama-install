@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
-# engines:summary=Run llama-server in router mode, at the pinned build or the b-build given
-# Starts the llama container (llama.sh) from the pinned image, or from the b-build given, such as
-# b11429. When the container already runs that image, with the clone's preset directory mounted, it
-# changes nothing, saying docker start starts it when it is stopped (it never starts it itself).
-# When the container runs another image, or mounts the preset from anywhere else (as after the
-# clone's scripts move), it refuses, saying what it runs or mounts, and points at update. It refuses
-# while the vllm container runs, since one engine serves per host at a time.
+# engines:summary=Run llama-server in router mode, at the pinned build or the version given
+# Starts the llama container (llama.sh) from the pinned image, or from the image for the version
+# given: a semver release, such as v0.6.0, runs the b-build its notes name (llama-release.sh), and
+# a b-build, such as b11429, runs as given. When the container already runs that image, with the
+# clone's preset directory mounted, it changes nothing, saying docker start starts it when it is
+# stopped (it never starts it itself). When the container runs another image, or mounts the
+# preset from anywhere else (as after the clone's scripts move), it refuses, saying what it runs
+# or mounts, and points at update. It refuses while the vllm container runs, since one engine
+# serves per host at a time. It refuses a version that is neither, or a release whose notes it
+# can't read, before it reads Docker.
 set -euo pipefail
 # shellcheck source=host/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
 
+build=$(llama_build "${1:-}")
 engines_refuse_running vllm
 
-image=$(llama_image "${1:-$LLAMA_BUILD}")
+image=$(llama_image "$build")
 running=$(llama_running_image)
 mount=
 [[ -z $running ]] || mount=$(llama_preset_mount)
