@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# What every engine's container shares, in one place: sourced by llama.sh and vllm.sh. The model
-# store (/srv/models) is one Hugging Face cache that every engine reads and writes, and one
-# engine serves per host at a time, since each reserves most of the GB10's memory.
+# What every engine shares, in one place: sourced by llama.sh and vllm.sh, and through them by
+# llama-native.sh and vllm-native.sh. The model store (/srv/models) is one Hugging Face cache that
+# every engine reads and writes, and one engine serves per host at a time, since each reserves
+# most of the GB10's memory.
 
 ENGINES_STORE=/srv/models
 
@@ -27,8 +28,8 @@ engines_unit_up() {
 }
 
 # Refuses, naming the commands that stop it, while the system unit named is up (engines_unit_up):
-# native llama.cpp's llama-router (llama-native.sh) serves on the same port and memory as a
-# container would.
+# native llama.cpp's llama-router (llama-native.sh) and native vLLM's vllm-server
+# (vllm-native.sh) each serve on the same port and memory as their engine's container would.
 engines_refuse_unit() {
   if engines_unit_up "$1"; then
     echo "$1 is active, and one engine serves per host at a time;" \
@@ -44,6 +45,33 @@ engines_refuse_unit() {
 engines_stopped() {
   docker container ls --all --quiet --filter "name=^$1\$" \
     --filter status=exited --filter status=created
+}
+
+# Checks a native engine's root steps, the architect's, before anything is fetched or started:
+# the directory given exists and the invoking user can write it, systemd has the unit given loaded
+# (installed, then daemon-reload), and sudo -n allows each systemctl verb the commands run on it,
+# without a password. sudo -l answers yes for an account that may run anything with its password,
+# so the check reads the NOPASSWD rule's line itself. Each refusal names the guide section given,
+# which holds the root steps.
+engines_root_steps() {
+  local dir=$1 unit=$2 steps=$3 listing verb
+  if [[ ! -d $dir || ! -w $dir ]]; then
+    echo "$dir is missing or not writable by $(id -un); the architect's root steps create it" \
+      "($steps)" >&2
+    return 1
+  fi
+  if [[ $(systemctl show --property LoadState --value "$unit") != loaded ]]; then
+    echo "systemd has no $unit unit; the architect's root steps install it ($steps)" >&2
+    return 1
+  fi
+  listing=$(sudo -n -l 2>/dev/null) || listing=
+  for verb in start stop restart enable disable; do
+    if ! grep -F 'NOPASSWD:' <<<"$listing" | grep -Fq "/usr/bin/systemctl $verb $unit"; then
+      echo "sudo -n can't run systemctl $verb $unit; the architect's root steps allow it" \
+        "($steps)" >&2
+      return 1
+    fi
+  done
 }
 
 # Checks what an engine's container needs before anything is pulled or removed: the model store,

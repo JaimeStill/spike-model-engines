@@ -5,14 +5,16 @@
 # When the container already serves exactly that (image, model, and server flags) it changes
 # nothing, saying docker start starts it when it is stopped (it never starts it itself); when it
 # serves anything else it refuses, saying what it runs, and points at update. It refuses a
-# VLLM_MODEL with no row, listing the rows, and refuses while the llama container runs or native
-# llama.cpp's llama-router unit is active, since one engine serves per host at a time.
+# VLLM_MODEL with no row, listing the rows, and refuses while the llama container runs, or native
+# llama.cpp's llama-router unit or native vLLM's vllm-server unit is active, since one engine
+# serves per host at a time.
 set -euo pipefail
 # shellcheck source=host/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 
 engines_refuse_running llama
 engines_refuse_unit llama-router
+engines_refuse_unit vllm-server
 vllm_row
 serves=$(vllm_serves)
 

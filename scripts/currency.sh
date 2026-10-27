@@ -3,8 +3,11 @@
 # prints nothing when all are current. Covers the mise tools, those of mise.toml, of the bench
 # environment (mise.bench.toml, GuideLLM's), and of the host environment (mise.host.toml, hf's);
 # the llama.cpp build, whose latest is the b-build named in the notes of llama.cpp's latest semver
-# release (host/llama-release.sh); and the vLLM release, whose latest is vLLM's latest GitHub
-# release. Reads the network.
+# release (host/llama-release.sh); the vLLM release, whose latest is vLLM's latest GitHub
+# release; and native vLLM's Python (host/vllm.env), a minor version, whose latest is the minor
+# version of CPython's latest release, as mise reads it. A pin held on purpose, as GuideLLM's
+# Python and native vLLM's are, is reported like any other, and its comment says why it is held.
+# Reads the network.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -37,6 +40,12 @@ if [[ -z $tag ]]; then
 fi
 if [[ $tag != "$VLLM_RELEASE" ]]; then
   trailing+="${trailing:+$'\n'}host/vllm.env: vLLM $VLLM_RELEASE -> $tag"
+fi
+
+latest=$(MISE_LOG_LEVEL=error mise latest python) || exit 2
+latest=$(cut -d. -f1-2 <<<"$latest")
+if [[ $latest != "$VLLM_NATIVE_PYTHON" ]]; then
+  trailing+="${trailing:+$'\n'}host/vllm.env: native Python $VLLM_NATIVE_PYTHON -> $latest"
 fi
 
 if [[ -n $trailing ]]; then

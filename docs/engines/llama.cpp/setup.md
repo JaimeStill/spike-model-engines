@@ -101,15 +101,15 @@ runs with `--restart unless-stopped`, so Docker starts it again after a reboot, 
 8080 on the host's tailnet IPv4 address only. The router starts no model by itself
 (`--no-models-autoload`); [Models](models.md) loads one.
 
-It prints the image and the port it serves on, without the address. A second run changes
-nothing and says so; when `llama` is stopped, it says `docker start llama` starts it, and leaves
-it stopped. It fails, changing nothing, while vLLM's `vllm` container runs, since one
-engine serves per host at a time (`docker stop vllm` stops it), when `/srv/models` is missing,
-when the host has no tailnet IPv4 address, or when `llama` already runs another build;
-[Update](update.md) moves a running build. Given a version, it installs that version's build
-instead of the pin: a semver release, such as `v0.6.0`, runs the b-build its notes name
-(`b11429`), and a b-build, such as `b11429`, runs as given
-([Update](update.md#moving-to-another-version)).
+It prints the image and the port it serves on, without the address. A second run changes nothing and
+says so; when `llama` is stopped, it says `docker start llama` starts it, and leaves it stopped. It
+fails, changing nothing, while vLLM's `vllm` container runs or native vLLM's `vllm-server` unit is
+active, since one engine serves per host at a time (`docker stop vllm` stops the container, and
+vLLM's [Setup](../vllm/setup.md#5-stop-it) the unit), when `/srv/models` is missing, when the host
+has no tailnet IPv4 address, or when `llama` already runs another build; [Update](update.md) moves a
+running build. Given a version, it installs that version's build instead of the pin: a semver
+release, such as `v0.6.0`, runs the b-build its notes name (`b11429`), and a b-build, such as
+`b11429`, runs as given ([Update](update.md#moving-to-another-version)).
 
 Check that the container is up and the router answers:
 
@@ -246,8 +246,9 @@ as the container's install reads it ([Update](update.md#moving-to-another-versio
 A second run changes nothing and says `llama-router already serves b11429; nothing changed`; when
 `llama-router` is stopped, it enables and starts it again. It fails, changing nothing:
 
-- while the `llama` or `vllm` container runs, since one engine serves per host at a time
-  (`docker stop llama` or `docker stop vllm` stops it);
+- while the `llama` or `vllm` container runs, or native vLLM's `vllm-server` unit is active,
+  since one engine serves per host at a time (`docker stop llama` or `docker stop vllm` stops a
+  container, and vLLM's [Setup](../vllm/setup.md#5-stop-it) the unit);
 - before the root steps are done, naming the one missing: `/opt/llama.cpp`, the unit, or the
   sudoers rule;
 - when `/srv/models` is missing, or the host has no tailnet IPv4 address;

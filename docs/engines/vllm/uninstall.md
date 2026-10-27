@@ -55,3 +55,36 @@ them.
 The container writes the store as your account, so this needs no `sudo`. The store is llama.cpp's
 too, so leave the rest of it; llama.cpp's [Uninstall](../llama.cpp/uninstall.md#deleting-models)
 deletes its models and the store itself.
+
+## Removing native vLLM
+
+On the host, from the clone:
+
+```sh
+host/engines vllm-native uninstall
+```
+
+`uninstall` stops `vllm-server` when it runs, disables it when it is enabled, and removes
+everything native vLLM keeps under `/opt/vllm`: every release with the `current` link, the row
+file, uv's Python, and `/opt/vllm/cache`, uv's cache and the compile caches. It keeps the model
+store, `/srv/models`, as the container's uninstall does, and the container's compile cache,
+`~/.cache/vllm`, which the container's uninstall removes. A second run changes nothing and says
+so. Every run ends by saying the architect's root steps stay: `/opt/vllm`, the unit, and its
+sudoers rule, which the next section removes.
+
+### Removing the native root steps
+
+After `uninstall`, the architect removes the three root steps of
+[Setup](setup.md#1-the-architects-root-steps), each with a root step: the sudoers rule, the unit
+(and systemd's copy of it), and the empty `/opt/vllm`:
+
+```sh
+sudo rm /etc/sudoers.d/vllm-server
+sudo rm /etc/systemd/system/vllm-server.service
+sudo systemctl daemon-reload
+sudo rmdir /opt/vllm
+```
+
+`rmdir` fails when anything is left in `/opt/vllm`; `host/engines vllm-native uninstall` removes
+it while the rule is still in place. Then `systemctl status vllm-server` says `Unit
+vllm-server.service could not be found.`

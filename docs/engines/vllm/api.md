@@ -56,7 +56,7 @@ The vLLM version the server runs, `{"version":"0.32.0"}` at the pin; it matches 
 curl -s "http://gb10-1:8000/metrics" | grep -E '^vllm:(prompt_tokens_total|generation_tokens_total|num_requests_running)'
 ```
 
-The server's Prometheus counters, which vLLM serves without a flag. They run from the container's
+The server's Prometheus counters, which vLLM serves without a flag. They run from the server's
 start: `vllm:prompt_tokens_total` for the prompt tokens the server processed,
 `vllm:generation_tokens_total` for the tokens it generated, and `vllm:num_requests_running` for
 the requests in flight. The full list, without the `grep`, adds latency histograms such as

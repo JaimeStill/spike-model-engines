@@ -7,9 +7,10 @@
 # at that build with the clone's preset, it changes nothing if llama-router serves (active and
 # enabled), and otherwise enables and starts it. When it is at another build, or its preset link
 # names anywhere else, it refuses, saying which, and points at update. It refuses while the llama
-# or vllm container runs, since one engine serves per host at a time, and refuses, pointing at the
-# setup guide, until the architect's root steps are done. It refuses a version that is neither,
-# or a release whose notes it can't read, before it reads Docker or the host.
+# or vllm container runs or native vLLM's vllm-server unit is active, since one engine serves per
+# host at a time, and refuses, pointing at the setup guide, until the architect's root steps are
+# done. It refuses a version that is neither, or a release whose notes it can't read, before it
+# reads Docker or the host.
 set -euo pipefail
 # shellcheck source=host/llama-native.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama-native.sh"
@@ -17,6 +18,7 @@ source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama-native.sh"
 build=$(llama_build "${1:-}")
 engines_refuse_running "$LLAMA_CONTAINER"
 engines_refuse_running vllm
+engines_refuse_unit vllm-server
 llama_native_preflight
 # The update that moves it to what install was asked for: the pin, or the version given.
 update="engines llama-native update${1:+ $1} moves it to ${1:-the pin}"
