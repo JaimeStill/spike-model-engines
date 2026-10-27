@@ -392,7 +392,9 @@ sudo usermod -aG docker jaime
 sudo systemctl enable --now docker
 ```
 
-The group takes effect at the next login: a new SSH session, or `newgrp docker` in this one.
+The group takes effect at the next login: a new SSH session, or `newgrp docker` in this one. A
+terminal on the Framework's desktop belongs to the desktop's login, from before the group, so it
+gets `permission denied` until the desktop logs in again or the terminal runs `newgrp docker`.
 Then, as `jaime`, `docker info` prints the server's details, not `permission denied`:
 
 ```sh
@@ -569,16 +571,16 @@ and anchor A as in [llama-gb10-container](../../findings/llama-gb10-container.md
 The architect's root step, as on the GB10
 ([7. Allow the page-cache drop](#7-allow-the-page-cache-drop)), which explains the drop: a sudoers
 rule naming that one command exactly. Arch keeps `sysctl` in `/usr/bin`; its `/usr/sbin` is a
-link to `/usr/bin`, so the rule names `/usr/bin/sysctl`. Write the rule into its own file:
+link to `/usr/bin`, so the rule names `/usr/bin/sysctl`. Write the rule into its own file without an editor. `sudo` drops an `EDITOR` set on its command
+line, so `visudo` opens vim regardless, and inside another editor's terminal vim takes `visudo`'s
+`--` for a file name and saves nothing. Instead, write the rule under a name with a dot, which
+`sudo` skips in `/etc/sudoers.d`, check it with `visudo`, which prints `parsed OK`, and install it
+as root's, read-only, only when it parses:
 
 ```sh
-sudo visudo -f /etc/sudoers.d/drop-caches
-```
-
-The file holds one line:
-
-```text
-jaime ALL=(root) NOPASSWD: /usr/bin/sysctl vm.drop_caches=3
+echo 'jaime ALL=(root) NOPASSWD: /usr/bin/sysctl vm.drop_caches=3' | sudo tee /etc/sudoers.d/drop-caches.new >/dev/null
+sudo visudo -cf /etc/sudoers.d/drop-caches.new && sudo install -m 0440 -o root -g root /etc/sudoers.d/drop-caches.new /etc/sudoers.d/drop-caches
+sudo rm /etc/sudoers.d/drop-caches.new
 ```
 
 Check it without the password `visudo` just cached: `sudo -k` forgets it, and `sudo -n -l` lists
