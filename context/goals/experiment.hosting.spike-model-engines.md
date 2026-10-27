@@ -87,7 +87,7 @@ Door
 
 ## Progress
 
-slices 0/4 committed · standards — · spec — · editor —
+slices 3/4 committed (slice 4 is the walkthrough) · standards — · spec — · editor —
 
 ## Decisions
 
