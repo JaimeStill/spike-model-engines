@@ -219,17 +219,19 @@ The session's step, from `~/repos/spike-model-engines`, once hf is set up there
 image against its Vulkan image, so it stages llama.cpp's models, not vLLM's, and only those its
 cells name: the Gemma 4 shapes and gpt-oss-120b, for GuideLLM, and gpt-oss-120b and
 gemma-4-26B-A4B, for llama-bench. gpt-oss-120b and gemma-4-E4B Q8_0 are in the store already,
-seeded ([Seeding the Framework's store](#seeding-the-frameworks-store)), so three models are
-left, about 42 GB. It also fetches both flavors' images, the server image each `llama` runs and
+seeded ([Seeding the Framework's store](#seeding-the-frameworks-store)), so five models are
+left, about 48 GB. It also fetches both flavors' images, the server image each `llama` runs and
 the full image llama-bench runs, and ggml's native Vulkan prebuilt of the same build, for
 llama-bench outside the container.
 
 Set the exports and define `stage` as above, then start everything together:
 
 ```sh
+stage google/gemma-4-E4B-it-qat-q4_0-gguf --include gemma-4-E4B_q4_0-it.gguf --include gemma-4-E4B-it-mmproj.gguf
 stage google/gemma-4-12B-it-qat-q4_0-gguf --include gemma-4-12b-it-qat-q4_0.gguf --include mmproj-gemma-4-12b-it-qat-q4_0.gguf
 stage google/gemma-4-31B-it-qat-q4_0-gguf --include gemma-4-31B_q4_0-it.gguf --include gemma-4-31B-it-mmproj.gguf
 stage google/gemma-4-26B-A4B-it-qat-q4_0-gguf --include gemma-4-26B_q4_0-it.gguf --include gemma-4-26B-it-mmproj.gguf
+stage mrutkows/granite-embedding-english-r2-GGUF --include granite-embedding-english-r2-bf16.gguf
 for image in server-rocm full-rocm server-vulkan full-vulkan; do nohup bash -c 'docker pull "ghcr.io/ggml-org/llama.cpp:$0-b11669"; echo "exit $?"' "$image" > ~/prestage/"$image".log 2>&1 & done
 nohup bash -c '(set -e; cd ~/prestage; curl -fsSLO https://github.com/ggml-org/llama.cpp/releases/download/b11669/llama-b11669-bin-ubuntu-vulkan-x64.tar.gz; echo "e8709e5ba6c1b093dea7f3de57f4aba842f9a188fba6b465782d65d6fcfa4d9f  llama-b11669-bin-ubuntu-vulkan-x64.tar.gz" | sha256sum -c; mkdir -p ~/llama.cpp/b11669-vulkan; tar -xzf llama-b11669-bin-ubuntu-vulkan-x64.tar.gz -C ~/llama.cpp/b11669-vulkan --strip-components=1); echo "exit $?"' > ~/prestage/llama-vulkan-x64.log 2>&1 &
 ```
