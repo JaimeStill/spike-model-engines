@@ -16,6 +16,8 @@ source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
 build=$(llama_build "${1:-}")
 engines_refuse_running vllm
 engines_refuse_unit llama-router
+# The update that moves it to what install was asked for: the pin, or the version given.
+update="engines llama update${1:+ $1} moves it to ${1:-the pin}"
 
 image=$(llama_image "$build")
 running=$(llama_running_image)
@@ -24,7 +26,7 @@ mount=
 
 if [[ -n $running && $mount != "$LLAMA_PRESET_DIR" ]]; then
   echo "llama's preset mount is ${mount:-none}, not $LLAMA_PRESET_DIR;" \
-    "engines llama update moves it to the pin" >&2
+    "$update" >&2
   exit 1
 elif [[ $running == "$image" ]]; then
   stopped=$(engines_stopped "$LLAMA_CONTAINER")
@@ -35,7 +37,7 @@ elif [[ $running == "$image" ]]; then
   fi
   exit 0
 elif [[ -n $running ]]; then
-  echo "llama runs $running, not $image; engines llama update moves it to the pin" >&2
+  echo "llama runs $running, not $image; $update" >&2
   exit 1
 fi
 

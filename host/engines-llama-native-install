@@ -18,15 +18,17 @@ build=$(llama_build "${1:-}")
 engines_refuse_running "$LLAMA_CONTAINER"
 engines_refuse_running vllm
 llama_native_preflight
+# The update that moves it to what install was asked for: the pin, or the version given.
+update="engines llama-native update${1:+ $1} moves it to ${1:-the pin}"
 
 current=$(llama_native_current)
 preset=$(llama_native_preset)
 if [[ -n $current && $current != "$build" ]]; then
-  echo "native llama.cpp is at $current, not $build; engines llama-native update moves it" >&2
+  echo "native llama.cpp is at $current, not $build; $update" >&2
   exit 1
 elif [[ -n $current && $preset != "$LLAMA_PRESET_DIR" ]]; then
   echo "$LLAMA_NATIVE_DIR/preset names ${preset:-nothing}, not $LLAMA_PRESET_DIR;" \
-    "engines llama-native update moves it" >&2
+    "$update" >&2
   exit 1
 elif [[ -n $current ]] && llama_native_serving; then
   echo "$LLAMA_UNIT already serves $build; nothing changed"
