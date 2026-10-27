@@ -8,9 +8,18 @@ On the host, from the clone:
 host/engines llama uninstall
 ```
 
-`uninstall` removes the `llama` container and every llama.cpp image, and keeps the model store,
-`/srv/models`, so a later install serves the same models without downloading them again. A
-second run changes nothing and says so.
+`uninstall` removes the `llama` container and every llama.cpp server image, of every build and
+flavor, and keeps the model store, `/srv/models`, so a later install serves the same models
+without downloading them again. A second run changes nothing and says so.
+
+ggml's full images, which llama-bench runs ([Setup](setup.md#llama-bench)), aren't the
+`engines` commands' to remove: a session pulls them itself, and removes them itself. List what
+`uninstall` left, then remove each by name, such as gb10-1's:
+
+```sh
+docker image ls ghcr.io/ggml-org/llama.cpp
+docker image rm ghcr.io/ggml-org/llama.cpp:full-cuda13-b11669
+```
 
 ## Deleting models
 
@@ -87,8 +96,16 @@ sudo rmdir /opt/llama.cpp
 ## The Framework
 
 On the Framework, `host/engines llama uninstall` removes the `llama` container, started by hand or
-by `install`, and every llama.cpp image, the ROCm ones among them
+by `install`, of either flavor, and every llama.cpp server image, the ROCm and Vulkan ones
 ([Removing llama.cpp](#removing-llamacpp)). It keeps `/srv/models`.
+
+The full images and the native Vulkan prebuilt that pre-staging fetched for llama-bench
+([Models](models.md#on-the-framework)) are the session's to remove:
+
+```sh
+docker image rm ghcr.io/ggml-org/llama.cpp:full-rocm-b11669 ghcr.io/ggml-org/llama.cpp:full-vulkan-b11669
+rm -r ~/llama.cpp/b11669-vulkan
+```
 
 ### Removing the Framework's root steps
 
@@ -101,6 +118,16 @@ stops and no longer starts at boot:
 sudo gpasswd -d jaime docker
 sudo systemctl disable --now docker
 ```
+
+The ufw rules that route the tailnet's traffic to the containers' ports, llama.cpp's and vLLM's:
+
+```sh
+sudo ufw route delete allow in on tailscale0 proto tcp to any port 8080
+sudo ufw route delete allow in on tailscale0 proto tcp to any port 8000
+```
+
+Each deletes its IPv4 and IPv6 rule; `sudo ufw status verbose` then lists no `ALLOW FWD` rule on
+`tailscale0`.
 
 The page-cache rule:
 
@@ -116,7 +143,7 @@ sudo rm -rf /srv/models
 ```
 
 The space comes back once the last Omarchy snapshot holding the models ages out
-([Setup](setup.md#framework-in-a-container), step 7).
+([Setup](setup.md#framework-in-a-container), step 8).
 
 The GTT ceiling, back to its earlier 96 GiB: TTM's `pages_limit` to 25165824 and amdgpu's
 `gttsize` to 98304, rebuilt into the boot images, then a reboot. `amd-ttm` asks whether to reboot:

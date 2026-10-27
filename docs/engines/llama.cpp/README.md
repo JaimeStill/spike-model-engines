@@ -2,13 +2,16 @@
 
 llama.cpp serves GGUF models through `llama-server`, an OpenAI-compatible HTTP server. This spike
 runs it on gb10-1 in ggml's CUDA 13 server image, and natively, from ggml's CUDA 13.4 arm64
-prebuilt of the same build under a system unit, `llama-router`. Either way, one `llama-server`
+prebuilt of the same build under a system unit, `llama-router`, and on the Framework in ggml's ROCm
+or Vulkan server image. Either way, one `llama-server`
 runs in router mode: it holds no model itself, and loads each model named in its models preset,
 as a child process, when asked over its API. The router loads models on demand, so one server
 serves every model in the preset.
 
 The spike follows llama.cpp's semver releases and runs the b-build each one names. The pin lives
-in `host/llama.env`: v0.7.0 (b11669), image `ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669`.
+in `host/llama.env`: v0.7.0 (b11669). Every flavor of server image runs that build, as
+`ghcr.io/ggml-org/llama.cpp:server-<flavor>-b11669`: `cuda13` on gb10-1, and `rocm` or `vulkan` on
+the Framework ([Update](update.md#switching-the-flavor)).
 `mise run currency` reports the build when a newer semver release names a newer one.
 
 The `engines` commands install, update, and uninstall it. They run from a clone of this
@@ -17,8 +20,8 @@ repository on the host, as `host/engines llama <verb>`:
 | Command | What it does |
 |---|---|
 | `host/engines llama install [version]` | Runs the router at the pin, or at the version given |
-| `host/engines llama update [version]` | Moves the router to the pin, or to the version given, and removes every other llama.cpp image |
-| `host/engines llama uninstall` | Removes the router and every llama.cpp image, keeping `/srv/models` |
+| `host/engines llama update [version]` | Moves the router to the pin, or to the version given, and removes every other build's server image |
+| `host/engines llama uninstall` | Removes the router and every llama.cpp server image, keeping `/srv/models` |
 | `host/engines llama-native install [version]` | Serves the native router at the pin, or at the version given |
 | `host/engines llama-native update [version]` | Moves the native router to the pin, or to the version given, and removes every other build |
 | `host/engines llama-native uninstall` | Stops and disables the native router and removes every build, keeping `/srv/models` |
@@ -39,8 +42,8 @@ notes name, or a b-build, such as `b11429`, which runs as given
   cancelling its download, copying it to gb10-2 under a borrow, and listing models.
 - [API](api.md): a chat completion from the laptop, `/health`, `/v1/models`, the build a model
   runs (`/props`), and `/metrics`.
-- [Update](update.md): moving to the pinned build or another version, rehearsing an update, how
-  the pin moves, and the native update and rollback.
+- [Update](update.md): moving to the pinned build, switching the flavor, moving to another
+  version, rehearsing an update, how the pin moves, and the native update and rollback.
 - [Uninstall](uninstall.md): removing llama.cpp, deleting models, with hf or by hand, and
   removing native llama.cpp and its root steps.
 - [llama-bench](setup.md#llama-bench): llama.cpp's raw pp/tg benchmark, natively and in ggml's

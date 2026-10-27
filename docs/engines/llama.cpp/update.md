@@ -9,14 +9,16 @@ git pull
 host/engines llama update
 ```
 
-`update` pulls the pinned image, replaces the `llama` container with one running it, and removes
-every other llama.cpp image, so only the pinned image remains. It pulls before it removes
+`update` pulls the pinned image, replaces the `llama` container with one running it, and removes the
+server image of every other build, so only the pinned build's server images remain. It keeps ggml's
+full images, which llama-bench runs ([Setup](setup.md#llama-bench)), and the pinned build's server
+image in another flavor ([Switching the flavor](#switching-the-flavor)). It pulls before it removes
 anything, so a failed pull leaves the old build serving. When `llama` already runs the pin and no
-other llama.cpp image is left, it changes nothing and says so; when that `llama` is stopped, it
+other build's server image is left, it changes nothing and says so; when that `llama` is stopped, it
 says `docker start llama` starts it, and leaves it stopped. It fails, changing nothing, when
-llama.cpp isn't installed or while vLLM's `vllm` container runs (`docker stop vllm` stops it)
-or its native `vllm-server` unit is active ([vLLM's Setup](../vllm/setup.md#5-stop-it)),
-and, before it pulls, when `/srv/models` is missing or the host has no tailnet IPv4 address.
+llama.cpp isn't installed or while vLLM's `vllm` container runs (`docker stop vllm` stops it) or its
+native `vllm-server` unit is active ([vLLM's Setup](../vllm/setup.md#5-stop-it)), and, before it
+pulls, when `/srv/models` is missing or the host has no tailnet IPv4 address.
 
 The new container starts with no model loaded; load the model again ([Models](models.md)), and
 check the build it runs:
@@ -26,9 +28,9 @@ docker inspect --format '{{.Config.Image}}' llama
 docker image ls ghcr.io/ggml-org/llama.cpp
 ```
 
-The first prints the pinned image; the second lists it alone. Once the model is loaded, the
-laptop confirms the build the model itself runs ([API](api.md#build)), which reads
-`b11669-620d2225c` at the pin, v0.7.0 (b11669).
+The first prints the pinned image; the second lists it, and no server image of another build. Once
+the model is loaded, the laptop confirms the build the model itself runs ([API](api.md#build)),
+which reads `b11669-620d2225c` at the pin, v0.7.0 (b11669).
 
 `update` also replaces a `llama` container whose preset mount isn't the clone's preset
 directory, `host/llama-preset`, such as one installed before the scripts moved from `engines/` to
@@ -48,6 +50,66 @@ such a `llama`, whatever image it runs, and fails with
 llama's preset mount is <old directory>, not <new directory>; engines llama update moves it to the pin
 ```
 
+## Switching the flavor
+
+The image's flavor is the backend ggml built it for. `install` and `update` pick it from the GPU
+the host has, or from `LLAMA_FLAVOR` when it is set, and give the container that backend's
+devices:
+
+| Flavor | Image | Devices | Picked on |
+|---|---|---|---|
+| `cuda13` | `server-cuda13-<build>` | `--gpus all` | a host without an AMD GPU: the GB10s |
+| `rocm` | `server-rocm-<build>` | `--device /dev/kfd --device /dev/dri` | a host with an AMD GPU: the Framework |
+| `vulkan` | `server-vulkan-<build>` | `--device /dev/dri` | only when `LLAMA_FLAVOR` names it |
+
+A host has an AMD GPU when a card under `/sys/class/drm` reports AMD's PCI vendor ID, `0x1002`,
+which any account can read:
+
+```sh
+cat /sys/class/drm/card*/device/vendor
+```
+
+On the Framework it prints `0x1002`; on gb10-1, NVIDIA's `0x10de`. Every flavor runs the same
+build, the pin's or the version given.
+
+On the Framework, from the clone, switch `llama` from ROCm to Vulkan:
+
+```sh
+LLAMA_FLAVOR=vulkan host/engines llama update
+```
+
+A flavor switch is a move to another image, as a build move is: `update` pulls
+`ghcr.io/ggml-org/llama.cpp:server-vulkan-b11669` before it replaces anything, replaces `llama`
+with one running it on `/dev/dri` alone, and says
+
+```text
+llama moved from ghcr.io/ggml-org/llama.cpp:server-rocm-b11669 to ghcr.io/ggml-org/llama.cpp:server-vulkan-b11669
+```
+
+It keeps `server-rocm-b11669`, the same build in the other flavor, so switching back pulls
+nothing. The new container starts with no model loaded; load the model again
+([Models](models.md)). Switch back with the Framework's own flavor, named or not:
+
+```sh
+LLAMA_FLAVOR=rocm host/engines llama update
+```
+
+The flavor holds for the one command it is given to. A later `update` without it, such as the
+next move to the pin, moves a Vulkan `llama` back to ROCm, so give it again to stay on Vulkan.
+`install` refuses a `llama` of another flavor, as it refuses another build, and names the update
+that moves it:
+
+```text
+llama runs ghcr.io/ggml-org/llama.cpp:server-rocm-b11669, not ghcr.io/ggml-org/llama.cpp:server-vulkan-b11669; LLAMA_FLAVOR=vulkan engines llama update moves it to the pin
+```
+
+A flavor and a version combine, as in `LLAMA_FLAVOR=vulkan host/engines llama update b11429`. A
+flavor that is none of the three fails before anything is read from Docker:
+
+```text
+LLAMA_FLAVOR is vulkn, which is none of cuda13, rocm, or vulkan
+```
+
 ## Moving to another version
 
 `update` and `install` take a version, which replaces the pin for that run: a semver release,
@@ -61,9 +123,9 @@ host/engines llama update v0.6.0
 host/engines llama update b11429
 ```
 
-It says `llama moved from <old image> to <new image>`, and removes every other llama.cpp image,
-the pin's among them, so only the version given remains. Run a second time, it changes nothing
-and says so. With no version, `update` moves back to the pin:
+It says `llama moved from <old image> to <new image>`, and removes the server image of every other
+build, the pin's among them, so only the version given's server images remain. Run a second time, it
+changes nothing and says so. With no version, `update` moves back to the pin:
 
 ```sh
 host/engines llama update
@@ -98,7 +160,8 @@ where it isn't installed, or after [uninstalling](uninstall.md).
 ## How the pin moves
 
 The pin is `host/llama.env`: `LLAMA_RELEASE`, the latest semver release, and `LLAMA_BUILD`,
-the b-build its notes name ("Nightly build:"), from which `LLAMA_IMAGE` follows. On the laptop,
+the b-build its notes name ("Nightly build:"), which every flavor's server image names, as
+`server-<flavor>-<build>` in `LLAMA_REPOSITORY`. On the laptop,
 `mise run currency` reports when a newer release names a newer build, reading the notes the same
 way `update` and `install` read a release given (`host/llama-release.sh`):
 

@@ -109,7 +109,8 @@ vLLM's [Setup](../vllm/setup.md#5-stop-it) the unit), when `/srv/models` is miss
 has no tailnet IPv4 address, or when `llama` already runs another build; [Update](update.md) moves a
 running build. Given a version, it installs that version's build instead of the pin: a semver
 release, such as `v0.6.0`, runs the b-build its notes name (`b11429`), and a b-build, such as
-`b11429`, runs as given ([Update](update.md#moving-to-another-version)).
+`b11429`, runs as given ([Update](update.md#moving-to-another-version)). Its image's flavor is
+`cuda13`, which it picks on a host without an AMD GPU ([Update](update.md#switching-the-flavor)).
 
 Check that the container is up and the router answers:
 
@@ -298,7 +299,9 @@ Run these steps on the Framework, `framework`: Omarchy, which is Arch Linux, on 
 whose GPU is gfx1151, with 125 GiB of RAM. ggml's ROCm image runs the pinned build, v0.7.0
 (b11669), as on the GB10. The image brings its own ROCm runtime; the host gives it only the
 kernel's GPU driver, through two device files, `/dev/kfd` and `/dev/dri`, in place of the NVIDIA
-Container Toolkit's `--gpus all`.
+Container Toolkit's `--gpus all`. The `engines` commands pick that image, the `rocm` flavor, on
+any host with an AMD GPU; ggml's Vulkan image, the `vulkan` flavor, runs the same build with
+`/dev/dri` alone ([Update](update.md#switching-the-flavor)).
 
 Each step says whose it is. Commands with `sudo` are root steps, the architect's; the rest the
 session runs, as `jaime`. Each Framework session owns the host: nothing else serves on it while
@@ -409,7 +412,31 @@ account on this host (`0666`), so a container running as `jaime` reaches the GPU
 command ls -l /dev/kfd /dev/dri/renderD128
 ```
 
-### 4. Stop the router
+### 4. Route the ports through ufw
+
+The architect's root step. Omarchy runs ufw with ufw-docker, which drops routed traffic to a
+container's published port: the laptop's requests to `framework:8080` time out, though the
+container answers on the host. A native server needs no rule, since ufw doesn't filter the host's
+own input on `tailscale0`; a container's port is routed, through Docker's forwarding. Allow the
+routed traffic that arrives over the tailnet to llama.cpp's port, 8080, and vLLM's, 8000:
+
+```sh
+sudo ufw route allow in on tailscale0 proto tcp to any port 8080
+sudo ufw route allow in on tailscale0 proto tcp to any port 8000
+```
+
+Each adds a rule for IPv4 and one for IPv6. Check them:
+
+```sh
+sudo ufw status verbose
+```
+
+It lists `8080/tcp ALLOW FWD Anywhere on tailscale0`, the same for `8000/tcp`, and both again
+with `(v6)`. The rules name a port, not a container, so they hold for any container published
+there: a flavor switch, an update, or vLLM's container. They go with
+[Uninstall](uninstall.md#removing-the-frameworks-root-steps).
+
+### 5. Stop the router
 
 The architect's root step. spike-model-hosting's native router, `llama-router`, serves on the
 Framework: it holds port 8080 and, with its set A loaded, most of the GTT. A Framework session
@@ -435,7 +462,7 @@ answer. Until then it comes back with:
 sudo systemctl enable --now llama-router
 ```
 
-### 5. Record the host stack
+### 6. Record the host stack
 
 The session's step. Each command prints one item of the stack. Record each output, with the
 date, in the task's finding.
@@ -453,7 +480,7 @@ Radeon, the GPU's firmware, Docker, and the host's ROCm), Docker's server, and t
 bytes. The container doesn't use the host's ROCm, `rocm-core`; it is recorded beside the image's
 own, ROCm 7.2.1, for the native task.
 
-### 6. Get the clone onto the host
+### 7. Get the clone onto the host
 
 The session's step. The `engines` commands run from a clone of this repository, in
 `~/repos`; nothing is installed:
@@ -473,7 +500,7 @@ git switch llama-strix-rocm
 
 Every later command on the host runs from `~/repos/spike-model-engines`.
 
-### 7. Create the model store
+### 8. Create the model store
 
 The architect's root step. The models live in `/srv/models`, outside the container, as on gb10-1:
 a plain directory on the root drive, owned by `jaime`, since the container writes the store as
@@ -490,7 +517,7 @@ snapshot holding it ages out. Snapper keeps five.
 The session then seeds the store from the models drive, with no download
 ([Models](models.md#seeding-the-frameworks-store)).
 
-### 8. Prove the pinned image runs on the GPU
+### 9. Prove the pinned image runs on the GPU
 
 The architect's first walk of ggml's ROCm image; the session walks them through it. The pin
 (`host/llama.env`) is v0.7.0 (b11669), and the ROCm image of that build carries gfx1151 among
@@ -508,25 +535,64 @@ docker run --rm --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" g
 ```
 
 `--version` prints `version: 0.7.0-dev (build 11669, commit 620d2225c)`, as on the GB10.
-`--list-devices` lists one ROCm device, `ROCm0`, with its memory, total and free, and the log
-before it names the GPU as `gfx1151`. An empty list means the container didn't reach the GPU.
-Record the device line in the task's finding, with the memory it reports: whether ROCm counts
-the GTT ceiling or only the 512 MiB carve-out decides how much a model may hold.
+`--list-devices` lists one ROCm device:
 
-Then the server image, started by hand as the `llama` container, with the same arguments
-`host/llama.sh` passes on the GB10: the clone's preset read-only, the store mounted as
-llama.cpp's download cache (`LLAMA_CACHE`), port 8080 published on the host's tailnet address
-only, and the router started with no model. The device files take the place of `--gpus all`.
-From the clone:
-
-```sh
-docker run --detach --name llama --restart unless-stopped --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" --publish "$(tailscale ip -4):8080:8080" --volume /srv/models:/srv/models --env LLAMA_CACHE=/srv/models --volume "$PWD/host/llama-preset:/etc/llama-preset:ro" ghcr.io/ggml-org/llama.cpp:server-rocm-b11669 --models-preset /etc/llama-preset/models.ini --no-models-autoload --host 0.0.0.0 --port 8080
+```text
+ROCm0: Radeon 8060S Graphics (114688 MiB, 114683 MiB free)
 ```
 
-This hand start is the viability check: whether ggml's ROCm image serves on the Framework at
-all. The task's next slice folds it into `host/engines llama install`, with the image's flavor
-as an option, and the container started here is then replaced by one the `engines` commands
-started.
+ROCm counts the whole GTT ceiling, 112 GiB, as the GPU's memory, not the 512 MiB carve-out, so a
+model may hold up to it. The log before it names the GPU and its target:
+
+```text
+Device 0: Radeon 8060S Graphics, gfx1151 (0x1151), VMM: no, Wave Size: 32, VRAM: 114688 MiB
+```
+
+An empty list means the container didn't reach the GPU.
+
+Then the server image. The task's first slice started it by hand, as the `llama` container, with
+the arguments `host/llama.sh` passes: the clone's preset read-only, the store mounted as
+llama.cpp's download cache (`LLAMA_CACHE`), port 8080 published on the host's tailnet address
+only, the router started with no model, and the device files in place of `--gpus all`. This hand
+start was the viability check, whether ggml's ROCm image serves on the Framework at all; a new
+host skips it, since [10. Install](#10-install) starts the same container. It names the preset by
+the clone's full path, so it runs from any directory; a relative path, run from elsewhere, makes
+Docker create the missing directory, owned by root, and the router exits with `preset file does
+not exist`:
+
+```sh
+docker run --detach --name llama --restart unless-stopped --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" --publish "$(tailscale ip -4):8080:8080" --volume /srv/models:/srv/models --env LLAMA_CACHE=/srv/models --volume "$HOME/repos/spike-model-engines/host/llama-preset:/etc/llama-preset:ro" ghcr.io/ggml-org/llama.cpp:server-rocm-b11669 --models-preset /etc/llama-preset/models.ini --no-models-autoload --host 0.0.0.0 --port 8080
+```
+
+### 10. Install
+
+The session's step, from the clone:
+
+```sh
+host/engines llama install
+```
+
+`install` runs as on gb10-1 ([6. Install](#6-install)), with the `rocm` flavor, which it picks
+on a host with an AMD GPU: it pulls `ghcr.io/ggml-org/llama.cpp:server-rocm-b11669` and starts
+`llama` with `--device /dev/kfd --device /dev/dri` in place of `--gpus all`. It prints
+
+```text
+llama runs ghcr.io/ggml-org/llama.cpp:server-rocm-b11669 on port 8080 of the tailnet address
+```
+
+It refuses while spike-model-hosting's `llama-router` is active ([5. Stop the
+router](#5-stop-the-router)), or vLLM's `vllm` container runs or its `vllm-server` unit is active.
+
+A `llama` started by hand, as in step 9, stays in place. When it runs the same image with the
+clone's preset, `install` counts it as installed and says `llama already runs
+ghcr.io/ggml-org/llama.cpp:server-rocm-b11669; nothing changed`; on another image or preset
+mount, it refuses. To have `install` start its own, remove the hand-started one first, which
+unloads its models:
+
+```sh
+docker rm --force llama
+host/engines llama install
+```
 
 Check that the container is up and the router answers:
 
@@ -546,14 +612,19 @@ curl -s -X POST "http://framework:8080/models/load" -H "Content-Type: applicatio
 curl -s "http://framework:8080/models" | jq '.data[] | {id, status: .status.value}'
 ```
 
-On the host, the router's log shows where the layers went. `offloaded 37/37 layers to GPU`
-means every layer is on the GPU, and the `ROCm0` buffers hold the weights, the KV cache, and the
-compute buffer; a `CPU` model buffer beyond a small one for the token embeddings means layers
-stayed on the CPU:
+A request from the laptop that times out, while `/health` answers on the host, is ufw dropping
+the routed port ([4. Route the ports through ufw](#4-route-the-ports-through-ufw)).
+
+On the host, the router's log shows where the layers went:
 
 ```sh
 docker logs llama 2>&1 | grep -E "gfx1151|offloaded|buffer size"
 ```
+
+It shows `offloaded 37/37 layers to GPU`, every layer on the GPU, and `ROCm0 model buffer size =
+59851.68 MiB`, the weights; the other `ROCm0` buffers hold the KV cache and the compute buffer. A
+`CPU` model buffer beyond a small one for the token embeddings would mean layers stayed on the
+CPU.
 
 The build the model runs, from the laptop, prints `b11669-620d2225c` ([API](api.md#build)):
 
@@ -566,7 +637,7 @@ of `gb10-1`: the warm-up as in
 [bench-gb10-container](../../findings/bench-gb10-container.md#per-model-the-build-and-the-warm-up),
 and anchor A as in [llama-gb10-container](../../findings/llama-gb10-container.md#running-the-cells).
 
-### 9. Allow the page-cache drop
+### 11. Allow the page-cache drop
 
 The architect's root step, as on the GB10
 ([7. Allow the page-cache drop](#7-allow-the-page-cache-drop)), which explains the drop: a sudoers
