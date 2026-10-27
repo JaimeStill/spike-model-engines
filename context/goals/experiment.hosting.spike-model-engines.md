@@ -1,6 +1,6 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** building
+- **State:** brief ready
 - **Task:** llama-gb10-native
 - **Branch:** llama-gb10-native
 
@@ -112,7 +112,7 @@ Door
 
 ## Progress
 
-slices 3/4 committed · standards ✓ · spec ✓ (no gaps; tailnet address redacted from unpushed commits) · editor ✓ · slice 4 walkthrough next; slice 2 walked on gb10-1 2026-10-27: install v0.6.0, update v0.7.0, rollback, forward, idempotent install, container refusals · standards — · spec — · editor —
+slices 4/4 · standards ✓ · spec ✓ (no gaps; tailnet address redacted from unpushed commits) · editor ✓ · walkthrough passed 2026-10-27, its gaps closed (21820ad, b95eb74, db12f6a); slice 2 walked on gb10-1 2026-10-27: install v0.6.0, update v0.7.0, rollback, forward, idempotent install, container refusals
 
 ## Decisions
 
