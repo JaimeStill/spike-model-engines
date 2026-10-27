@@ -1,0 +1,6 @@
+# Lets jaime start, stop, restart, enable, and disable native llama.cpp's llama-router unit
+# without a password, so the engines llama-native commands run with sudo -n, and nothing else as
+# root: each command is fixed, with its arguments. The architect installs it, as a root step, as
+# /etc/sudoers.d/llama-router, after visudo checks it (docs/engines/llama.cpp/setup.md, "GB10,
+# native"). One line, so sudo -l lists the five on the NOPASSWD line the commands' preflight reads.
+jaime ALL=(root) NOPASSWD: /usr/bin/systemctl start llama-router, /usr/bin/systemctl stop llama-router, /usr/bin/systemctl restart llama-router, /usr/bin/systemctl enable llama-router, /usr/bin/systemctl disable llama-router

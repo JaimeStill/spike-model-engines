@@ -2,7 +2,8 @@
 # The engines dispatcher: `engines <group> <verb> [args...]` runs engines-<group>-<verb> from this
 # directory with the remaining arguments. With no arguments it lists the commands, each with the
 # summary from its `# engines:summary=` line. Run from the clone; a new command is a new
-# engines-<group>-<verb> file here, with nothing to register.
+# engines-<group>-<verb> file here, with nothing to register. A group may hold a hyphen, as
+# llama-native does, and a verb never does, so the listing splits a name at its last hyphen.
 set -euo pipefail
 
 dir=$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")
@@ -11,7 +12,8 @@ if (($# < 2)); then
   echo "usage: engines <group> <verb> [args...]"
   for script in "$dir"/engines-*-*; do
     name=${script##*/engines-}
-    printf '  engines %-18s %s\n' "${name/-/ }" "$(sed -n 's/^# engines:summary=//p' "$script")"
+    summary=$(sed -n 's/^# engines:summary=//p' "$script")
+    printf '  engines %-22s %s\n' "${name%-*} ${name##*-}" "$summary"
   done
   exit $(($# > 0))
 fi

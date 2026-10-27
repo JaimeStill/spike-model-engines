@@ -109,4 +109,67 @@ A line beginning `host/llama.env: llama.cpp` means the pin is behind, and names 
 and its release. Edit `LLAMA_RELEASE` and `LLAMA_BUILD` in `host/llama.env` to the release
 and build it names, and the pin this guide quotes to match: the [README](README.md), and the
 image and its `--version` output in [Setup](setup.md#3-prove-the-pinned-image-runs-on-the-gpu).
-Commit and push; then, on each host, `git pull` and `host/engines llama update`.
+Commit and push; then, on each host, `git pull` and `host/engines llama update`, or
+`host/engines llama-native update` where native llama.cpp serves ([Native](#native)).
+
+## Native
+
+Native llama.cpp ([Setup](setup.md#gb10-native)) updates with its own command, from the clone,
+after `git pull`; with no version it moves to the pin, v0.7.0 (b11669):
+
+```sh
+git pull
+host/engines llama-native update
+```
+
+`update` downloads the build's two tarballs and checks their digests, as `install` does, into
+`/opt/llama.cpp/b11669`, points `current` at it, restarts `llama-router`, and waits for `/health`
+to answer. Only once the new build serves does it remove every other build, so only the serving
+build is kept. It prints the digests, then
+
+```text
+llama-router moved from b11429 to b11669
+removed /opt/llama.cpp/b11429
+```
+
+When the start fails, `update` stops before removing anything, saying `journalctl -u
+llama-router` shows why; the old build stays, and an update to its version moves back to it
+without a download. The restart unloads every model, so load the model again
+([Models](models.md)), and check the build:
+
+```sh
+readlink /opt/llama.cpp/current
+/opt/llama.cpp/current/llama-server --version
+command ls /opt/llama.cpp
+```
+
+`readlink` prints `b11669`; `--version` prints `build 11669, commit 620d2225c`; `ls` lists
+`b11669`, `current`, and `preset`. Once a model is loaded, the laptop reads the build it runs
+([API](api.md#build)), `b11669-620d2225c`.
+
+Run a second time, `update` changes nothing and says `llama-router already serves b11669;
+nothing changed`; when `llama-router` is stopped, it enables and starts it. It also re-points
+`preset` when it names another directory than the clone's `host/llama-preset`, as after the clone
+moves, and restarts `llama-router` on it. It fails, changing nothing, when native llama.cpp isn't
+installed, and for the reasons `install` does: another engine's container running, the root steps
+not done, `/srv/models` missing, or no tailnet address ([Setup](setup.md#2-install)).
+
+### Rolling back
+
+A rollback is an update to the older version: it fetches the older build again, since only the
+serving build is kept, re-points `current` at it, and removes the newer one:
+
+```sh
+host/engines llama-native update v0.6.0
+```
+
+It says `llama-router moved from b11669 to b11429` and `removed /opt/llama.cpp/b11669`. Forward
+again is an update with no version, or the pin's:
+
+```sh
+host/engines llama-native update
+```
+
+The version is a semver release or a b-build, read as the container's update reads it
+([Moving to another version](#moving-to-another-version)); `v0.6.0` and `b11429` are the same
+build.

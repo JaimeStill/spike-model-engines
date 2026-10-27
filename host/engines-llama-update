@@ -9,14 +9,16 @@
 # replaced container runs, even if the old one was stopped. When llama already runs that image
 # with the clone's preset and no other image is left, it changes nothing; when that container is
 # stopped, it says docker start starts it, and never starts it itself. It refuses while the vllm
-# container runs, since one engine serves per host at a time. It refuses a version that is
-# neither, or a release whose notes it can't read, before it reads Docker.
+# container runs or native llama.cpp's llama-router unit is active, since one engine serves per
+# host at a time. It refuses a version that is neither, or a release whose notes it can't read,
+# before it reads Docker.
 set -euo pipefail
 # shellcheck source=host/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
 
 build=$(llama_build "${1:-}")
 engines_refuse_running vllm
+engines_refuse_unit llama-router
 
 image=$(llama_image "$build")
 running=$(llama_running_image)
