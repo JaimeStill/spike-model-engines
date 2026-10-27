@@ -153,7 +153,7 @@ Door
 
 ## Progress
 
-slices 1/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4; ROCm viable, anchor A served 2026-10-27 17:25) · standards — · spec — · editor —
+slices 2/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A served 17:25; slice 2: e2f0146, 3686b6a, flavor switch shown and staging done 18:17) · standards — · spec — · editor —
 
 ## Decisions
 
@@ -650,6 +650,17 @@ slices 1/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4; ROCm viable, anchor A 
   (8/8 requests, 42.7 output tok/s, TTFT p95 679 ms, ITL median 20.9 ms; path direct 2 ms). The
   cell's before-metrics snapshot came back empty, so its server figures include the warm-up;
   slice 3 reruns the anchors on both flavors.
+- llama-strix-rocm: slice 2's demo (2026-10-27): `host/engines llama install` picked rocm by the
+  AMD vendor id and ran with /dev/kfd and /dev/dri; `LLAMA_FLAVOR=vulkan ... update` moved it to
+  server-vulkan-b11669 with /dev/dri alone, which loaded gpt-oss-120b 37/37 on Vulkan0 (RADV
+  STRIX_HALO, 115200 MiB, the GTT ceiling plus the 512 MiB carve-out), build b11669-620d2225c;
+  update moved it back; install refused a flavor switch and an unknown flavor; all four b11669
+  images kept. Staging 17:37–18:17: five models (~48 GB), the four images, and the native Vulkan
+  prebuilt (sha256 OK, `Vulkan0 ... 115200 MiB`), every log `exit 0`.
+- llama-strix-rocm: the session starts the Framework's background downloads with `setsid` and
+  `< /dev/null` beside the guide's `nohup`, since a job launched over a non-interactive SSH
+  command otherwise dies with it; and a `pgrep -f` run through `ssh host '...'` matches its own
+  command line, so a wait loop checks the logs' `exit` lines instead.
 
 ## Pending edits
 
