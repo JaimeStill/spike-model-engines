@@ -430,12 +430,15 @@ vllm-native install v0.31.0` printed it, with uv's package lists cut to the line
 #### Reading it back
 
 On the host, from the clone, read uv's version, the Pythons uv has installed under
-`/opt/vllm/python`, and the packages of the release `current` names:
+`/opt/vllm/python`, and the packages of the release `current` names. The last two read an
+interpreter, and uv caches what it learns of one, so they point uv's cache at `/opt/vllm/cache/uv`,
+as the `engines` commands do; without it, uv writes those entries to `~/.cache/uv`, outside
+`/opt/vllm`, where `uninstall` doesn't reach:
 
 ```sh
 MISE_ENV=host mise exec -- uv --version
-MISE_ENV=host UV_PYTHON_INSTALL_DIR=/opt/vllm/python mise exec -- uv python list --only-installed --managed-python
-MISE_ENV=host mise exec -- uv pip list --python /opt/vllm/current
+MISE_ENV=host UV_CACHE_DIR=/opt/vllm/cache/uv UV_PYTHON_INSTALL_DIR=/opt/vllm/python mise exec -- uv python list --only-installed --managed-python
+MISE_ENV=host UV_CACHE_DIR=/opt/vllm/cache/uv mise exec -- uv pip list --python /opt/vllm/current
 ```
 
 At v0.31.0 the first prints `uv 0.13.6 (aarch64-unknown-linux-gnu)`, and the second the one

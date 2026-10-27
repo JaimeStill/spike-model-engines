@@ -211,7 +211,7 @@ vLLM isn't installed:
 
 ```sh
 host/engines vllm-native install v0.31.0
-MISE_ENV=host mise exec -- uv pip list --python /opt/vllm/current
+MISE_ENV=host UV_CACHE_DIR=/opt/vllm/cache/uv mise exec -- uv pip list --python /opt/vllm/current
 host/engines vllm-native update v0.32.0
 host/engines vllm-native update v0.31.0
 host/engines vllm-native update
