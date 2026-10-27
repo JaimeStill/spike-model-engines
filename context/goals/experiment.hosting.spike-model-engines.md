@@ -112,7 +112,7 @@ Door
 
 ## Progress
 
-slices 3/4 committed (62e4b31, 6be0589, 8c6c905 + e9b0e2b); slice 4 (walkthrough) waits for the reviews; slice 2 walked on gb10-1 2026-10-27: install v0.6.0, update v0.7.0, rollback, forward, idempotent install, container refusals · standards — · spec — · editor —
+slices 3/4 committed · standards ✓ · spec ✓ (no gaps; tailnet address redacted from unpushed commits) · editor ✓ · slice 4 walkthrough next; slice 2 walked on gb10-1 2026-10-27: install v0.6.0, update v0.7.0, rollback, forward, idempotent install, container refusals · standards — · spec — · editor —
 
 ## Decisions
 
@@ -459,6 +459,30 @@ slices 3/4 committed (62e4b31, 6be0589, 8c6c905 + e9b0e2b); slice 4 (walkthrough
   mounting the clone's `host/llama-preset` (clone at ~/repos/spike-model-engines, on the
   host-rename branch until the merge), vLLM stopped on its pin (v0.32.0). Supersedes
   bench-gb10-container's "gb10-1 left with vLLM serving its pin and llama.cpp stopped".
+
+- llama-gb10-native: llama-bench is a section of the llama.cpp setup guide, not a page of its
+  own, since STANDARDS.md fixes the guide's pages.
+- llama-gb10-native: the unit reads models.ini through an `/opt/llama.cpp/preset` link to the
+  clone's `host/llama-preset`, so the unit names neither a build nor the clone's path.
+- llama-gb10-native: native install and update wait up to 60 s for `/health`, and update keeps
+  the old build until the new one answers.
+- llama-gb10-native: native install starts an installed but stopped `llama-router`.
+- llama-gb10-native: the container steps, llama's and vLLM's, also refuse while `llama-router`
+  is up.
+- llama-gb10-native: the native fetch is quiet (`curl -fsSL`), like the repository's other curls.
+- llama-gb10-native: the finding records `tailscale ping` as the path only, with the addresses
+  left out, since tailnet and LAN addresses stay out of the public repository.
+- llama-gb10-native: native and container measured level: llama-bench within its ±, anchor B
+  identical, cold load 47.2 against 47.3 s, footprint within 28 MiB. Anchor A ran 2% lower
+  natively in one run, which llama-bench didn't reproduce.
+- llama-gb10-native: one laptop `/health` was refused right after the first update, unexplained;
+  every later check answered ok.
+- llama-gb10-native: native install and update read `api.github.com` on every fetch, whose
+  unauthenticated limit is 60 requests an hour per IP; noted, not changed.
+- llama-gb10-native: gb10-1 left on 2026-10-27 with nothing serving: `llama-router` inactive and
+  disabled at v0.7.0 (b11669) under /opt/llama.cpp, the llama container stopped
+  (server-cuda13-b11669), vLLM stopped on its pin (v0.32.0); full-cuda13-b11669 pulled.
+  Supersedes host-rename's "gb10-1 left on 2026-10-27 with llama and vLLM both stopped".
 
 ## Pending edits
 
