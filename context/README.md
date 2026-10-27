@@ -79,10 +79,14 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
   each method's commands. The anchor cells later
   tasks rerun are first in `llama-gb10-container.md` for llama.cpp and `vllm-gb10-container.md`
   for vLLM.
-- **Raw backend findings:** llama-bench pp/tg per llama.cpp backend.
+- **Raw backend findings:** llama-bench pp/tg per llama.cpp backend. `llama-gb10-native.md` has
+  gb10-1's CUDA build, natively and in ggml's full-cuda13 image, on gpt-oss-120b and
+  gemma-4-26B-A4B.
 - **API surface:** the matrix of what each engine serves, probed on both engines from each API
   page's probes (`bench-gb10-container.md`, "API probes").
-- **Hosting method:** container against bare metal.
+- **Hosting method:** container against bare metal. `llama-gb10-native.md` compares llama.cpp
+  on gb10-1 in ggml's container and natively under systemd: install, update, rollback, cold load,
+  footprint, llama-bench, and the anchor cells.
 - **Quantization rule:** the floor every cell keeps, applied in `bench-gb10-container.md`'s
   formats ([Rules](#rules)).
 - **The answer.**
@@ -98,7 +102,7 @@ The tasks, in the order they run; each cites the evidence it proves.
 3. `bench-gb10-container`: both engines' cells on gb10-1 and the API-surface probes, in
    `docs/findings/bench-gb10-container.md` (evidence 2, 3, 4, 5).
 4. `llama-gb10-native`: llama.cpp native under systemd on gb10-1, llama-bench, anchor cells
-   against the container (evidence 1, 6).
+   against the container, in `docs/findings/llama-gb10-native.md` (evidence 1, 6).
 5. `vllm-gb10-native`: vLLM's aarch64 wheel natively on gb10-1, anchor cells against the
    container (evidence 1, 6). Its plan round may take up one question from
    bench-gb10-container: vLLM's NVFP4 rows decode at about half llama.cpp's QAT Q4_0 rate, and

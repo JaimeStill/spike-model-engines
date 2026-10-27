@@ -65,7 +65,8 @@ docker run --rm --gpus all --user "$(id -u):$(id -g)" --volume /srv/models:/srv/
 Other options set what the server's preset and log set: `-ngl` the layers on the GPU, `-fa` flash
 attention (`on`, `off`, or `auto`), and `-b` and `-ub` the batch sizes. Each option takes a
 comma-separated list, and llama-bench runs every combination. The exact commands each comparison
-runs are in its finding's method.
+runs are in its finding's method, as gb10-1's native and container runs are in
+[llama-gb10-native](../../findings/llama-gb10-native.md#llama-bench).
 
 ## What it reports
 
