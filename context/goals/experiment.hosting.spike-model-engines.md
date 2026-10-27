@@ -1,6 +1,6 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** handoff
+- **State:** building
 - **Task:** llama-strix-rocm
 - **Branch:** llama-strix-rocm
 
@@ -153,34 +153,7 @@ Door
 
 ## Progress
 
-slices 0/4 committed (slice 1's guide b84066b and 18e45d8; host walk at setup step 8) · standards — · spec — · editor —
-
-## Handoff
-
-Slice 1, the Framework's host walk, stopped when the architect ended the session on 2026-10-27,
-before setup step 8. Done and read back (setup.md, "Framework, in a container"):
-
-- Step 1: `omarchy update`, nothing pending; running kernel 7.2.8-9-omarchy = installed.
-- Step 2: GTT ceiling 112 GiB (architect's decision, see Decisions): pages_limit 29360128, GTT
-  total 120259084288, amdgpu.conf gttsize=114688 (live value not yet read; needs `sudo cat
-  /sys/module/amdgpu/parameters/gttsize`), rebooted 16:49.
-- Steps 3, 4, 7 (root): jaime in docker, docker enabled (29.9.2, overlayfs); llama-router
-  inactive and disabled, port 8080 free; /srv/models jaime:jaime.
-- Step 5: host stack 2026-10-27 16:50: Omarchy 4.0.6-1, kernel 7.2.8-9-omarchy, mesa and
-  vulkan-radeon 26.2.5-1, linux-firmware 20260916-1, docker 29.9.2, rocm-core 7.2.4-1, GTT
-  112 GiB.
-- Step 6: clone at framework:~/repos/spike-model-engines on llama-strix-rocm.
-- Step 7 seeding: copy 16:50:51–16:51:12; no incomplete files, no broken links; du -shL
-  gpt-oss-120b 60G, gemma-4-E4B 8.1G; all 3 blobs sha256 OK (16:51:43).
-- Image pulls: full-rocm-b11669 then server-rocm-b11669, running detached on the host (setsid,
-  log ~/rocm-pull.log) at handoff; confirm with `docker image ls ghcr.io/ggml-org/llama.cpp`,
-  pull again if missing.
-
-Next move: the architect runs step 9's root step (sudoers drop-caches rule) if not yet done,
-then the session walks the architect through step 8 (ROCm device listing, the hand-started
-server, gpt-oss-120b load, 37/37 offloaded, build b11669), then warms and runs anchor A in the
-architect's view. Success ends slice 1's demo; a failure is recorded and escalated (r2 q5).
-Slices 2–4 follow per the brief.
+slices 1/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4; ROCm viable, anchor A served 2026-10-27 17:25) · standards — · spec — · editor —
 
 ## Decisions
 
@@ -671,6 +644,12 @@ Slices 2–4 follow per the brief.
   flavor switches; the architect also added the same rule for 8000, vLLM's container port, so
   this task's guide documents both; rejected `ufw-docker allow llama` (bound to one
   container) and `--network host` (changes the GB10's docker run) (architect, escalation, slice 1).
+- llama-strix-rocm: slice 1's viability: full-rocm-b11669 lists ROCm0, Radeon 8060S gfx1151, with
+  114688 MiB, the whole GTT ceiling; server-rocm-b11669 loaded gpt-oss-120b in 16 s with 37/37
+  layers offloaded (ROCm0 model buffer 59852 MiB; GTT used 64.6 GB) and served warm anchor A
+  (8/8 requests, 42.7 output tok/s, TTFT p95 679 ms, ITL median 20.9 ms; path direct 2 ms). The
+  cell's before-metrics snapshot came back empty, so its server figures include the warm-up;
+  slice 3 reruns the anchors on both flavors.
 
 ## Pending edits
 
