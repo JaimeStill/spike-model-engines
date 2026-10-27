@@ -3,6 +3,8 @@
 Recorded on 2026-10-23, from [the vLLM setup guide](../engines/vllm/setup.md), GB10, in a
 container.
 
+Its script paths were rewritten from `engines/` to `host/` by commit fe8bbeb, which renamed the suite's directory; nothing else changed.
+
 The pinned release is v0.32.0, vLLM's latest GitHub release, run from `vllm/vllm-openai:v0.32.0`,
 and the model it serves is `nvidia/Gemma-4-26B-A4B-NVFP4` (`host/vllm.env`).
 

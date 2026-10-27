@@ -3,6 +3,8 @@
 Recorded on 2026-10-23, from [the llama.cpp setup guide](../engines/llama.cpp/setup.md), GB10,
 in a container.
 
+Its script paths were rewritten from `engines/` to `host/` by commit fe8bbeb, which renamed the suite's directory; nothing else changed.
+
 The pinned build is b11669, the b-build named by llama.cpp's latest semver release, v0.7.0, run
 from `ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669` (`host/llama.env`).
 
