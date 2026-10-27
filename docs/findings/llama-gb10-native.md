@@ -44,7 +44,7 @@ flags (`--no-models-autoload`), on port 8080 of the tailnet address.
 
 The load tool is GuideLLM 0.8.1 on the laptop, in the spike's bench environment
 (`mise.bench.toml`: Python 3.14.10). llama-bench is the build's own
-([llama-bench](../engines/llama.cpp/llama-bench.md)).
+([llama-bench](../engines/llama.cpp/setup.md#llama-bench)).
 
 ## Method
 
@@ -88,10 +88,10 @@ for v in v0.6.0 ""; do ssh gb10-1 "cd ~/repos/spike-model-engines && host/engine
 Then, on gb10-1, a second install and both containers' installs while native serves:
 
 ```sh
-host/engines llama-native install
-host/engines llama install
-host/engines vllm install
+host/engines llama-native install; echo "exit=$?"; host/engines llama install; echo "exit=$?"; host/engines vllm install; echo "exit=$?"
 ```
+
+It printed `exit=0`, `exit=1`, and `exit=1`.
 
 ### Switching between the methods
 

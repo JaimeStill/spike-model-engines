@@ -43,5 +43,5 @@ notes name, or a b-build, such as `b11429`, which runs as given
   the pin moves, and the native update and rollback.
 - [Uninstall](uninstall.md): removing llama.cpp, deleting models, with hf or by hand, and
   removing native llama.cpp and its root steps.
-- [llama-bench](llama-bench.md): llama.cpp's raw pp/tg benchmark, natively and in ggml's
+- [llama-bench](setup.md#llama-bench): llama.cpp's raw pp/tg benchmark, natively and in ggml's
   full-cuda13 image.
