@@ -120,6 +120,7 @@ sets its sampling. Beyond those:
 |---|---|---|---|
 | `gemma-4-26B-A4B-NVFP4` | `nvidia/Gemma-4-26B-A4B-NVFP4` | `--max-num-seqs 4 --kv-cache-dtype bfloat16 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4` | the pin's default; the anchors A' and B', vision |
 | `gemma-4-26B-A4B-NVFP4-flashinfer` | `nvidia/Gemma-4-26B-A4B-NVFP4` | the default's, plus `--attention-backend FLASHINFER --language-model-only` | the FlashInfer diagnostic, text only |
+| `gemma-4-26B-A4B-NVFP4-marlin` | `nvidia/Gemma-4-26B-A4B-NVFP4` | the default's, plus `--moe-backend marlin` | the Marlin MoE diagnostic, with vision |
 | `gemma-4-E4B-it` | `google/gemma-4-E4B-it` | the default's | dense small, BF16, with its vision and audio |
 | `gemma-4-E4B-it-qat-w4a16-ct` | `google/gemma-4-E4B-it-qat-w4a16-ct` | the default's | dense small, QAT w4a16, with its vision and audio |
 | `gemma-4-12B-it-qat-w4a16-ct` | `google/gemma-4-12B-it-qat-w4a16-ct` | the default's | dense mid, QAT w4a16 |
