@@ -136,7 +136,7 @@ Door
 
 ## Progress
 
-slices 3/3 committed (walkthrough done) · standards — · spec — · editor —
+slices 3/3 committed · standards ✓ · spec ✓ (2 rounds) · editor ✓
 
 ## Decisions
 
@@ -527,6 +527,51 @@ slices 3/3 committed (walkthrough done) · standards — · spec — · editor �
   compile caches and gpt-oss-120b (577 s, close to the 10-minute cap).
 - vllm-gb10-native: one diagnostic native A' with `--moe-backend marlin` on the pin row; rejected
   flashinfer_b12x, which vLLM keeps out of auto-selection on SM121, and no diagnostic.
+- vllm-gb10-native: the unit is `vllm-server`, the command group `vllm-native`, and /opt/vllm
+  holds `<release>` virtualenvs, `current`, `row`, `python` (uv's CPython), and `cache` (uv's and
+  the compile caches).
+- vllm-gb10-native: v0.31.0 has no `vllm download-kernels`, so its kernel step runs FlashInfer's
+  own `python -m flashinfer download-kernels`, which the vLLM command wraps.
+- vllm-gb10-native: the caches move with TRITON_HOME and FLASHINFER_WORKSPACE_BASE; TRITON_CACHE_DIR
+  stays unset, so each torch.compile cache keeps its own Triton cache, as in the container.
+- vllm-gb10-native: the unit is Type=simple with no TimeoutStartSec, since vLLM sends systemd no
+  readiness; the `engines` commands' 10-minute `/health` wait bounds the start.
+- vllm-gb10-native: the uv preflight is `mise which uv`, which fails without the pinned uv;
+  `mise exec -- uv --version` fell back to any uv on the PATH (standards fix).
+- vllm-gb10-native: the Marlin row, `gemma-4-26B-A4B-NVFP4-marlin`, keeps vision (no
+  `--language-model-only`), so only the MoE backend differs from the pin's row.
+- vllm-gb10-native: the container guide's ready line reads only since the container's start: a
+  restarted container's `grep -m 1` returned 2026-10-26's line. A defect found in the run, fixed
+  though no behavior asked for it.
+- vllm-gb10-native: the guides' uv read-backs set `UV_CACHE_DIR=/opt/vllm/cache/uv`; the two
+  `~/.cache/uv` interpreter entries the earlier read-backs wrote on gb10-1 are left in place.
+- vllm-gb10-native: the container's install hint names `engines vllm update` without the release
+  install was given, where native's now names it; a standards-review note, left.
+- vllm-gb10-native: native and container serve level: A' 29.4 against 29.8 and B' 102.7 against
+  104.5 tok/s, 1.3 to 1.7% lower, within the container's own 1.0 to 1.4% move since 2026-10-26.
+- vllm-gb10-native: native's warm start takes 334 s against the container's 197.4, both from a
+  dropped page cache: native never saves FlashInfer's MoE autotune file and tunes again for 155 to
+  179 s every start, where the container loads its 34 saved configs. The cause is not
+  established; a candidate question for a later task.
+- vllm-gb10-native: Marlin's A' ran 30.1 against 29.4 tok/s (+2.4%), within the A' runs' range,
+  so the NVFP4 MoE kernel doesn't explain vLLM's slow NVFP4 decode on SM121.
+- vllm-gb10-native: footprints are equal, 100.5 to 100.9 GiB of MemAvailable, with 18.13 GiB of
+  weights on both.
+- vllm-gb10-native: native's first start, from an empty compile cache and a dropped page cache,
+  took 384 s and saved its AOT compile; the compile caches outlive a release's removal, so a
+  rollback's start loads its compile (0.30 s against 27 s).
+- vllm-gb10-native: the walkthrough reproduced native: `walk-a` 29.4 tok/s, ITL 33.21 ms; its
+  four starts, 330 to 370 s, kept the walk's shape.
+- vllm-gb10-native: `uninstall` empties `/opt/vllm/cache`, uv's cache with it, so a reinstall
+  downloads all 199 packages and the kernel wheels again and compiles afresh.
+- vllm-gb10-native: gb10-1 was current at the session's start (0 upgradable, no reboot pending),
+  so no upgrade.
+- vllm-gb10-native: gb10-1 left on 2026-10-27 with nothing serving: `vllm-server` inactive and
+  disabled at v0.32.0 under /opt/vllm (the pin's row), `llama-router` inactive and disabled at
+  v0.7.0 (b11669), the llama and vllm containers exited (server-cuda13-b11669, and
+  vllm/vllm-openai:v0.32.0 on its pin), stopped by hand so neither starts at boot; clone at
+  ~/repos/spike-model-engines on the vllm-gb10-native branch until the merge. Supersedes
+  llama-gb10-native's "gb10-1 left on 2026-10-27 with nothing serving".
 
 ## Pending edits
 
