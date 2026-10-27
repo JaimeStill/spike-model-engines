@@ -1,8 +1,8 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** brief ready
-- **Task:** vllm-gb10-native
-- **Branch:** vllm-gb10-native
+- **State:** idle
+- **Task:** none
+- **Branch:** none
 
 ## Tasks
 
@@ -11,7 +11,7 @@
 3. [x] bench-gb10-container
 4. [x] host-rename
 5. [x] llama-gb10-native
-6. [ ] vllm-gb10-native
+6. [x] vllm-gb10-native
 7. [ ] llama-strix-rocm
 8. [ ] vllm-strix
 9. [ ] strix-native
@@ -133,10 +133,6 @@ Door
   Two-way. The unit, the sudoers rule and /opt/vllm are removed by the
   setup guide's removal procedure, and the releases and caches by
   native uninstall.
-
-## Progress
-
-slices 3/3 committed · standards ✓ · spec ✓ (2 rounds) · editor ✓
 
 ## Decisions
 
