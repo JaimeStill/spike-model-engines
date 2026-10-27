@@ -1,6 +1,6 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** building
+- **State:** brief ready
 - **Task:** vllm-gb10-native
 - **Branch:** vllm-gb10-native
 
