@@ -5,7 +5,8 @@ agreed (context/goals, `bench-gb10-container`). llama.cpp's cells run first; vLL
 same host stack and engine versions, so the two compare
 ([Comparisons](../../context/README.md#rules)).
 
-Its script paths were rewritten from `engines/` to `host/` by commit fe8bbeb, which renamed the suite's directory; nothing else changed.
+Its script paths were rewritten from `engines/` to `host/` by commit fe8bbeb, which renamed the
+suite's directory; nothing else changed.
 
 ## Host stack
 
