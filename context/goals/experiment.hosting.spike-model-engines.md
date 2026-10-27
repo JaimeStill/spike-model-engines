@@ -1,8 +1,8 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** idle
-- **Task:** none
-- **Branch:** none
+- **State:** building
+- **Task:** vllm-gb10-native
+- **Branch:** vllm-gb10-native
 
 ## Tasks
 
@@ -17,98 +17,126 @@
 9. [ ] strix-native
 10. [ ] answer
 
-## Task brief · llama-gb10-native
+## Task brief · vllm-gb10-native
 
 Approved 2026-10-27.
 
 Problem
-  llama.cpp runs on gb10-1 only in ggml's container, so the spike can't
-  yet say whether the GB10 should host it in a container or on bare
-  metal (evidence 6: install, update, rollback, startup, speed parity,
-  GPU and memory access per hosting method). This task runs the same
-  llama.cpp build natively under systemd and measures it against the
-  container in one session, at the engine (llama-bench) and through the
-  served API (the anchors).
+  vLLM runs on gb10-1 only in its container, so the spike can't yet say
+  whether the GB10 should host it in a container or on bare metal
+  (evidence 6: install, update, rollback, startup, speed parity, GPU and
+  memory access per hosting method). This task runs the same vLLM
+  release natively from its aarch64 CUDA 13.0 wheel, installed with uv
+  (this task's one new tool), under systemd, and measures it against
+  the container in one session, through the served API (the anchors)
+  and at startup. It also takes up the one question bench-gb10-container
+  left open: vLLM's slow NVFP4 decode on SM121.
 
 Behaviors
-  1. Currency reports only held items (Python held), and the check
-     passes.
-  2. llama.cpp's install and update, container and native, take a
-     semver release (resolving its b-build from the release notes) or a
-     b-build. The guides, README and this task's finding name versions
-     by semver, with the b-build once beside it. Earlier findings stay
-     as written.
-  3. Native llama.cpp is ggml's CUDA 13.4 arm64 Linux prebuilt plus its
-     CUDA runtime tarball, each verified against GitHub's sha256, and
-     unpacked into a per-build directory under a jaime-owned
-     /opt/llama.cpp. A `current` link names the serving build, and only
-     the latest build is kept.
-  4. A system unit, modeled on personal-agents' "Run it as a service",
-     runs llama-server as jaime through `current`. It requires and
-     follows tailscaled, binds to the tailnet address at start on port
-     8080, restarts on failure, and serves the container's preset, model
-     store, and router flags unchanged.
-  5. The architect's one-time root steps are in the setup guide with
-     their removal: create and chown /opt/llama.cpp, install the unit
-     file and daemon-reload, and a sudoers rule for exactly `systemctl
-     start|stop|restart|enable|disable llama-router`.
-  6. Idempotent native install, update and uninstall steps in the
-     engines suite. Each refuses while another engine serves, enables
-     the unit while native llama.cpp serves, disables it on stop, and
-     keeps the model store. Uninstall leaves the root steps for the
-     architect's removal procedure.
-  7. Install and rollback walk: native v0.6.0 installs, serves, and
-     updates to v0.7.0. Rolling back to v0.6.0 re-points `current`.
-  8. New tool, llama-bench: the guide says what it is, how it is set
-     up (it ships in the prebuilt, and in ggml's full-cuda13 image),
-     and what it provides.
-  9. llama-bench pp512 / tg256, 5 repetitions, all layers on the GPU,
-     flash attention as the server logs it, on gpt-oss-120b MXFP4 and
-     gemma-4-26B-A4B QAT Q4_0. Each runs natively and in ggml's
-     full-cuda13 image for v0.7.0, in the same session.
-  10. Container anchors A (1 × 8) and B (4 × 32) on gpt-oss-120b rerun
-      warm at v0.7.0 before native A and B at the same load. An anchor
-      that moved beyond run noise is a finding.
-  11. One cold load of gpt-oss-120b per hosting method, from a dropped
-      page cache, timed, with MemAvailable before and after and the
-      engine's logged buffers.
-  12. Every result records the engine version (semver), the host stack,
-      the laptop's path (tailscale ping) and the model state. No run
-      exceeds 10 minutes.
-  13. At the end, native llama.cpp, the llama container and vLLM are
-      all stopped and disabled on gb10-1. The record's host line says
-      so.
+  1. Currency reports only held items, and the check passes. GuideLLM's
+     Python stays held, and native vLLM's Python pin is reported held,
+     so the task needs no upgrade slice.
+  2. Each native vLLM release is its own uv virtualenv under a
+     jaime-owned /opt/vllm. It runs on uv-managed CPython 3.12, the
+     image's Python, with vLLM at the exact release and torch from
+     PyTorch's cu130 index. After every install, update and rollback,
+     FlashInfer's precompiled kernels are downloaded into that
+     environment. uv is the host env's pinned version. torch reports
+     CUDA 13.0.
+  3. A `current` link names the release that serves, and only the
+     latest release is kept. uv's Python and cache, and vLLM's, Triton's
+     and FlashInfer's compile caches, all live under /opt/vllm, so
+     removing either hosting method leaves the other's caches alone.
+  4. A system unit, modeled on native llama.cpp's, runs `vllm serve` as
+     jaime through `current`. It requires and follows tailscaled, binds
+     the tailnet address at start on port 8000, restarts on failure,
+     and uses /srv/models as its Hugging Face cache. It reads the row's
+     model and server flags at start from a file under /opt/vllm that
+     install and update write from the rows, so switching rows or
+     changing a flag needs no root.
+  5. The architect's one-time root steps are in the setup guide, with
+     their removal: create and chown /opt/vllm, install the unit file
+     and daemon-reload, and a sudoers rule for exactly start, stop,
+     restart, enable and disable of the unit.
+  6. The engines suite gains idempotent native install, update and
+     uninstall steps. They take a release and VLLM_MODEL as the
+     container's steps do, and they refuse while the llama container,
+     the vllm container or llama-router serves. Both engines' container
+     steps, and native llama.cpp's, refuse while the native vLLM unit
+     is up. The unit is enabled only while native vLLM serves and
+     disabled on stop.
+  7. Native update compares the row file with the row, as the
+     container's update compares its command. Two servers can't share
+     the memory reservation, so update stops the old server before
+     starting the new one. It keeps the old release until the new one
+     answers /health, waiting up to 10 minutes. Native install waits the
+     same way. Uninstall keeps the model store and leaves the root
+     steps for the architect's removal procedure.
+  8. New tool, uv: the setup guide says what uv is, how it is set up
+     (pinned in the host env and installed there before first use), and
+     what each uv step of the native install does. It also gives the
+     read-back commands: uv's version, its Python list, and the package
+     list of `current`.
+  9. The install and rollback walk: native v0.31.0 installs and serves,
+     then updates to v0.32.0. Rolling back to v0.31.0 re-points
+     `current`, and an update moves it forward again. Each step shows
+     /version and torch's CUDA.
+  10. Container anchors A' (1 × 8) and B' (4 × 32), on Gemma 4 26B-A4B
+      NVFP4's pin row at 512/256, rerun warm at v0.32.0 before native A'
+      and B' at the same load. An anchor that moved beyond run noise is
+      a finding.
+  11. One timed cold start of the pin row per hosting method, from a
+      dropped page cache with that method's compile cache warm. Native's
+      first start, which compiles from scratch, is recorded beside them.
+      Each start records MemAvailable before and after, and vLLM's
+      logged weights, KV cache and CUDA graphs.
+  12. One diagnostic native A', on the pin row with the Marlin MoE
+      backend, after the native anchors. The native server then returns
+      to the pin. A rate that differs from native A' beyond run noise is
+      a finding about the NVFP4 MoE kernel on SM121.
+  13. Every result records the engine version, the Python and torch
+      versions, the host stack, the laptop's path (tailscale ping) and
+      the model state. No run exceeds 10 minutes.
+  14. At the end, native vLLM, the vllm container, native llama.cpp
+      and the llama container are all stopped and disabled on gb10-1.
+      The record's host line says so.
 
 Test seams
-  llama-server's HTTP API on gb10-1, as GuideLLM and curl call it from
-  the laptop, and llama-bench's output on gb10-1.
+  vllm serve's HTTP API on gb10-1, as GuideLLM and curl call it from
+  the laptop, and the native unit's journal and state on gb10-1.
 
 Slices
-  1. Currency and version argument (behaviors 1–2): semver or b-build
-     for llama.cpp's container install and update; the guides lead
-     with semver. Done when currency reports only held
-     items and the check passes.
-  2. Native install (3–8): the architect's root steps, walked; native
-     install at v0.6.0, the unit serving the preset, update to v0.7.0,
-     rollback and forward again; the full-cuda13 image and every model
-     pre-staged. Demo: native v0.7.0 answers on 8080 over the tailnet.
-  3. The comparison (9–13): container anchors, then native anchors;
-     llama-bench native and in the container; the cold loads; then all
-     engines stopped and disabled. Demo: the finding with raw-speed,
-     served-speed and startup/memory tables.
-  4. Walkthrough: the architect installs, updates, rolls back and
-     uninstalls native llama.cpp from the guide, and runs one
-     llama-bench and one anchor cell from the finding's method.
+  1. Native install (behaviors 1–9). The architect runs the root steps
+     and uv's first walk: native install at v0.31.0 from the guide, and
+     the uv read-back. The session first installs the host env's pinned
+     uv on gb10-1, then runs the update to v0.32.0, the rollback and the
+     forward update, recording each output. Demo: native v0.32.0
+     answers on 8000 over the tailnet, and torch reads CUDA 13.0.
+  2. The comparison (10–14). The session runs the cold starts and the
+     GuideLLM cells in the architect's view, printing each command
+     first: container anchors, then native anchors, then the Marlin
+     diagnostic, then everything stopped and disabled. Demo: the
+     finding, with its served-speed, startup and memory tables and the
+     diagnostic row.
+  3. Walkthrough: the architect installs, updates, rolls back and
+     uninstalls native vLLM from the guide, and runs one anchor cell
+     from the finding's method.
 
 Out of scope
-  gb10-2; vLLM native (vllm-gb10-native); cmake and source builds
-  (strix-native); linking against gb10-1's own CUDA 13.0; llama-bench
-  depth sweeps and the other shapes; tuning; removing the container
-  hosting method (answer); rewriting earlier findings.
+  gb10-2; `vllm bench` (a second new tool); gpt-oss-120b and the other
+  rows on native; FlashInfer b12x and other MoE backends beyond the one
+  diagnostic; an offline guard for model loads; tuning; Python 3.14 for
+  native; removing the container hosting method (the answer task's);
+  rewriting earlier findings.
 
 Door
-  Two-way: the unit, sudoers rule and /opt/llama.cpp go by the setup
-  guide's removal procedure, the builds by native uninstall.
+  Two-way. The unit, the sudoers rule and /opt/vllm are removed by the
+  setup guide's removal procedure, and the releases and caches by
+  native uninstall.
+
+## Progress
+
+slices 0/3 committed · standards — · spec — · editor —
 
 ## Decisions
 
@@ -479,6 +507,26 @@ Door
   disabled at v0.7.0 (b11669) under /opt/llama.cpp, the llama container stopped
   (server-cuda13-b11669), vLLM stopped on its pin (v0.32.0); full-cuda13-b11669 pulled.
   Supersedes host-rename's "gb10-1 left on 2026-10-27 with llama and vLLM both stopped".
+- vllm-gb10-native: native vLLM is uv virtualenvs, one per release, under a jaime-owned
+  /opt/vllm, with uv at the host env's pinned version; rejected mise's pipx backend, whose install
+  path in the home directory the unit would have to name.
+- vllm-gb10-native: torch from PyTorch's cu130 index (`--torch-backend=cu130`), the image's torch
+  source; rejected uv's driver-detected `auto` and PyPI's separate torch build.
+- vllm-gb10-native: native Python is uv-managed CPython 3.12, the image's, held with that reason
+  and asked again when the image's Python moves; rejected 3.14.
+- vllm-gb10-native: the unit reads the row's model and flags at start from a file under /opt/vllm
+  that install and update write from the rows; rejected fixing the row in the unit, which would
+  make every row switch a root step.
+- vllm-gb10-native: uv's first walk is the architect's scripted native install of v0.31.0 from
+  the guide plus a uv read-back, with a uv section in the setup guide; rejected building a venv by
+  hand first.
+- vllm-gb10-native: container A' and B' rerun warm at v0.32.0, then native A' and B' at the same
+  load on the pin row; rejected A' alone.
+- vllm-gb10-native: one cold start per hosting method on the pin row, from a dropped page cache
+  with its compile cache warm, with native's first start recorded beside them; rejected empty
+  compile caches and gpt-oss-120b (577 s, close to the 10-minute cap).
+- vllm-gb10-native: one diagnostic native A' with `--moe-backend marlin` on the pin row; rejected
+  flashinfer_b12x, which vLLM keeps out of auto-selection on SM121, and no diagnostic.
 
 ## Pending edits
 
