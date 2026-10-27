@@ -16,140 +16,99 @@
 8. [ ] strix-native
 9. [ ] answer
 
-## Task brief · bench-gb10-container
+## Task brief · llama-gb10-native
+
+Approved 2026-10-27. BUILD waits for the `engines/` rename task (round 1, question 1);
+its paths move to the rename's new name.
 
 Problem
-  Tasks 1–2 set up llama.cpp and vLLM in containers on gb10-1 but
-  compared nothing. The spike's answer needs both engines measured
-  against each other in one session on the same versions, by shape,
-  quantization, concurrency, and API surface (evidence 2–5), and vLLM's
-  slow decode diagnosed. gb10-2 is now reserved for spike-ai-pipeline,
-  so the spike's notes and guides must stop routing work through it.
-  The architect also asked that routine host steps move to the session
-  and that downloads stop blocking work; the experiment's rules change
-  to allow both before this task runs.
+  llama.cpp runs on gb10-1 only in ggml's container, so the spike can't
+  yet say whether the GB10 should host it in a container or on bare
+  metal (evidence 6: install, update, rollback, startup, speed parity,
+  GPU and memory access per hosting method). This task runs the same
+  llama.cpp build natively under systemd and measures it against the
+  container in one session, at the engine (llama-bench) and through the
+  served API (the anchors).
 
 Behaviors
-  1. Currency reports only the held Python (3.14.10, held while torch
-     publishes no cp315 wheels), covers hf's pin, and the check passes.
-  2. New tool, hf: a pinned `hf` from a mise env in the spike's clone on
-     gb10-1 (no root) downloads any Hugging Face repo, or a filtered part
-     of one, into the shared model store. The models guides say what hf
-     is, how it is set up, and what it provides.
-  3. Before any cell or timed load, every model file both engines serve
-     is pre-staged in the store and both engine images are pulled, all in
-     parallel; each pre-staged model then loads without a download.
-  4. A one-time sudoers rule, installed by the architect, lets the
-     session drop the page cache with exactly one fixed command; the
-     setup guide gives its install and removal.
-  5. vLLM serves any model from a per-model row of model and flags,
-     switched by naming the model to update for one run. The pin stays
-     the host's default, install and update keep comparing the whole
-     served command, and one engine still serves per host at a time.
-  6. Before any comparison, the anchors rerun from a confirmed warm
-     start: llama.cpp's A and B (gpt-oss-120b) and vLLM's A' and B'
-     (Gemma 4 26B-A4B NVFP4). An anchor moved beyond run noise is a
-     finding.
-  7. One diagnostic A' rerun on FlashInfer attention, text-only, records
-     whether decode moves from 30 tok/s; a failure to start is the
-     result.
-  8. Each shape is measured on both engines at the anchors' load (512 in
-     / 256 out; 1 × 8 and 4 × 32; dense large 1 × 4 and 4 × 16), or
-     marked unsupported with its reason:
-       shape        model             llama.cpp         vLLM
-       dense small  gemma-4-E4B       Q8_0              BF16
-       dense mid    gemma-4-12B       Google QAT Q4_0   Google QAT w4a16
-       dense large  gemma-4-31B       Google QAT Q4_0   NVIDIA NVFP4
-       MoE          gemma-4-26B-A4B   Google QAT Q4_0   NVIDIA NVFP4
-       MoE          gpt-oss-120b      MXFP4             MXFP4
-  9. Vision on gemma-4-26B-A4B, both engines: one synthetic 720p JPEG +
-     200 text tokens, 64 out, 1 × 8 and 4 × 32.
-  10. Embeddings on EmbeddingGemma 2 (Q8_0 / BF16): 512-token inputs at
-      1 and 16 streams, 30 s each.
-  11. ASR as gemma-4-E4B's audio through chat on both engines, or marked
-      unsupported with its reason.
-  12. Quantization pairs on gemma-4-E4B, single stream 1 × 8: llama.cpp
-      QAT Q4_0 beside Q8_0; vLLM QAT w4a16 beside BF16.
-  13. Concurrency sweep on gpt-oss-120b, both engines, 16 slots, 1/4/16/32
-      streams, 60 s a level; the finding records behavior past the slots.
-  14. Every model's cold load is timed from a dropped page cache, and its
-      footprint recorded from the engine's logged figures plus the host's
-      available memory before and after the load.
-  15. The API surface is probed on both engines, one model per surface:
-      tools, reasoning, Anthropic messages with a tool, and responses on
-      gpt-oss-120b; vision on 26B-A4B; embeddings on EmbeddingGemma 2;
-      transcription on llama.cpp with E4B, and on paper for vLLM (the
-      endpoint exists, not for Gemma 4). Each API page gains its probes.
-  16. The finding sets gemma-4-26B-A4B beside gpt-oss-120b at the same
-      load on both engines in one speed table.
-  17. Every result records the engine version, the host stack, the
-      laptop's path (tailscale ping), and its model state. No run
+  1. Currency reports only held items (uv 0.13.6 taken; Python held),
+     and the check passes.
+  2. llama.cpp's install and update, container and native, take a
+     semver release (resolving its b-build from the release notes) or a
+     b-build. The guides, README and this task's finding name versions
+     by semver, with the b-build once beside it. Earlier findings stay
+     as written.
+  3. Native llama.cpp is ggml's CUDA 13.4 arm64 Linux prebuilt plus its
+     CUDA runtime tarball, each verified against GitHub's sha256, and
+     unpacked into a per-build directory under a jaime-owned
+     /opt/llama.cpp. A `current` link names the serving build, and only
+     the latest build is kept.
+  4. A system unit, modeled on personal-agents' "Run it as a service",
+     runs llama-server as jaime through `current`. It requires and
+     follows tailscaled, binds to the tailnet address at start on port
+     8080, restarts on failure, and serves the container's preset, model
+     store, and router flags unchanged.
+  5. The architect's one-time root steps are in the setup guide with
+     their removal: create and chown /opt/llama.cpp, install the unit
+     file and daemon-reload, and a sudoers rule for exactly `systemctl
+     start|stop|restart|enable|disable llama-router`.
+  6. Idempotent native install, update and uninstall steps in the
+     engines suite. Each refuses while another engine serves, enables
+     the unit while native llama.cpp serves, disables it on stop, and
+     keeps the model store. Uninstall leaves the root steps for the
+     architect's removal procedure.
+  7. Install and rollback walk: native v0.6.0 installs, serves, and
+     updates to v0.7.0. Rolling back to v0.6.0 re-points `current`.
+  8. New tool, llama-bench: the guide says what it is, how it is set
+     up (it ships in the prebuilt, and in ggml's full-cuda13 image),
+     and what it provides.
+  9. llama-bench pp512 / tg256, 5 repetitions, all layers on the GPU,
+     flash attention as the server logs it, on gpt-oss-120b MXFP4 and
+     gemma-4-26B-A4B QAT Q4_0. Each runs natively and in ggml's
+     full-cuda13 image for v0.7.0, in the same session.
+  10. Container anchors A (1 × 8) and B (4 × 32) on gpt-oss-120b rerun
+      warm at v0.7.0 before native A and B at the same load. An anchor
+      that moved beyond run noise is a finding.
+  11. One cold load of gpt-oss-120b per hosting method, from a dropped
+      page cache, timed, with MemAvailable before and after and the
+      engine's logged buffers.
+  12. Every result records the engine version (semver), the host stack,
+      the laptop's path (tailscale ping) and the model state. No run
       exceeds 10 minutes.
-  18. At the end, vLLM is back on its pin (Gemma 4 26B-A4B NVFP4, anchor
-      flags), which the guides quote.
-  19. The README, Path, practices, and both engine guides read as gb10-1
-      only; the QSFP copy procedures stay, marked for a named borrow.
-  20. The spike's rules, standards, and project instructions state the
-      split: the session runs routine host steps over SSH (downloads and
-      pulls, engine install/update/uninstall, model loads, readiness
-      waits, cold-start timing, log and memory read-outs, health and
-      version checks) and the GuideLLM cells in the architect's view; the
-      architect keeps root, a new tool's or concept's first walk, the
-      final walkthrough, and every escalation's decision; every command
-      either side runs appears in a guide or the finding's method exactly
-      as run.
-  21. The coordinator carries the session split as the experiment's
-      rule, every pending edit this goal owed it, the Gemma 4 tier
-      question for spike-model-benchmarks and spike-model-gateway, and
-      this task's new tool; the goal record's Pending edits is empty.
+  13. At the end, native llama.cpp, the llama container and vLLM are
+      all stopped and disabled on gb10-1. The record's host line says
+      so.
 
 Test seams
-  Each engine's HTTP API on gb10-1, as GuideLLM and curl call it from the
-  laptop and the finding's read-outs reduce it.
+  llama-server's HTTP API on gb10-1, as GuideLLM and curl call it from
+  the laptop, and llama-bench's output on gb10-1.
 
 Slices
-  1. Upgrade and the new split (behaviors 1–4, 19–21): Python 3.14.10;
-     hf pinned in the host env, its first download walked by the
-     architect; every model and both images pre-staged in parallel; the
-     architect installs the sudoers rule; notes, guides, standards, and
-     rules edited; the coordinator PR opened. Done when currency reports
-     only held items, the check passes, and every staged model is
-     complete in the store.
-  2. llama.cpp's cells (6, 8–15, 17 on llama.cpp): anchors first; every
-     model loaded from the store, timed from a dropped cache; the probes.
-     Demo: llama.cpp's half of the finding.
-  3. vLLM's cells (5–18), in order: 26B-A4B (A', B', vision); the
-     FlashInfer diagnostic; E4B BF16, E4B w4a16; 12B, 31B; EmbeddingGemma
-     2; gpt-oss-120b at 16 sequences (cells, sweep); back to the pin.
-     Demo: the finding complete, with the comparison table.
-  4. Walkthrough: the architect runs the API probes from each API page
-     and one cell per engine from the finding's method.
+  1. Upgrade and version argument (behaviors 1–2): uv 0.13.6; semver
+     or b-build for llama.cpp's container install and update; the
+     guides lead with semver. Done when currency reports only held
+     items and the check passes.
+  2. Native install (3–8): the architect's root steps, walked; native
+     install at v0.6.0, the unit serving the preset, update to v0.7.0,
+     rollback and forward again; the full-cuda13 image and every model
+     pre-staged. Demo: native v0.7.0 answers on 8080 over the tailnet.
+  3. The comparison (9–13): container anchors, then native anchors;
+     llama-bench native and in the container; the cold loads; then all
+     engines stopped and disabled. Demo: the finding with raw-speed,
+     served-speed and startup/memory tables.
+  4. Walkthrough: the architect installs, updates, rolls back and
+     uninstalls native llama.cpp from the guide, and runs one
+     llama-bench and one anchor cell from the finding's method.
 
 Out of scope
-  gb10-2 (no borrow); bare metal and llama-bench; model quality,
-  tiering, and routing (recorded for benchmarks and gateway); co-resident
-  models and layout; Granite Speech and dedicated ASR models; compose,
-  and a derived vLLM image unless an escalation chooses it; tuning beyond
-  the agreed configurations.
+  gb10-2; vLLM native (vllm-gb10-native); cmake and source builds
+  (strix-native); linking against gb10-1's own CUDA 13.0; llama-bench
+  depth sweeps and the other shapes; tuning; removing the container
+  hosting method (answer); rewriting earlier findings.
 
 Door
-  Two-way: the sudoers rule goes by deleting its file, staged models by
-  the guides' delete procedures, the coordinator PR by a later plan or
-  retro.
-
-Amended at round 5 (2026-10-26), after the architect's redirect at the brief:
-  10. Embeddings are measured on granite-embedding-english-r2, BF16 on both engines (the same
-      weights): 512-token inputs at 1 and 16 streams, 30 s each, a clean start and run on each.
-  15. The embeddings probe moves to granite-embedding-english-r2 on both engines.
-  22. EmbeddingGemma 2 leaves the spike's model set (llama.cpp's preset, vLLM's row, both guides,
-      the store) and stays only as a dated engine-limit note in the finding.
-  23. The coordinator records that set A's embedding model should no longer be EmbeddingGemma 2,
-      with granite-embedding-english-r2 as the model both engines serve, landed from this
-      session as a coordinator PR.
-  24. The finding has no open run: llama.cpp's anchor A reruns warm beside the walkthrough's cold
-      run; vLLM's gpt-oss-120b cell A reruns with GuideLLM's per-request output kept; every "not
-      recorded" figure is filled or marked "not kept" with its reason.
-
+  Two-way: the unit, sudoers rule and /opt/llama.cpp go by the setup
+  guide's removal procedure, the builds by native uninstall.
 
 ## Decisions
 
@@ -436,6 +395,28 @@ Amended at round 5 (2026-10-26), after the architect's redirect at the brief:
   `plan-hosting-set-a-embedding`), worded to what vLLM #60847 and the run show.
 - bench-gb10-container: gb10-1 left with vLLM serving its pin and llama.cpp stopped. Supersedes
   "gb10-1 left with llama.cpp serving gpt-oss-120b and vLLM stopped on its pin".
+- llama-gb10-native: the `engines/` rename task is planned and run before this task, which waits
+  with its approved brief; the rename's plan keeps this brief.
+- llama-gb10-native: native llama.cpp is ggml's CUDA 13.4 arm64 Linux prebuilt with its CUDA
+  runtime tarball, sha256-checked: the container's exact build, so only the hosting method
+  differs; no cmake (strix-native's).
+- llama-gb10-native: a system unit after personal-agents' "Run it as a service" (User=jaime,
+  `current` link, requires tailscaled, tailnet address at start, port 8080), enabled only while
+  native llama.cpp serves; a user unit can't depend on tailscaled.
+- llama-gb10-native: builds under a jaime-owned /opt/llama.cpp, created once by the architect, so
+  updates need no root.
+- llama-gb10-native: a sudoers rule for exactly `systemctl start|stop|restart|enable|disable
+  llama-router`; the architect installs the unit and runs daemon-reload.
+- llama-gb10-native: native install, update and uninstall are idempotent `engines` steps sharing
+  the container's preset, store and port.
+- llama-gb10-native: pins and reports lead with semver (v0.6.0 install, update to v0.7.0); a
+  b-build stays installable; container and native steps take the same version argument; earlier
+  findings stay as written.
+- llama-gb10-native: llama-bench pp512/tg256, 5 repetitions, on gpt-oss-120b and gemma-4-26B-A4B,
+  native and in ggml's full-cuda13 image; container then native anchors A and B; one cold load of
+  gpt-oss-120b per hosting method.
+- llama-gb10-native: the task ends with native llama.cpp, the llama container and vLLM all stopped
+  and disabled; the next task stands up what it needs.
 
 ## Pending edits
 
