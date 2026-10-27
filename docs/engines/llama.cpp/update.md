@@ -17,24 +17,6 @@ says `docker start llama` starts it, and leaves it stopped. It fails, changing n
 llama.cpp isn't installed or while vLLM's `vllm` container runs (`docker stop vllm` stops it),
 and, before it pulls, when `/srv/models` is missing or the host has no tailnet IPv4 address.
 
-`update` also replaces a `llama` whose preset mount isn't the clone's preset directory,
-`host/llama-preset`, as after the clone's scripts moved from `engines/` to `host/`: the old
-container still mounts `engines/llama-preset`, which no longer exists. When its image is already
-the pin's, it pulls nothing, and says
-
-```text
-llama restarted <pinned image> with its preset mount moved from <old directory> to <new directory>
-```
-
-When the image moves too, one replacement handles both, and it says `llama moved from <old
-image> to <pinned image>, and its preset mount from <old directory> to <new directory>`. Either
-way the new container runs, even when the old one was stopped. `install`, finding such a
-`llama`, changes nothing, whatever image it runs, and fails with
-
-```text
-llama's preset mount is <old directory>, not <new directory>; engines llama update moves it to the pin
-```
-
 The new container starts with no model loaded; load the model again ([Models](models.md)), and
 check the build it runs:
 
@@ -46,6 +28,24 @@ docker image ls ghcr.io/ggml-org/llama.cpp
 The first prints the pinned image; the second lists it alone. Once the model is loaded, the
 laptop confirms the build the model itself runs ([API](api.md#build)), which reads
 `b11669-620d2225c` at the pin.
+
+`update` also replaces a `llama` container whose preset mount isn't the clone's preset
+directory, `host/llama-preset`, such as one installed before the scripts moved from `engines/` to
+`host/`, which still mounts the missing `engines/llama-preset`. When its image is already the
+pin's, it pulls nothing and says
+
+```text
+llama restarted <pinned image> with its preset mount moved from <old directory> to <new directory>
+```
+
+When the image moves too, one replacement handles both, and it says `llama moved from <old
+image> to <pinned image>, and its preset mount from <old directory> to <new directory>`. Either
+way the new container runs, even when the old one was stopped. `install` changes nothing for
+such a `llama`, whatever image it runs, and fails with
+
+```text
+llama's preset mount is <old directory>, not <new directory>; engines llama update moves it to the pin
+```
 
 ## Rehearsing an update
 

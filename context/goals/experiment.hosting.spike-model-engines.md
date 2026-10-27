@@ -87,7 +87,7 @@ Door
 
 ## Progress
 
-slices 4/4 (walkthrough passed) · standards ✓ · spec — · editor —
+slices 4/4 (walkthrough passed) · standards ✓ · spec ✓ · editor ✓
 
 ## Decisions
 
@@ -419,6 +419,21 @@ slices 4/4 (walkthrough passed) · standards ✓ · spec — · editor —
   host-rename's SHIP; rejected recovering it from git history at its start.
 - host-rename: spike-ai-pipeline's follow-up is its task `host-scripts`, after client-core, in
   the coordinator roadmap (PR #104); this spike doesn't touch spike-ai-pipeline or gb10-2.
+- host-rename: llama's install checks the preset mount before the image, so a container stale in
+  both gets the mount message; both messages point at update.
+- host-rename: a container with no `/etc/llama-preset` mount counts as stale, printed as `none`.
+- host-rename: update's replacement runs the new container even when the old one was stopped, as
+  an image change already did; the update guide says so.
+- host-rename: the mount check is an exact string match against `LLAMA_PRESET_DIR`, the string
+  `llama_run` mounts, not symlink-resolved; gb10-1's second update read it as matching.
+- host-rename: the old directory is named only in this record's history, the three findings'
+  rename notes, and the update guide's stale-mount example (behavior 4 needs a concrete case);
+  the scripts' comments describe the move generically. README.md and STANDARDS.md never named it.
+- host-rename: each finding's rename note is one sentence, wrapped to 100 columns.
+- host-rename: gb10-1 left on 2026-10-27 with llama and vLLM both stopped: llama rebuilt at b11669
+  mounting the clone's `host/llama-preset` (clone at ~/repos/spike-model-engines, on the
+  host-rename branch until the merge), vLLM stopped on its pin (v0.32.0). Supersedes
+  bench-gb10-container's "gb10-1 left with vLLM serving its pin and llama.cpp stopped".
 
 ## Pending edits
 

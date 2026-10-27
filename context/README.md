@@ -146,6 +146,10 @@ The practices every task on the GB10s follows, each with its reason:
   which MagicDNS resolves, so no command carries a tailnet address.
 - **Install messages.** The `engines` install messages print the port, never the host's address,
   so a pasted output keeps to `ai-hosting.md`'s "Visibility" rule as it stands.
+- **A moved preset.** llama's container mounts the clone's `host/llama-preset` by its path, so
+  moving the clone or its scripts leaves the container on a stale mount. `host/engines llama
+  update` rebuilds it without a pull; `install` refuses and points at update
+  ([update](../docs/engines/llama.cpp/update.md#moving-to-the-pinned-build)).
 - **Network path.** When the architect is remote, the laptop can reach the GB10s through a
   Tailscale DERP relay. The relay adds its round trip to TTFT and request latency, but not to ITL
   or the server's `/metrics` figures, so every served run records its path with `tailscale ping`.
