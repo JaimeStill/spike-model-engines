@@ -112,7 +112,7 @@ Door
 
 ## Progress
 
-slices 2/4 committed (62e4b31, 6be0589); slice 2 walked on gb10-1 2026-10-27: install v0.6.0, update v0.7.0, rollback, forward, idempotent install, container refusals · standards — · spec — · editor —
+slices 3/4 committed (62e4b31, 6be0589, 8c6c905 + e9b0e2b); slice 4 (walkthrough) waits for the reviews; slice 2 walked on gb10-1 2026-10-27: install v0.6.0, update v0.7.0, rollback, forward, idempotent install, container refusals · standards — · spec — · editor —
 
 ## Decisions
 
