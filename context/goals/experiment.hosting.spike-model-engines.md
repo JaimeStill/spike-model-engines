@@ -665,6 +665,11 @@ Slices 2–4 follow per the brief.
   125 exceeds 90% of RAM (112.57 GB) and could destabilize the host, and the architect judged
   112 the safer setting, keeping ~13 GiB for the host; pages_limit 29360128, gttsize 114688.
   Supersedes the 125 GiB decision above.
+- llama-strix-rocm: the laptop reaches a container's port 8080 on the Framework through a ufw route
+  rule, `ufw route allow in on tailscale0 proto tcp to any port 8080`, since Omarchy's ufw with
+  ufw-docker drops routed traffic to published ports; it names no container, so it holds across
+  flavor switches and for vLLM's container; rejected `ufw-docker allow llama` (bound to one
+  container) and `--network host` (changes the GB10's docker run) (architect, escalation, slice 1).
 
 ## Pending edits
 
