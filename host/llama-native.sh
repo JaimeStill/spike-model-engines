@@ -87,6 +87,7 @@ llama_native_fetch() (
   [[ ! -d $LLAMA_NATIVE_DIR/$build ]] || exit 0
   url=https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/$build
   digest_re='"digest": *"sha256:([0-9a-f]{64})"'
+  message_re='"message": *"([^"]*)"'
   if ! json=$(curl -fsSL "$url"); then
     echo "llama.cpp's release $build can't be read from GitHub" >&2
     exit 1
@@ -99,7 +100,20 @@ llama_native_fetch() (
     # The asset's own fields, from its name to its download URL, which GitHub lists last.
     entry=${json#*"\"name\": \"$asset\""}
     if [[ $entry == "$json" ]]; then
-      echo "llama.cpp's release $build has no asset $asset" >&2
+      # GitHub has answered once without the asset, and the retry found it, cause unknown
+      # (docs/findings/llama-gb10-native.md, "Walkthrough"), so the error says what the response
+      # held: GitHub's message when it gave one, or else its size in bytes (LC_ALL=C makes ${#}
+      # count bytes; the subshell exits next) and the assets it listed, one download URL each.
+      if [[ $json =~ $message_re ]]; then
+        held="GitHub answered \"${BASH_REMATCH[1]}\""
+      else
+        LC_ALL=C
+        url_key='"browser_download_url"'
+        rest=${json//"$url_key"/}
+        held="GitHub's response had ${#json} bytes and listed"
+        held+=" $(((${#json} - ${#rest}) / ${#url_key})) assets"
+      fi
+      echo "llama.cpp's release $build has no asset $asset; $held; a retry may succeed" >&2
       exit 1
     fi
     entry=${entry%%\"browser_download_url\"*}
