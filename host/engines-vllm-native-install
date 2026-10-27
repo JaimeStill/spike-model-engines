@@ -24,21 +24,23 @@ engines_refuse_running llama
 engines_refuse_running vllm
 engines_refuse_unit llama-router
 vllm_native_preflight
+# The update that moves it to what install was asked for: the pin's release, or the release given.
+update="engines vllm-native update${1:+ $1}"
 
 current=$(vllm_native_current)
 written=$(vllm_native_row)
 if [[ -n $current && $current != "$release" ]]; then
   echo "native vLLM is at $current, not $release;" \
-    "engines vllm-native update${1:+ $1} moves it to ${1:-the pin}" >&2
+    "$update moves it to ${1:-the pin}" >&2
   exit 1
 elif [[ -n $current && $written != "$row" ]]; then
   model=${written%%$'\n'*}
   if [[ $model == "${VLLM_ARGS[0]}" ]]; then
     echo "$VLLM_NATIVE_ROW holds $model under server flags other than those of $serves;" \
-      "engines vllm-native update moves it to the row" >&2
+      "$update moves it to the row" >&2
   else
     echo "$VLLM_NATIVE_ROW holds ${model:-nothing}, not $serves;" \
-      "engines vllm-native update moves it to the row" >&2
+      "$update moves it to the row" >&2
   fi
   exit 1
 elif [[ -n $current ]] && vllm_native_serving; then

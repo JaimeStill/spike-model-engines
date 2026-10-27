@@ -9,14 +9,14 @@
 # servers can't share the memory reservation, points current at the release and writes the row
 # file, starts vllm-server, and waits up to 10 minutes until it answers (vllm-native.sh). Only
 # once the release serves does it remove every other release, so a failed build or start leaves
-# the old release in place for an update back to it, which a failed start names. It prints the server's /version and torch's
-# CUDA after every start. When vllm-server already serves that release and row and no other
-# release is left, it changes nothing; when it doesn't serve, it enables and starts it. It refuses
-# while the llama or vllm container runs, or native llama.cpp's llama-router unit is active, since
-# one engine serves per host at a time, refuses when native vLLM isn't installed, and refuses,
-# pointing at the setup guide, until the architect's root steps are done and the host env's uv is
-# installed. It refuses a release that isn't one, or a VLLM_MODEL with no row, listing the rows,
-# before it reads Docker or the host.
+# the old release in place for an update back to it, which a failed start names. It prints the
+# server's /version and torch's CUDA after every start. When vllm-server already serves that
+# release and row and no other release is left, it changes nothing; when it doesn't serve, it
+# enables and starts it. It refuses while the llama or vllm container runs, or native llama.cpp's
+# llama-router unit is active, since one engine serves per host at a time, refuses when native
+# vLLM isn't installed, and refuses, pointing at the setup guide, until the architect's root steps
+# are done and the host env's uv is installed. It refuses a release that isn't one, or a
+# VLLM_MODEL with no row, listing the rows, before it reads Docker or the host.
 set -euo pipefail
 # shellcheck source=host/vllm-native.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm-native.sh"
