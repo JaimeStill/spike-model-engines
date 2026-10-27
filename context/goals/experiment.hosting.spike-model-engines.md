@@ -402,6 +402,12 @@ slices 3/4 committed (slice 4 is the walkthrough) · standards — · spec — �
   `host/` too.
 - host-rename: the findings' script paths are rewritten, each finding noting the rename commit,
   so their methods still run as written; rejected leaving them as run. No result changes.
+- host-rename: hosts brought current at every session start, this task included though it
+  measures nothing; rejected skipping it for a task without measurement. At the architect's
+  request (2026-10-27).
+- host-rename: gb10-1 brought current on 2026-10-27, CDI spec regenerated, no reboot pending:
+  DGX OS 7.6.0, driver 580.178.04, CUDA 13.0, kernel 7.0.0-1019-nvidia, Docker 29.6.2, NVIDIA
+  Container Toolkit 1.20.1.
 - host-rename: the rename rebuilds gb10-1's stale llama container itself; rejected leaving it to
   llama-gb10-native, which stays native setup and benchmarking. At the architect's request.
 - host-rename: llama's update also replaces a container whose preset mount isn't the clone's,
