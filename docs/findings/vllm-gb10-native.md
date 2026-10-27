@@ -18,18 +18,22 @@ cell from the laptop in the architect's view, from the clone at c7a1e63 on `vllm
 
 | Item | gb10-1 |
 |---|---|
+| OS | Ubuntu 24.04.5 LTS |
 | Kernel | 7.0.0-1019-nvidia |
 | Driver | 580.178.04 |
 | CUDA | 13.0 |
 | Docker | 29.6.2 (build dfc4efb) |
 | Tailscale | 1.104.2 |
+| NVIDIA Container Toolkit | 1.20.1 |
+| DGX OS | `DGX_SWBUILD_VERSION` 7.4.0, `DGX_OTA_VERSION` 7.6.0 |
+| Reboot pending | no (no `/var/run/reboot-required`) |
+| Upgradable packages | 0 |
 
-The session read these four at the comparison's start. gb10-1 had been brought current earlier on
-2026-10-27, by the host-rename task, and llama-gb10-native recorded the rest of its stack that
-morning: Ubuntu 24.04.5 LTS, NVIDIA Container Toolkit 1.20.1, DGX OS `DGX_SWBUILD_VERSION` 7.4.0
-and `DGX_OTA_VERSION` 7.6.0, and no reboot pending
-([Host stack](llama-gb10-native.md#host-stack)). This session made no upgrade and didn't read
-those again.
+The session read the kernel, driver, Docker, and Tailscale at the comparison's start, and the
+rest after the runs, at about 16:55Z ([7. The host stack and both methods' Python and
+torch](#7-the-host-stack-and-both-methods-python-and-torch)). gb10-1 had been brought current
+earlier on 2026-10-27, by the host-rename task; `apt list --upgradable` listed 0 packages, so this
+session made no upgrade.
 
 ## Engine versions
 
@@ -39,12 +43,16 @@ NVFP4's MoE experts on the pin's row.
 
 | Method | Release | Python | torch | Source |
 |---|---|---|---|---|
-| Container | v0.32.0 | the image's CPython 3.12 | the image's CUDA 13.0 build | `vllm/vllm-openai:v0.32.0` (`host/vllm.env`) |
+| Container | v0.32.0 | the image's CPython 3.12.3 | 2.13.0+cu130, CUDA 13.0 | `vllm/vllm-openai:v0.32.0` (`host/vllm.env`) |
 | Native | v0.32.0 | uv-managed CPython 3.12.16 | 2.13.0+cu130, CUDA 13.0 | the `vllm==0.32.0` wheel with torch from PyTorch's cu130 index and FlashInfer's kernels, in `/opt/vllm/v0.32.0`, built by uv 0.13.6 and served by the `vllm-server` unit ([Setup](../engines/vllm/setup.md#gb10-native)) |
 
-The session didn't read the image's Python patch version or its torch version; native's are from
-the line every native start prints (`/version answers {"version":"0.32.0"}; torch 2.13.0+cu130,
-CUDA 13.0`) and uv's `Using CPython 3.12.16`. Both serve the pin's row,
+Both methods' Python and torch were read after the runs, in the image and in `current`
+([7. The host stack and both methods' Python and
+torch](#7-the-host-stack-and-both-methods-python-and-torch)), and native's match the line every
+native start prints (`/version answers {"version":"0.32.0"}; torch 2.13.0+cu130, CUDA 13.0`) and
+uv's `Using CPython 3.12.16`. Both run torch 2.13.0+cu130 on CUDA 13.0, and both run CPython 3.12,
+the minor version the brief held native to; only the patch differs, 3.12.3 in the image against
+uv's 3.12.16. Both serve the pin's row,
 `gemma-4-26B-A4B-NVFP4`, from the same model store (`/srv/models`), on port 8000 of the tailnet
 address: `nvidia/Gemma-4-26B-A4B-NVFP4 --max-num-seqs 4 --max-model-len 8192
 --gpu-memory-utilization 0.80 --kv-cache-dtype bfloat16 --reasoning-parser gemma4
@@ -146,9 +154,10 @@ On the laptop, from the clone: the time and the network path, the target, the re
 the warm-up, and the confirmation that the server is warm and idle, as bench-gb10-container ran
 them ([vLLM: per row, the version and the
 warm-up](bench-gb10-container.md#vllm-per-row-the-version-and-the-warm-up)), then A'
-(`bench/vllm-anchor-a.yaml`, 1 stream × 8 requests) and B' (`bench/vllm-anchor-b.yaml`, 4 streams × 32), as task 2 defined them
-([Anchor cells](vllm-gb10-container.md#anchor-cells)): Gemma 4 26B-A4B NVFP4, 512 synthetic prompt
-tokens and exactly 256 output tokens a request, with reasoning on:
+(`bench/vllm-anchor-a.yaml`, 1 stream × 8 requests) and B' (`bench/vllm-anchor-b.yaml`, 4
+streams × 32), as task 2 defined them ([Anchor cells](vllm-gb10-container.md#anchor-cells)): Gemma
+4 26B-A4B NVFP4, 512 synthetic prompt tokens and exactly 256 output tokens a request, with
+reasoning on:
 
 ```sh
 date -u +%FT%TZ; tailscale ping -c 3 gb10-1
@@ -288,6 +297,23 @@ docker ps --all --filter name=vllm --filter name=llama --format "{{.Names}} {{.S
 systemctl is-active vllm-server llama-router; systemctl is-enabled vllm-server llama-router
 readlink /opt/vllm/current; command ls /opt/vllm
 ```
+
+### 7. The host stack and both methods' Python and torch
+
+On gb10-1, after the runs, at about 16:55Z, with nothing serving: the rest of the host stack, then
+Python, torch, and torch's CUDA in the image and in native's `current`:
+
+```sh
+. /etc/os-release; echo "$PRETTY_NAME"; nvidia-ctk --version | head -1; grep -E 'DGX_(SWBUILD|OTA)_VERSION' /etc/dgx-release; ls /var/run/reboot-required 2>&1; apt list --upgradable 2>/dev/null | grep -c upgradable
+docker run --rm --gpus all --entrypoint python3 vllm/vllm-openai:v0.32.0 -c "import sys, torch; print(sys.version.split()[0], torch.__version__, torch.version.cuda)"
+/opt/vllm/current/bin/python -c "import sys, torch; print(sys.version.split()[0], torch.__version__, torch.version.cuda)"
+```
+
+They printed `Ubuntu 24.04.5 LTS`, `NVIDIA Container Toolkit CLI version 1.20.1`,
+`DGX_SWBUILD_VERSION="7.4.0"` and `DGX_OTA_VERSION="7.6.0"`, `ls: cannot access
+'/var/run/reboot-required': No such file or directory`, and `0`; then `3.12.3 2.13.0+cu130 13.0`
+from the image, after the image's start-up warning lines, which the session left out when it
+displayed the output, and `3.12.16 2.13.0+cu130 13.0` natively.
 
 ### Model state
 
@@ -502,9 +528,10 @@ stopped, and none starts at boot.
 
 ## Findings
 
-Dated 2026-10-27, on gb10-1, vLLM v0.32.0 in vLLM's image and natively from its cu130 wheel on
-uv-managed CPython 3.12.16 with torch 2.13.0+cu130, on the host stack above, the comparison from
-12:26 to about 12:50 (-04:00), with the walk before it from 11:47 to 12:20.
+Dated 2026-10-27, on gb10-1, vLLM v0.32.0 in vLLM's image (CPython 3.12.3) and natively from its
+cu130 wheel on uv-managed CPython 3.12.16, both with torch 2.13.0+cu130 on CUDA 13.0, on the host
+stack above, the comparison from 12:26 to about 12:50 (-04:00), with the walk before it from 11:47
+to 12:20.
 
 What it means for evidence 6, vLLM on the GB10, container against bare metal:
 
