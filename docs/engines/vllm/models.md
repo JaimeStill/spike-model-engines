@@ -160,7 +160,7 @@ VLLM_MODEL=gemma-4-E2B-it host/engines vllm update
 
 `install` takes the same `VLLM_MODEL` when `vllm` isn't installed; when it is, `install` refuses
 any row it doesn't already serve and points at `update`. Both still refuse while llama.cpp's
-`llama` runs.
+`llama` container or `llama-router` unit runs.
 
 ### Returning to the default
 

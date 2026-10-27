@@ -228,8 +228,7 @@ sudo -n systemctl stop llama-router
 
 ### 2. Install
 
-The task's walk installs v0.6.0 (b11429) first, then updates it to the pin
-([Update](update.md#native)):
+This guide installs v0.6.0 (b11429), which [Update](update.md#native) then moves to the pin:
 
 ```sh
 host/engines llama-native install v0.6.0
@@ -272,7 +271,7 @@ curl -s "http://$(tailscale ip -4):8080/health"
 `systemctl status` shows `enabled` and `active (running)`; `readlink` prints the build, `b11429`.
 `--version` prints the build and its commit, `build 11429, commit d81235049`, as the container's
 does. `ldd` lists `libcudart.so.13`, `libcublas.so.13`, and `libcublasLt.so.13`, each from
-`/opt/llama.cpp/b11429`; `/health` prints `{"status":"ok"}`. Load and call models as in the
+`/opt/llama.cpp/current`, since `ldd` resolves them through the link; `/health` prints `{"status":"ok"}`. Load and call models as in the
 container ([Models](models.md), [API](api.md)): the port and the preset are the same. The
 router's log, the container's `docker logs llama`, is the unit's journal:
 

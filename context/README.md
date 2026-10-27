@@ -52,8 +52,7 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
 - **Current hosts and engines.** Every session starts by bringing the hosts current. llama.cpp
   follows its semver releases, running the b-build each one names, and the guides name its
   version by release first, with the b-build beside it, as v0.7.0 (b11669); vLLM follows its
-  releases.
-  Every result records the engine version and the host stack.
+  releases. Every result records the engine version and the host stack.
 - **Comparisons.** Only cells run in the same session on the same versions are compared. A task
   that compares with an earlier one first reruns one anchor cell per engine.
 - **Quantization floor.** A format is accepted when its publisher evaluated it (native MXFP4, a
@@ -65,14 +64,17 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
 - **Root** stays the architect's, run from exact commands. A root command a session must repeat
   may be granted once, by the architect, as a sudoers rule naming that one command exactly, such
   as gb10-1's page-cache drop
-  ([setup](../docs/engines/llama.cpp/setup.md#7-allow-the-page-cache-drop)).
+  ([setup](../docs/engines/llama.cpp/setup.md#7-allow-the-page-cache-drop)), or the five
+  `systemctl` commands that start, stop, restart, enable, and disable native llama.cpp's
+  `llama-router` unit, each named with its arguments
+  ([setup](../docs/engines/llama.cpp/setup.md#1-the-architects-root-steps)).
 
 ## Capabilities
 
 - **Engine guides:** setup, models, APIs, updates, and uninstall, per engine, under
   `docs/engines/<engine>/`; llama.cpp's and vLLM's are written.
 - **The `engines` suite:** the scripted install, update, and uninstall steps, under `host/`;
-  llama.cpp's and vLLM's are written.
+  llama.cpp's, in a container (`llama`) and natively (`llama-native`), and vLLM's are written.
 - **Served-load findings:** GuideLLM runs under `docs/findings/`.
   `bench-gb10-container.md` compares both engines on gb10-1 in containers by shape, quantization,
   concurrency, vision, ASR, and embeddings (granite-embedding-english-r2 on both engines), with
@@ -142,9 +144,10 @@ The practices every task on the GB10s follows, each with its reason:
   `/srv/models/blobs` with the model's directory, and measure a model with `du -shL`, since a
   plain `du -sh` doesn't follow the links and shows a few MB
   ([models](../docs/engines/vllm/models.md#the-first-download)).
-- **One engine per host.** Each engine's install refuses while the other's container runs:
-  beside a second server, vLLM's memory reservation would fail and its container restart in a
-  loop. Stop one before installing the other.
+- **One engine per host.** Each engine's install and update refuse while another engine serves:
+  the other engine's container, or native llama.cpp's `llama-router` unit, which serves on the
+  container's port. Beside a second server, vLLM's memory reservation would fail and its
+  container restart in a loop. Stop one before installing the other.
 - **`ls` on the GB10s.** The GB10 setup in dotfiles aliases `ls` to eza, whose flags differ from
   coreutils' (`ls -laL` failed: eza reads `-L` as a tree depth), so guide commands use `du -shL`,
   `stat`, `readlink -f`, or `command ls` instead.
@@ -152,9 +155,11 @@ The practices every task on the GB10s follows, each with its reason:
   which MagicDNS resolves, so no command carries a tailnet address.
 - **Install messages.** The `engines` install messages print the port, never the host's address,
   so a pasted output keeps to `ai-hosting.md`'s "Visibility" rule as it stands.
-- **A moved preset.** llama's container mounts the clone's `host/llama-preset` by its path, so
-  moving the clone or its scripts leaves the container on a stale mount. `host/engines llama
-  update` rebuilds it without a pull; `install` refuses and points at update
+- **A moved preset.** llama's container mounts the clone's `host/llama-preset` by its path, and
+  native llama.cpp reads it through the `/opt/llama.cpp/preset` link, so moving the clone or its
+  scripts leaves either on a stale preset. `host/engines llama update` rebuilds the container
+  without a pull, and `host/engines llama-native update` re-points the link; each `install`
+  refuses and points at its update
   ([update](../docs/engines/llama.cpp/update.md#moving-to-the-pinned-build)).
 - **Network path.** When the architect is remote, the laptop can reach the GB10s through a
   Tailscale DERP relay. The relay adds its round trip to TTFT and request latency, but not to ITL

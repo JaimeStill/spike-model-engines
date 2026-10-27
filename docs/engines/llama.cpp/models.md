@@ -230,8 +230,9 @@ curl -s -X POST "http://gb10-1:8080/models/load" -H "Content-Type: application/j
 It answers `{"success":true}` at once and loads in the background. The preset's `offline = true`
 loads every model from the store, so a model must be pre-staged first
 ([Pre-staging models with hf](#pre-staging-models-with-hf)); one that isn't fails to load, and
-shows `"failed": true` in [the model list](#listing-models). A restart of the container, by an
-update or a reboot, unloads every model, so load it again after one.
+shows `"failed": true` in [the model list](#listing-models). A restart of the router, the `llama`
+container or the native `llama-router` unit, by an update or a reboot, unloads every model, so
+load it again after one.
 
 ## Watching the download
 

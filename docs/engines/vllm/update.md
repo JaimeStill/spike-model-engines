@@ -20,8 +20,8 @@ so a failed pull leaves the old release serving. When `vllm` already runs the pi
 the row's model and flags, and no other vLLM image is left, it changes nothing and says so; when
 that `vllm` is stopped, it says `docker start vllm` starts it, and leaves it stopped. It fails,
 changing nothing, when vLLM isn't installed, when `VLLM_MODEL` names no row, or while llama.cpp's
-`llama` runs, and, before it pulls, when `/srv/models` is missing or the host has no tailnet IPv4
-address.
+`llama` container or `llama-router` unit runs, and, before it pulls, when `/srv/models` is
+missing or the host has no tailnet IPv4 address.
 
 The new container starts cold. Follow its log until `Application startup complete.`, then time
 and record the cold start as [Setup](setup.md#6-watch-the-cold-start-and-record-it) shows:
