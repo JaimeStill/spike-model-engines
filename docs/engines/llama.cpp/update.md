@@ -14,7 +14,8 @@ every other llama.cpp image, so only the pinned image remains. It pulls before i
 anything, so a failed pull leaves the old build serving. When `llama` already runs the pin and no
 other llama.cpp image is left, it changes nothing and says so; when that `llama` is stopped, it
 says `docker start llama` starts it, and leaves it stopped. It fails, changing nothing, when
-llama.cpp isn't installed or while vLLM's `vllm` container runs (`docker stop vllm` stops it),
+llama.cpp isn't installed or while vLLM's `vllm` container runs (`docker stop vllm` stops it)
+or its native `vllm-server` unit is active ([vLLM's Setup](../vllm/setup.md#5-stop-it)),
 and, before it pulls, when `/srv/models` is missing or the host has no tailnet IPv4 address.
 
 The new container starts with no model loaded; load the model again ([Models](models.md)), and
@@ -151,7 +152,8 @@ Run a second time, `update` changes nothing and says `llama-router already serve
 nothing changed`; when `llama-router` is stopped, it enables and starts it. It also re-points
 `preset` when it names another directory than the clone's `host/llama-preset`, as after the clone
 moves, and restarts `llama-router` on it. It fails, changing nothing, when native llama.cpp isn't
-installed, and for the reasons `install` does: another engine's container running, the root steps
+installed, and for the reasons `install` does: another engine's container running or
+`vllm-server` active, the root steps
 not done, `/srv/models` missing, or no tailnet address ([Setup](setup.md#2-install)).
 
 ### Rolling back

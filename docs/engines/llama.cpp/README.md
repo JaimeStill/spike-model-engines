@@ -24,10 +24,10 @@ repository on the host, as `host/engines llama <verb>`:
 | `host/engines llama-native uninstall` | Stops and disables the native router and removes every build, keeping `/srv/models` |
 
 Each changes nothing, and says so, when run a second time. One engine serves per host at a time:
-install and update refuse while another engine serves, vLLM's `vllm` container
-([vLLM](../vllm/README.md)) or the other hosting method of llama.cpp. The native commands need
-the architect's root steps first ([Setup](setup.md#1-the-architects-root-steps)). The version
-install and update take is a semver release, such as `v0.6.0`, which runs the b-build its
+install and update refuse while another engine serves, vLLM's `vllm` container or native
+`vllm-server` unit ([vLLM](../vllm/README.md)), or the other hosting method of llama.cpp. The native
+commands need the architect's root steps first ([Setup](setup.md#1-the-architects-root-steps)). The
+version install and update take is a semver release, such as `v0.6.0`, which runs the b-build its
 notes name, or a b-build, such as `b11429`, which runs as given
 ([Update](update.md#moving-to-another-version)).
 

@@ -9,10 +9,10 @@
 # build, so a failed fetch or start leaves the old build in place for an update back to it. When
 # llama-router already serves that build with the clone's preset and no other build is left, it
 # changes nothing; when it doesn't serve, it enables and starts it. It refuses while the llama or
-# vllm container runs, since one engine serves per host at a time, refuses when native llama.cpp
-# isn't installed, and refuses, pointing at the setup guide, until the architect's root steps are
-# done. It refuses a version that is neither, or a release whose notes it can't read, before it
-# reads Docker or the host.
+# vllm container runs or native vLLM's vllm-server unit is active, since one engine serves per
+# host at a time, refuses when native llama.cpp isn't installed, and refuses, pointing at the
+# setup guide, until the architect's root steps are done. It refuses a version that is neither, or
+# a release whose notes it can't read, before it reads Docker or the host.
 set -euo pipefail
 # shellcheck source=host/llama-native.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama-native.sh"
@@ -20,6 +20,7 @@ source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama-native.sh"
 build=$(llama_build "${1:-}")
 engines_refuse_running "$LLAMA_CONTAINER"
 engines_refuse_running vllm
+engines_refuse_unit vllm-server
 llama_native_preflight
 
 current=$(llama_native_current)

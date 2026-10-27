@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# engines:summary=Stop and disable vllm-server, remove every release and cache, keeping /srv/models
+# Stops vllm-server when it runs, disables it when it is enabled, and removes everything native
+# vLLM keeps under /opt/vllm: every release with the current link, the row file, uv's Python, and
+# the caches, uv's and the compile caches (vllm-native.sh). The container's compile cache,
+# ~/.cache/vllm, stays, as the container's uninstall leaves /opt/vllm. The model store stays;
+# deleting models is a typed command (docs/engines/vllm/uninstall.md). So do the architect's root
+# steps, /opt/vllm, the unit, and the sudoers rule, which it says, every run: the uninstall guide
+# removes them.
+set -euo pipefail
+# shellcheck source=host/vllm-native.sh
+source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm-native.sh"
+
+changed=
+if engines_unit_up "$VLLM_UNIT"; then
+  sudo -n systemctl stop "$VLLM_UNIT"
+  echo "stopped $VLLM_UNIT"
+  changed=yes
+fi
+if vllm_native_enabled; then
+  sudo -n systemctl disable "$VLLM_UNIT"
+  echo "disabled $VLLM_UNIT"
+  changed=yes
+fi
+if [[ -L $VLLM_NATIVE_DIR/current ]]; then
+  rm -- "$VLLM_NATIVE_DIR/current"
+  echo "removed $VLLM_NATIVE_DIR/current"
+  changed=yes
+fi
+removed=$(vllm_native_remove_releases)
+[[ -n $removed ]] && echo "$removed"
+for path in "$VLLM_NATIVE_ROW" "$VLLM_NATIVE_PYTHON_DIR" "$VLLM_NATIVE_CACHE"; do
+  if [[ -e $path ]]; then
+    rm -rf -- "$path"
+    echo "removed $path"
+    changed=yes
+  fi
+done
+[[ -n $changed$removed ]] || echo "native vLLM is not installed; nothing changed"
+echo "the architect's root steps stay: $VLLM_NATIVE_DIR, the $VLLM_UNIT unit, and its sudoers" \
+  "rule; docs/engines/vllm/uninstall.md removes them"

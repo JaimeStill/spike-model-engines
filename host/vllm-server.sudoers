@@ -1,0 +1,6 @@
+# Lets jaime start, stop, restart, enable, and disable native vLLM's vllm-server unit without a
+# password, so the engines vllm-native commands run with sudo -n, and nothing else as root: each
+# command is fixed, with its arguments. The architect installs it, as a root step, as
+# /etc/sudoers.d/vllm-server, after visudo checks it (docs/engines/vllm/setup.md, "GB10, native").
+# One line, so sudo -l lists the five on the NOPASSWD line the commands' preflight reads.
+jaime ALL=(root) NOPASSWD: /usr/bin/systemctl start vllm-server, /usr/bin/systemctl stop vllm-server, /usr/bin/systemctl restart vllm-server, /usr/bin/systemctl enable vllm-server, /usr/bin/systemctl disable vllm-server

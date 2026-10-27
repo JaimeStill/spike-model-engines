@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# engines:summary=Serve native vLLM under vllm-server, at the pinned or given release and row
+# Builds the pinned release, or the release given, such as v0.31.0, into its own uv virtualenv
+# under /opt/vllm, downloads FlashInfer's kernels into it, writes the pin's default row
+# (vllm-rows), or the row VLLM_MODEL names for this run, into the row file, points current at the
+# release, then enables and starts the vllm-server unit and waits up to 10 minutes until it
+# answers (vllm-native.sh). It prints the server's /version and torch's CUDA. When native vLLM is
+# already at that release with that row, it changes nothing if vllm-server serves (active and
+# enabled), and otherwise enables and starts it. When it is at another release, or its row file
+# holds another row, it refuses, saying which, and points at update. It refuses while the llama or
+# vllm container runs, or native llama.cpp's llama-router unit is active, since one engine serves
+# per host at a time, and refuses, pointing at the setup guide, until the architect's root steps
+# are done and the host env's uv is installed. It refuses a release that isn't one, or a
+# VLLM_MODEL with no row, listing the rows, before it reads Docker or the host.
+set -euo pipefail
+# shellcheck source=host/vllm-native.sh
+source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm-native.sh"
+
+release=$(vllm_native_release "${1:-}")
+vllm_row
+serves=$(vllm_serves)
+row=$(vllm_row_words "$VLLM_MODEL")
+engines_refuse_running llama
+engines_refuse_running vllm
+engines_refuse_unit llama-router
+vllm_native_preflight
+
+current=$(vllm_native_current)
+written=$(vllm_native_row)
+if [[ -n $current && $current != "$release" ]]; then
+  echo "native vLLM is at $current, not $release;" \
+    "engines vllm-native update${1:+ $1} moves it to ${1:-the pin}" >&2
+  exit 1
+elif [[ -n $current && $written != "$row" ]]; then
+  model=${written%%$'\n'*}
+  if [[ $model == "${VLLM_ARGS[0]}" ]]; then
+    echo "$VLLM_NATIVE_ROW holds $model under server flags other than those of $serves;" \
+      "engines vllm-native update moves it to the row" >&2
+  else
+    echo "$VLLM_NATIVE_ROW holds ${model:-nothing}, not $serves;" \
+      "engines vllm-native update moves it to the row" >&2
+  fi
+  exit 1
+elif [[ -n $current ]] && vllm_native_serving; then
+  echo "$VLLM_UNIT already serves $release with $serves; nothing changed"
+  exit 0
+fi
+
+restart=
+if [[ -z $current ]]; then
+  vllm_native_build "$release"
+  vllm_native_write_row
+  vllm_native_link "$release"
+  restart=restart
+fi
+vllm_native_serve "$restart"
+echo "$VLLM_UNIT serves $release with $serves on port 8000 of the tailnet address"
+vllm_native_versions

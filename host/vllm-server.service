@@ -1,0 +1,43 @@
+# Native vLLM's server, after llama-router.service: `vllm serve` through /opt/vllm/current, the
+# release's uv virtualenv, so moving to another release never edits the unit, on the row in
+# /opt/vllm/row, which install and update write from host/vllm-rows: the model on its first line,
+# then its server flags, one word a line. It reads the row as it starts, so switching rows or
+# changing a flag is a restart, not a root step. As the container does (host/vllm.sh), it serves
+# the model, then --host and --port, then the flags, with /srv/models as its Hugging Face cache
+# (HF_HUB_CACHE). It binds the host's tailnet IPv4 address, read when it starts, on port 8000, so
+# it requires and follows tailscaled; a start without the address fails, and systemd tries again.
+#
+# Every compile cache lives under /opt/vllm/cache, set as host/vllm-native.sh sets it for the
+# commands that fill it (VLLM_NATIVE_ENV), never in the home directory, where the container's is
+# (~/.cache/vllm). systemd reads $$ as a literal $, leaving the substitutions to bash.
+#
+# A start loads, compiles, and captures CUDA graphs for minutes before the server answers, but
+# vLLM sends systemd no readiness, so the unit is Type=simple: systemd counts it started once
+# bash runs, TimeoutStartSec never applies, and the engines commands wait on /health instead, for
+# up to 10 minutes. Stopping is bounded by systemd's default, 90 seconds, after which it kills
+# what is left.
+#
+# The architect installs it, as a root step, into /etc/systemd/system/vllm-server.service and
+# runs systemctl daemon-reload (docs/engines/vllm/setup.md, "GB10, native"); the
+# engines vllm-native commands enable, start, stop, and disable it.
+
+[Unit]
+Description=vLLM server, native (spike-model-engines)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+Requires=tailscaled.service
+
+[Service]
+Type=simple
+User=jaime
+Environment=HF_HUB_CACHE=/srv/models
+Environment=XDG_CACHE_HOME=/opt/vllm/cache
+Environment=VLLM_CACHE_ROOT=/opt/vllm/cache/vllm
+Environment=TRITON_HOME=/opt/vllm/cache
+Environment=FLASHINFER_WORKSPACE_BASE=/opt/vllm/cache
+ExecStart=/usr/bin/bash -c 'addr=$$(tailscale ip -4) && mapfile -t row </opt/vllm/row && exec /opt/vllm/current/bin/vllm serve "$${row[0]}" --host "$$addr" --port 8000 "$${row[@]:1}"'
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

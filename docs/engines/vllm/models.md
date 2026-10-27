@@ -160,7 +160,12 @@ VLLM_MODEL=gemma-4-E2B-it host/engines vllm update
 
 `install` takes the same `VLLM_MODEL` when `vllm` isn't installed; when it is, `install` refuses
 any row it doesn't already serve and points at `update`. Both still refuse while llama.cpp's
-`llama` container or `llama-router` unit runs.
+`llama` container or `llama-router` unit runs, or native vLLM's `vllm-server` does.
+
+Native vLLM takes the same `VLLM_MODEL` before `host/engines vllm-native install` or `update`,
+which compare the row with the row file, `/opt/vllm/row`, as the container's compare its
+command, and restart `vllm-server` on the row when they differ
+([Update](update.md#native)).
 
 ### Returning to the default
 

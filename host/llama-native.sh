@@ -46,33 +46,12 @@ llama_native_serving() {
   llama_native_active && llama_native_enabled
 }
 
-# Checks the architect's root steps before anything is fetched or started: /opt/llama.cpp exists
-# and the invoking user can write it, systemd has the unit loaded (installed, then daemon-reload),
-# and sudo -n allows each systemctl verb the commands run on it, without a password. sudo -l
-# answers yes for an account that may run anything with its password, so the check reads the
-# NOPASSWD rule's line itself. Then checks what serving needs (engines_preflight), and sets
-# LLAMA_ADDR to the tailnet address the unit binds.
+# Checks the architect's root steps before anything is fetched or started (engines_root_steps):
+# /opt/llama.cpp, the unit, and its sudoers rule. Then checks what serving needs
+# (engines_preflight), and sets LLAMA_ADDR to the tailnet address the unit binds.
 llama_native_preflight() {
-  local listing verb
-  if [[ ! -d $LLAMA_NATIVE_DIR || ! -w $LLAMA_NATIVE_DIR ]]; then
-    echo "$LLAMA_NATIVE_DIR is missing or not writable by $(id -un); the architect's root steps" \
-      "create it ($LLAMA_ROOT_STEPS)" >&2
-    return 1
-  fi
-  if [[ $(systemctl show --property LoadState --value "$LLAMA_UNIT") != loaded ]]; then
-    echo "systemd has no $LLAMA_UNIT unit; the architect's root steps install it" \
-      "($LLAMA_ROOT_STEPS)" >&2
-    return 1
-  fi
-  listing=$(sudo -n -l 2>/dev/null) || listing=
-  for verb in start stop restart enable disable; do
-    if ! grep -F 'NOPASSWD:' <<<"$listing" | grep -Fq "/usr/bin/systemctl $verb $LLAMA_UNIT"; then
-      echo "sudo -n can't run systemctl $verb $LLAMA_UNIT; the architect's root steps allow it" \
-        "($LLAMA_ROOT_STEPS)" >&2
-      return 1
-    fi
-  done
-  engines_preflight 8080 && LLAMA_ADDR=$ENGINES_ADDR
+  engines_root_steps "$LLAMA_NATIVE_DIR" "$LLAMA_UNIT" "$LLAMA_ROOT_STEPS" &&
+    engines_preflight 8080 && LLAMA_ADDR=$ENGINES_ADDR
 }
 
 # Fetches the build given into /opt/llama.cpp/<build>, unless it is there: reads the release's
