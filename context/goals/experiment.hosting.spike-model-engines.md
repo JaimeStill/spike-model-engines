@@ -172,9 +172,9 @@ before setup step 8. Done and read back (setup.md, "Framework, in a container"):
 - Step 6: clone at framework:~/repos/spike-model-engines on llama-strix-rocm.
 - Step 7 seeding: copy 16:50:51–16:51:12; no incomplete files, no broken links; du -shL
   gpt-oss-120b 60G, gemma-4-E4B 8.1G; all 3 blobs sha256 OK (16:51:43).
-- Image pulls: `docker pull -q` of full-rocm-b11669 then server-rocm-b11669 was still running on
-  the host at handoff; confirm with `docker image ls ghcr.io/ggml-org/llama.cpp`, pull again if
-  missing.
+- Image pulls: full-rocm-b11669 then server-rocm-b11669, running detached on the host (setsid,
+  log ~/rocm-pull.log) at handoff; confirm with `docker image ls ghcr.io/ggml-org/llama.cpp`,
+  pull again if missing.
 
 Next move: the architect runs step 9's root step (sudoers drop-caches rule) if not yet done,
 then the session walks the architect through step 8 (ROCm device listing, the hand-started
