@@ -139,10 +139,14 @@ line:
 
 ```sh
 docker inspect --format '{{.State.StartedAt}}' vllm
-docker logs --timestamps vllm 2>&1 | grep -m 1 "Application startup complete"
+docker logs --timestamps --since "$(docker inspect --format '{{.State.StartedAt}}' vllm)" vllm 2>&1 | grep -m 1 "Application startup complete"
 ```
 
-The difference between the two times is the cold start. Record it, with the date, the release,
+The log is read only since the container's start, because a container started again, with
+`docker start`, `docker restart`, or a reboot, keeps the log of every earlier start: without
+`--since`, `grep -m 1` finds the first start's line, not this one's
+([vllm-gb10-native](../../findings/vllm-gb10-native.md#1-the-containers-cold-start)). The
+difference between the two times is the cold start. Record it, with the date, the release,
 and whether the start downloaded the model or compiled from an empty compile cache, in the
 task's finding. Record every cold start this way: each install, update, restart, or reboot.
 
@@ -556,6 +560,10 @@ container's is from its start ([6. Watch the cold start](#6-watch-the-cold-start
 systemctl show vllm-server --property ActiveEnterTimestamp
 journalctl -u vllm-server -o short-iso-precise --no-pager | grep "Application startup complete" | tail -n 1
 ```
+
+On gb10-1 a native start takes longer than the container's, about 335 s warm against 197 s,
+the difference nearly all FlashInfer tuning its MoE kernels at every native start
+([vllm-gb10-native](../../findings/vllm-gb10-native.md#startup)).
 
 ### 5. Stop it
 

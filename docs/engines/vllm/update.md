@@ -29,7 +29,7 @@ and record the cold start as [Setup](setup.md#6-watch-the-cold-start-and-record-
 ```sh
 docker logs -f vllm
 docker inspect --format '{{.State.StartedAt}}' vllm
-docker logs --timestamps vllm 2>&1 | grep -m 1 "Application startup complete"
+docker logs --timestamps --since "$(docker inspect --format '{{.State.StartedAt}}' vllm)" vllm 2>&1 | grep -m 1 "Application startup complete"
 ```
 
 Then check the release it runs:
@@ -220,4 +220,5 @@ host/engines vllm-native update
 Each start is a cold start; time and record it as [Setup](setup.md#4-check-it-serves) shows. The
 first start of each release compiles from an empty compile cache for that release; a later start
 of it, the rollback's and the forward's, loads what that first start saved
-([Rolling back](#rolling-back)).
+([Rolling back](#rolling-back)). The walk's starts on gb10-1, timed, are in
+[vllm-gb10-native](../../findings/vllm-gb10-native.md#startup).
