@@ -1,6 +1,6 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** building
+- **State:** handoff
 - **Task:** llama-strix-rocm
 - **Branch:** llama-strix-rocm
 
@@ -153,7 +153,34 @@ Door
 
 ## Progress
 
-slices 0/4 committed (slice 1's guide b84066b; host walk in progress) · standards — · spec — · editor —
+slices 0/4 committed (slice 1's guide b84066b and 18e45d8; host walk at setup step 8) · standards — · spec — · editor —
+
+## Handoff
+
+Slice 1, the Framework's host walk, stopped when the architect ended the session on 2026-10-27,
+before setup step 8. Done and read back (setup.md, "Framework, in a container"):
+
+- Step 1: `omarchy update`, nothing pending; running kernel 7.2.8-9-omarchy = installed.
+- Step 2: GTT ceiling 112 GiB (architect's decision, see Decisions): pages_limit 29360128, GTT
+  total 120259084288, amdgpu.conf gttsize=114688 (live value not yet read; needs `sudo cat
+  /sys/module/amdgpu/parameters/gttsize`), rebooted 16:49.
+- Steps 3, 4, 7 (root): jaime in docker, docker enabled (29.9.2, overlayfs); llama-router
+  inactive and disabled, port 8080 free; /srv/models jaime:jaime.
+- Step 5: host stack 2026-10-27 16:50: Omarchy 4.0.6-1, kernel 7.2.8-9-omarchy, mesa and
+  vulkan-radeon 26.2.5-1, linux-firmware 20260916-1, docker 29.9.2, rocm-core 7.2.4-1, GTT
+  112 GiB.
+- Step 6: clone at framework:~/repos/spike-model-engines on llama-strix-rocm.
+- Step 7 seeding: copy 16:50:51–16:51:12; no incomplete files, no broken links; du -shL
+  gpt-oss-120b 60G, gemma-4-E4B 8.1G; all 3 blobs sha256 OK (16:51:43).
+- Image pulls: `docker pull -q` of full-rocm-b11669 then server-rocm-b11669 was still running on
+  the host at handoff; confirm with `docker image ls ghcr.io/ggml-org/llama.cpp`, pull again if
+  missing.
+
+Next move: the architect runs step 9's root step (sudoers drop-caches rule) if not yet done,
+then the session walks the architect through step 8 (ROCm device listing, the hand-started
+server, gpt-oss-120b load, 37/37 offloaded, build b11669), then warms and runs anchor A in the
+architect's view. Success ends slice 1's demo; a failure is recorded and escalated (r2 q5).
+Slices 2–4 follow per the brief.
 
 ## Decisions
 
