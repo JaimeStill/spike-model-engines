@@ -1,0 +1,550 @@
+# vLLM in a container and natively on gb10-1
+
+Recorded on 2026-10-27, on gb10-1, from the steps and cells the task's brief agreed
+(context/goals, `vllm-gb10-native`). The same vLLM release runs in vLLM's image and natively, from
+its aarch64 CUDA 13.0 wheel in a uv virtualenv under systemd, one after the other in one session,
+so only the hosting method differs ([Comparisons](../../context/README.md#rules)). It is evidence 6
+for vLLM on the GB10 ([The evidence](../../context/README.md#the-evidence)): install, update,
+rollback, startup, speed parity, and GPU and memory access, container against bare metal. It also
+takes up the question bench-gb10-container left open, vLLM's slow NVFP4 decode on SM121, with one
+diagnostic run on another MoE kernel. It records what was measured; the spike's `answer` task
+chooses the hosting method.
+
+The native install, update, and rollback walk ran first, as slice 1, from 11:47 to 12:20 (-04:00).
+The comparison followed: the session ran each step on gb10-1 over Tailscale SSH, and each GuideLLM
+cell from the laptop in the architect's view, from the clone at c7a1e63 on `vllm-gb10-native`.
+
+## Host stack
+
+| Item | gb10-1 |
+|---|---|
+| Kernel | 7.0.0-1019-nvidia |
+| Driver | 580.178.04 |
+| CUDA | 13.0 |
+| Docker | 29.6.2 (build dfc4efb) |
+| Tailscale | 1.104.2 |
+
+The session read these four at the comparison's start. gb10-1 had been brought current earlier on
+2026-10-27, by the host-rename task, and llama-gb10-native recorded the rest of its stack that
+morning: Ubuntu 24.04.5 LTS, NVIDIA Container Toolkit 1.20.1, DGX OS `DGX_SWBUILD_VERSION` 7.4.0
+and `DGX_OTA_VERSION` 7.6.0, and no reboot pending
+([Host stack](llama-gb10-native.md#host-stack)). This session made no upgrade and didn't read
+those again.
+
+## Engine versions
+
+Both methods run vLLM v0.32.0 and answer `/version` with `{"version":"0.32.0"}`. Both log FlashInfer
+0.7.0.post1 for SM121 (`121a` in its autotune cache's path) and choose `FLASHINFER_CUTLASS` for
+NVFP4's MoE experts on the pin's row.
+
+| Method | Release | Python | torch | Source |
+|---|---|---|---|---|
+| Container | v0.32.0 | the image's CPython 3.12 | the image's CUDA 13.0 build | `vllm/vllm-openai:v0.32.0` (`host/vllm.env`) |
+| Native | v0.32.0 | uv-managed CPython 3.12.16 | 2.13.0+cu130, CUDA 13.0 | the `vllm==0.32.0` wheel with torch from PyTorch's cu130 index and FlashInfer's kernels, in `/opt/vllm/v0.32.0`, built by uv 0.13.6 and served by the `vllm-server` unit ([Setup](../engines/vllm/setup.md#gb10-native)) |
+
+The session didn't read the image's Python patch version or its torch version; native's are from
+the line every native start prints (`/version answers {"version":"0.32.0"}; torch 2.13.0+cu130,
+CUDA 13.0`) and uv's `Using CPython 3.12.16`. Both serve the pin's row,
+`gemma-4-26B-A4B-NVFP4`, from the same model store (`/srv/models`), on port 8000 of the tailnet
+address: `nvidia/Gemma-4-26B-A4B-NVFP4 --max-num-seqs 4 --max-model-len 8192
+--gpu-memory-utilization 0.80 --kv-cache-dtype bfloat16 --reasoning-parser gemma4
+--enable-auto-tool-choice --tool-call-parser gemma4`. The container's command adds `--host 0.0.0.0
+--port 8000` inside the container, whose port 8000 Docker publishes on the tailnet address; the
+unit binds the tailnet address itself.
+
+The load tool is GuideLLM 0.8.1 on the laptop, in the spike's bench environment
+(`mise.bench.toml`: Python 3.14.10).
+
+## Method
+
+### Native install, update, and rollback
+
+On gb10-1, from `~/repos/spike-model-engines`, after the architect's root steps
+([1. The architect's root steps](../engines/vllm/setup.md#1-the-architects-root-steps)) and uv's
+install in the host environment ([How it is set up](../engines/vllm/setup.md#how-it-is-set-up)).
+The architect's install at v0.31.0 and uv's read-back, uv's first walk, from the guide:
+
+```sh
+host/engines vllm-native install v0.31.0
+MISE_ENV=host mise exec -- uv pip list --python /opt/vllm/current
+```
+
+Then the session's update to the pin, the rollback, and the forward update, each output kept:
+
+```sh
+host/engines vllm-native update v0.32.0
+host/engines vllm-native update v0.31.0
+host/engines vllm-native update
+```
+
+Before the rollback and before the forward update, the previous start's time and lines:
+
+```sh
+systemctl show vllm-server --property ActiveEnterTimestamp; journalctl -u vllm-server -o short-iso --no-pager --since "-15min" | grep -E "Application startup complete|Loading weights took|torch.compile took|init engine|Available KV|NvFp4 MoE backend"
+```
+
+(before the forward update without `|Available KV|NvFp4 MoE backend`). After it, the same read
+without those two, the layout, and a second install, then from the laptop the version:
+
+```sh
+command ls /opt/vllm; readlink /opt/vllm/current; host/engines vllm-native install
+```
+
+```sh
+curl -s -m5 http://gb10-1:8000/version
+```
+
+The four starts' figures in [Startup](#startup) are read from the unit's whole journal, kept after
+the walk:
+
+```sh
+journalctl -u vllm-server -o short-iso --no-pager
+```
+
+### 1. The container's cold start
+
+On gb10-1, from the clone: the host stack, native vLLM stopped and disabled, the page cache dropped
+with its size before and after, the memory available, the container's install (which reports a
+stopped container and starts nothing), its start, the `/health` poll of
+bench-gb10-container ([vLLM: per row, the switch, the cold start, and its
+footprint](bench-gb10-container.md#vllm-per-row-the-switch-the-cold-start-and-its-footprint)), the
+start time, the ready line, the command it serves, the memory available after, and the lines vLLM
+logged:
+
+```sh
+uname -r; nvidia-smi --query-gpu=driver_version --format=csv,noheader; docker --version; tailscale version | head -1
+sudo -n systemctl stop vllm-server && sudo -n systemctl disable vllm-server
+grep ^Cached /proc/meminfo; sync && sudo -n /usr/sbin/sysctl vm.drop_caches=3; grep ^Cached /proc/meminfo
+grep ^MemAvailable /proc/meminfo
+host/engines vllm install 2>&1 | tail -3
+docker start vllm
+for i in $(seq 120); do [ "$(curl -s -o /dev/null -w "%{http_code}" "http://$(tailscale ip -4):8000/health")" = 200 ] && break; sleep 5; done; date -u; docker inspect --format "{{.State.Status}}, restarts {{.RestartCount}}" vllm
+docker inspect --format "{{.State.StartedAt}}" vllm
+docker logs --timestamps vllm 2>&1 | grep -m 1 "Application startup complete"
+docker inspect --format "{{.Config.Image}} {{join .Config.Cmd \" \"}}" vllm
+grep ^MemAvailable /proc/meminfo
+docker logs vllm 2>&1 | grep -E "Model loading took|Available KV cache memory|KV cache size|Graph capturing finished|Directly load the compiled graph|Directly load AOT|torch.compile took|init engine|NvFp4 MoE backend|Free memory on device"
+```
+
+The ready line's `grep -m 1` returned the previous day's line, `2026-10-26T21:29:08.640822844Z`: a
+container started again keeps its earlier starts' log, and this one last started on 2026-10-26
+(bench-gb10-container's round 5). The session read it again from this start only, at the start
+time `docker inspect` printed:
+
+```sh
+docker logs --timestamps --since 2026-10-27T16:26:09Z vllm 2>&1 | grep -m 1 "Application startup complete"
+```
+
+The setup guide's command now reads only since the container's start
+([6. Watch the cold start](../engines/vllm/setup.md#6-watch-the-cold-start-and-record-it)).
+`docker logs vllm` without `--since`, the last line above, printed both days' starts; the figures in
+[Startup](#startup) are this start's, at 10-27 16:26 to 16:29 (UTC).
+
+### 2. The container's cells
+
+On the laptop, from the clone: the time and the network path, the target, the release, the model,
+the warm-up, and the confirmation that the server is warm and idle, as bench-gb10-container ran
+them ([vLLM: per row, the version and the
+warm-up](bench-gb10-container.md#vllm-per-row-the-version-and-the-warm-up)), then A'
+(`bench/vllm-anchor-a.yaml`, 1 stream × 8 requests) and B' (`bench/vllm-anchor-b.yaml`, 4 streams × 32), as task 2 defined them
+([Anchor cells](vllm-gb10-container.md#anchor-cells)): Gemma 4 26B-A4B NVFP4, 512 synthetic prompt
+tokens and exactly 256 output tokens a request, with reasoning on:
+
+```sh
+date -u +%FT%TZ; tailscale ping -c 3 gb10-1
+export GUIDELLM__SPEC__BACKEND__TARGET="http://gb10-1:8000"
+mkdir -p .state/bench
+model=nvidia/Gemma-4-26B-A4B-NVFP4
+curl -s "http://gb10-1:8000/version"; echo
+curl -s "http://gb10-1:8000/v1/models" | jq -c '.data[] | {id, max_model_len}'
+curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}], \"chat_template_kwargs\": {\"enable_thinking\": true}}" | jq -c '.choices[0].message | {content, reasoning: (.reasoning|tostring|.[0:80])}'
+curl -s "http://gb10-1:8000/metrics" | grep -E '^vllm:(request_success_total|num_requests_running)'
+for cell in a b; do
+  curl -s "http://gb10-1:8000/metrics" > .state/bench/vllm-container-anchor-$cell.before.metrics
+  MISE_ENV=bench mise exec -- guidellm run -c bench/vllm-anchor-$cell.yaml --output "kind=json,path=.state/bench/vllm-container-anchor-$cell.json" > .state/bench/vllm-container-anchor-$cell.log 2>&1; echo "vllm-container-anchor-$cell: guidellm exit $?"
+  curl -s "http://gb10-1:8000/metrics" > .state/bench/vllm-container-anchor-$cell.after.metrics
+done
+```
+
+### 3. Native's cold start
+
+On gb10-1, from the clone: the container stopped, the page cache dropped, the memory available,
+native's install (which enables and starts the stopped unit at the release `current` names), the
+unit's start time, the ready line from this start's journal, the row it serves, the memory
+available after, and the lines vLLM logged for this start. `install` waits for `/health` itself, for
+at most 10 minutes:
+
+```sh
+docker stop vllm
+grep ^Cached /proc/meminfo; sync && sudo -n /usr/sbin/sysctl vm.drop_caches=3; grep ^Cached /proc/meminfo
+grep ^MemAvailable /proc/meminfo
+host/engines vllm-native install 2>&1 | tail -3
+systemctl show vllm-server --property ActiveEnterTimestamp
+journalctl -u vllm-server -o short-iso --since "$(systemctl show vllm-server --property ActiveEnterTimestamp --value)" | grep -m 1 "Application startup complete"
+cat /opt/vllm/row | paste -sd" "
+grep ^MemAvailable /proc/meminfo
+journalctl -u vllm-server --since "$(systemctl show vllm-server --property ActiveEnterTimestamp --value)" | grep -E "Model loading took|Available KV cache memory|KV cache size|Graph capturing finished|Directly load AOT|torch.compile took|init engine|NvFp4 MoE backend|Free memory on device"
+```
+
+### The autotune reads
+
+Native's start took 137 s longer than the container's, nearly all of it in one silent stretch of
+the journal ([Startup](#startup)). On gb10-1, after native's start, the session read that stretch
+and the container's matching one, both autotune caches, and the code that saves them. Each line ran
+as written; the `python3` read failed, since FlashInfer's `autotuner.py` is in a subdirectory, and
+the next read found it:
+
+```sh
+journalctl -u vllm-server -o short-iso --since "2026-10-27 12:36:02" --until "2026-10-27 12:38:57" | cut -c1-300 | head -40
+docker logs --timestamps --since 2026-10-27T16:29:11Z --until 2026-10-27T16:29:25Z vllm 2>&1 | cut -c1-250 | head -30
+```
+
+```sh
+find /opt/vllm/cache/vllm/flashinfer_autotune_cache -maxdepth 5 2>&1 | head; journalctl -u vllm-server --since "2026-10-27 12:33:24" | grep -iE "autotun.*(end|sav|writ|cache|error|fail|perm)|Permission" | cut -c1-300 | tail -8; docker exec vllm true 2>/dev/null; docker run --rm --entrypoint ls -v $HOME/.cache/vllm:/home/vllm/.cache/vllm vllm/vllm-openai:v0.32.0 -la /home/vllm/.cache/vllm/flashinfer_autotune_cache/0.7.0.post1/121a/ 2>&1 | head; ls -la ~/.cache/vllm/flashinfer_autotune_cache/0.7.0.post1/121a/*/ 2>&1 | head
+```
+
+```sh
+ls -la ~/.cache/vllm/.cache/vllm/flashinfer_autotune_cache/0.7.0.post1/121a/*/ 2>&1|head; ls -la /opt/vllm/cache/vllm/flashinfer_autotune_cache/0.7.0.post1/121a/*/; f=/opt/vllm/current/lib/python3.12/site-packages/vllm/model_executor/warmup/kernel_warmup.py; grep -n "autotune_cache\|save\|dump\|json\|VLLM_\|envs\." $f | head -40
+```
+
+```sh
+f=/opt/vllm/current/lib/python3.12/site-packages/vllm/model_executor/warmup/kernel_warmup.py; sed -n 440,515p $f; grep -n "def \|environ\|getenv\|world\|leader\|rank" /opt/vllm/current/lib/python3.12/site-packages/vllm/model_executor/warmup/flashinfer_autotune_cache.py | head -30
+```
+
+```sh
+journalctl -u vllm-server -o cat --since "2026-10-27 12:36:16" --until "2026-10-27 12:38:57" --all | grep -v "Skipped .* unsupported tactic" | cut -c1-260 | grep -v "^$" | head -40; python3 - <<EOF
+import re,glob
+p=glob.glob("/opt/vllm/current/lib/python3.12/site-packages/flashinfer/autotuner.py")[0]
+s=open(p).read()
+i=s.find("def save_configs"); print(s[i:i+1800])
+EOF
+```
+
+```sh
+journalctl -u vllm-server -o cat --since "2026-10-27 12:38:50" --until "2026-10-27 12:38:57" --all | grep -v "Tuning trtllm" | cut -c1-300; p=$(find /opt/vllm/current/lib/python3.12/site-packages/flashinfer -name "autotuner.py" | head -1); echo $p; grep -n "def save_configs" -A40 $p | head -60
+```
+
+The container mounts `~/.cache/vllm` as its home, `/home/vllm` (`host/vllm.sh`), so its
+`/home/vllm/.cache/vllm/…` is the host's `~/.cache/vllm/.cache/vllm/…`; the `docker run` read
+mounted it elsewhere and listed nothing.
+
+### 4. Native's cells
+
+On the laptop, the container's block with three changes: no `mkdir`, the `/metrics` line counting
+only the `stop` series, and `vllm-native-anchor-$cell` in place of `vllm-container-anchor-$cell`
+throughout:
+
+```sh
+date -u +%FT%TZ; tailscale ping -c 3 gb10-1
+export GUIDELLM__SPEC__BACKEND__TARGET="http://gb10-1:8000"
+model=nvidia/Gemma-4-26B-A4B-NVFP4
+curl -s "http://gb10-1:8000/version"; echo
+curl -s "http://gb10-1:8000/v1/models" | jq -c '.data[] | {id, max_model_len}'
+curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}], \"chat_template_kwargs\": {\"enable_thinking\": true}}" | jq -c '.choices[0].message | {content, reasoning: (.reasoning|tostring|.[0:80])}'
+curl -s "http://gb10-1:8000/metrics" | grep -E '^vllm:(request_success_total\{.*stop|num_requests_running)'
+for cell in a b; do
+  curl -s "http://gb10-1:8000/metrics" > .state/bench/vllm-native-anchor-$cell.before.metrics
+  MISE_ENV=bench mise exec -- guidellm run -c bench/vllm-anchor-$cell.yaml --output "kind=json,path=.state/bench/vllm-native-anchor-$cell.json" > .state/bench/vllm-native-anchor-$cell.log 2>&1; echo "vllm-native-anchor-$cell: guidellm exit $?"
+  curl -s "http://gb10-1:8000/metrics" > .state/bench/vllm-native-anchor-$cell.after.metrics
+done
+```
+
+### 5. The Marlin diagnostic
+
+On gb10-1, from the clone, native vLLM switched for one run to the row
+`gemma-4-26B-A4B-NVFP4-marlin`: the pin's row plus `--moe-backend marlin`, so only the kernel for
+NVFP4's MoE experts changes ([Models](../engines/vllm/models.md#the-rows)). Marlin is weight-only:
+it runs the activations in 16 bits. The update restarts the unit on the release it is at, with no
+build; the page cache wasn't dropped, since the start isn't timed against another. Then the start
+time and the lines the start logged:
+
+```sh
+VLLM_MODEL=gemma-4-26B-A4B-NVFP4-marlin host/engines vllm-native update 2>&1 | tail -3
+systemctl show vllm-server --property ActiveEnterTimestamp
+journalctl -u vllm-server -o short-iso --since "$(systemctl show vllm-server --property ActiveEnterTimestamp --value)" | grep -E "MoE backend|Model loading took|torch.compile took|init engine|Application startup complete|Autotun.*(Loaded|ends)" | cut -c1-260
+```
+
+On the laptop, the path, the warm-up and its confirmation, and A' under its own name:
+
+```sh
+export GUIDELLM__SPEC__BACKEND__TARGET="http://gb10-1:8000"; model=nvidia/Gemma-4-26B-A4B-NVFP4
+date -u +%FT%TZ; tailscale ping -c 3 gb10-1
+curl -s "http://gb10-1:8000/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}], \"chat_template_kwargs\": {\"enable_thinking\": true}}" | jq -c '.choices[0].message | {content, reasoning: (.reasoning|tostring|.[0:80])}'
+curl -s "http://gb10-1:8000/metrics" | grep -E '^vllm:(request_success_total\{.*stop|num_requests_running)'
+curl -s http://gb10-1:8000/metrics > .state/bench/vllm-native-marlin-anchor-a.before.metrics
+MISE_ENV=bench mise exec -- guidellm run -c bench/vllm-anchor-a.yaml --output "kind=json,path=.state/bench/vllm-native-marlin-anchor-a.json" > .state/bench/vllm-native-marlin-anchor-a.log 2>&1; echo "vllm-native-marlin-anchor-a: guidellm exit $?"
+curl -s http://gb10-1:8000/metrics > .state/bench/vllm-native-marlin-anchor-a.after.metrics
+```
+
+### 6. Back to the pin, and the end state
+
+On gb10-1, from the clone: native vLLM back on the pin's row, then stopped and disabled, and the
+end state read:
+
+```sh
+host/engines vllm-native update 2>&1 | tail -3
+sudo -n systemctl stop vllm-server && sudo -n systemctl disable vllm-server
+docker ps --all --filter name=vllm --filter name=llama --format "{{.Names}} {{.Status}}"; docker inspect --format "{{.Name}} restart={{.HostConfig.RestartPolicy.Name}}" vllm llama
+systemctl is-active vllm-server llama-router; systemctl is-enabled vllm-server llama-router
+readlink /opt/vllm/current; command ls /opt/vllm
+```
+
+### Model state
+
+Each method's cells start from the same state: a cold start from a dropped page cache with that
+method's compile cache warm, then the one warm-up request, then A', then B', with A''s prefix
+cache. The Marlin diagnostic starts from a restart without the drop, then the warm-up, then A'.
+Before every set of cells the warm-up returned a reply (`Hello!`, with its reasoning),
+`vllm:request_success_total` for `stop` read 1, and `vllm:num_requests_running` read 0: a
+confirmed warm start, as bench-gb10-container required. `vllm:num_requests_running` was 0 in every
+cell's first snapshot.
+
+### Reading the figures
+
+The client figures, with `f` set to each cell's JSON, such as
+`.state/bench/vllm-native-anchor-a.json`: bench-gb10-container's read-out
+([Reading the figures](bench-gb10-container.md#reading-the-figures)) without its audio figure, run
+over the five JSON files in turn, then the durations:
+
+```sh
+jq -c '.metadata as $v | .benchmarks[] | .metrics as $m | {streams: .config.strategy.streams, duration_s: (.duration|floor), requests: $m.request_totals, prompt_tokens: $m.prompt_token_count.successful.median, output_tokens: $m.output_token_count.successful.median, output_tok_s: ($m.output_tokens_per_second.successful.mean|.*10|round/10), ttft_ms: ($m.time_to_first_token_ms.successful | {median: (.median|round), p95: (.percentiles.p95|round)}), itl_ms: ($m.inter_token_latency_ms.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)}), latency_s: ($m.request_latency.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)})}' "$f"
+jq '.benchmarks[].duration' "$f"
+```
+
+The server figures, bench-gb10-container's vLLM read-out
+([vLLM: reading the figures](bench-gb10-container.md#vllm-reading-the-figures)), with `cell` set to
+each cell's name, such as `vllm-native-anchor-a`:
+
+```sh
+p=.state/bench/$cell
+awk '!/^#/ { k = $1; sub(/\{.*/, "", k); d[k] += (NR == FNR ? -$2 : $2) } END { m = "vllm:"; n = d[m "request_decode_time_seconds_count"]; p = d[m "prompt_tokens_total"]; c = d[m "prompt_tokens_cached_total"]; g = d[m "generation_tokens_total"]; printf "%d requests; prompt %d tokens, %d from the prefix cache, %.1f tok/s; generated %d tokens, %.1f tok/s\n", n, p, c, (p - c) / d[m "request_prefill_time_seconds_sum"], g, (g - n) / d[m "request_decode_time_seconds_sum"] }' $p.before.metrics $p.after.metrics
+```
+
+## Results
+
+Run on 2026-10-27 on gb10-1: the walk from 11:47 to 12:20 (-04:00), and the comparison from 12:26 to
+about 12:50 (-04:00), its cells from the laptop from 16:30:10Z to 16:48:07Z: the container's from
+16:30:10Z to 16:32:49Z, native's from 16:40:11Z to 16:42:53Z, and the Marlin diagnostic's from
+16:46:59Z to 16:48:07Z. No run took over 10 minutes: A' ran 68 to 70 s, B' 78 to 80 s, and the
+longest start 387 s.
+
+### Install, update, and rollback
+
+Native's walk, from v0.31.0 to v0.32.0, back, and forward again. Each step printed `/version` and
+torch's CUDA; the builds' output is the guides' ([What the native install
+runs](../engines/vllm/setup.md#what-the-native-install-runs),
+[Native](../engines/vllm/update.md#native)).
+
+| Step | Ran it | Printed | `/version`, torch |
+|---|---|---|---|
+| `install v0.31.0` | the architect | the build's phases; `vllm-server serves v0.31.0 with row gemma-4-26B-A4B-NVFP4 (nvidia/Gemma-4-26B-A4B-NVFP4) on port 8000 of the tailnet address` | `0.31.0`; `2.13.0+cu130`, CUDA 13.0 |
+| `update v0.32.0` | the session | `built /opt/vllm/v0.32.0`; `vllm-server moved from v0.31.0 to v0.32.0`; `removed /opt/vllm/v0.31.0` | `0.32.0`; `2.13.0+cu130`, CUDA 13.0 |
+| `update v0.31.0`, the rollback | the session | `built /opt/vllm/v0.31.0`; `vllm-server moved from v0.32.0 to v0.31.0`; `removed /opt/vllm/v0.32.0` | `0.31.0`; `2.13.0+cu130`, CUDA 13.0 |
+| `update`, forward again | the session | `built /opt/vllm/v0.32.0`; `vllm-server moved from v0.31.0 to v0.32.0`; `removed /opt/vllm/v0.31.0` | `0.32.0`; `2.13.0+cu130`, CUDA 13.0 |
+| `install`, a second time | the session | `vllm-server already serves v0.32.0 with row gemma-4-26B-A4B-NVFP4 (nvidia/Gemma-4-26B-A4B-NVFP4); nothing changed` | `{"version":"0.32.0"}` from the laptop |
+
+- After the forward update, `/opt/vllm` held `cache`, `current`, `python`, `row`, and `v0.32.0`,
+  and `current` named `v0.32.0`: only the serving release is kept.
+- The update downloaded only the 17 packages v0.31.0's install hadn't left in uv's cache; the
+  rollback and the forward rebuilt their release from the cache (`Prepared 5 packages`), and each
+  build's FlashInfer kernels came from the cache too
+  ([Rolling back](../engines/vllm/update.md#rolling-back)).
+- Every step waited out its start before it printed `moved`: the starts in [Startup](#startup),
+  386, 361, and 335 s, each within the 10 minutes `update` waits.
+- Switching for the comparison, `host/engines vllm install` printed `vllm is installed with
+  vllm/vllm-openai:v0.32.0 and row gemma-4-26B-A4B-NVFP4 (nvidia/Gemma-4-26B-A4B-NVFP4) but stopped;
+  docker start vllm starts it`, and `docker start vllm` started it. Native's `install` after the
+  container stopped printed the unit's `Created symlink …` line, `vllm-server serves v0.32.0 with
+  row gemma-4-26B-A4B-NVFP4 …`, and `/version answers {"version":"0.32.0"}; torch 2.13.0+cu130,
+  CUDA 13.0`. The container's own install, update, and rollback are task 2's
+  ([vllm-gb10-container](vllm-gb10-container.md)).
+
+### Anchors
+
+Each method's A' and B', beside bench-gb10-container's warm container anchors of 2026-10-26
+([Anchors](bench-gb10-container.md#anchors)), which this session's container rows rerun.
+
+| Cell | Run | Completed | Errored | Duration s | Output tok/s | TTFT median ms | TTFT p95 ms | ITL median ms | ITL p95 ms | Latency median s | Latency p95 s | Server prompt | Server gen tok/s |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A' | container, 2026-10-26 | 8 | 0 | 68.10 | 30.1 | 241 | 320 | 32.33 | — | 8.49 | 8.56 | 5001.0 tok/s | 30.5 |
+| A' | container | 8 | 0 | 68.70 | 29.8 | 215 | 228 | 32.79 | 32.87 | 8.58 | 8.60 | 4,224 tokens, 5051.4 tok/s | 30.1 |
+| A' | native | 8 | 0 | 69.76 | 29.4 | 220 | 227 | 33.30 | 33.37 | 8.72 | 8.73 | 4,224 tokens, 4925.5 tok/s | 29.7 |
+| B' | container, 2026-10-26 | 32 | 0 | 77.53 | 105.7 | 433 | 447 | 36.41 | — | 9.69 | 9.79 | 2206.9 tok/s | 27.0 |
+| B' | container | 32 | 0 | 78.37 | 104.5 | 433 | 466 | 36.91 | 37.03 | 9.85 | 9.88 | 12,800 tokens, 2230.9 tok/s | 26.7 |
+| B' | native | 32 | 0 | 79.77 | 102.7 | 445 | 481 | 37.48 | 37.78 | 9.99 | 10.08 | 12,800 tokens, 2166.6 tok/s | 26.3 |
+
+Every request carried 528 prompt tokens and generated 256, on both methods; every guidellm run
+exited 0. vLLM computed all of A''s 4,224 prompt tokens and took 4,096 of B''s 16,896 from its
+prefix cache, on both, as in task 2.
+
+- **The container's anchors held.** A' and B' match 2026-10-26's within run noise: output tok/s
+  29.8 against 30.1 and 104.5 against 105.7 (1.0% and 1.1% lower), ITL 32.79 against 32.33 and
+  36.91 against 36.41 ms (1.4% higher), and the server's generation 30.1 against 30.5 and 26.7
+  against 27.0 tok/s. TTFT fell at A' (median 241 to 215 ms); the path was direct both days.
+- **Native ran 1.3 to 1.7% below the container, about as far as the container moved since
+  2026-10-26.** A' 29.4 against 29.8 output tok/s (1.3%), ITL 33.30 against 32.79 ms (+1.6%);
+  B' 102.7 against 104.5 (1.7%), ITL 37.48 against 36.91 ms (+1.5%); the server's generation 29.7
+  against 30.1 and 26.3 against 26.7 tok/s. Native is lower in both cells and on every rate, but
+  each cell is one run, and the container's own A' and B' moved 1.0 to 1.4% between yesterday and
+  today, so this session can't separate the gap from run noise.
+
+### Startup
+
+Every start of the pin's row on gb10-1 this day, from the start (the container's `StartedAt`, the
+unit's `ActiveEnterTimestamp`) to `Application startup complete.`, with what vLLM logged: the
+weights and their load time (`Model loading took`), the torch.compile time, FlashInfer's autotune
+from `Autotuning process starts` to `ends`, the engine's init (`init engine (profile, create kv
+cache, warmup model) took`), and the KV cache. The walk's starts weren't preceded by a page-cache
+drop; the comparison's two timed starts were.
+
+| Start | Method | Release | Page cache | Compile cache | Weights s | torch.compile s | FlashInfer autotune s | Init engine s | KV cache GiB, tokens | Cold start s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `install v0.31.0`, 11:47:09 | native | v0.31.0 | not dropped | empty | 138.9 | 27.42 | 155.0 | 221.44 | 75.84, 475,411 | 387 |
+| `update v0.32.0`, 12:00:38 | native | v0.32.0 | not dropped | empty for v0.32.0: native's first start, compiled from scratch | 140.7 | 27.00 | 156.7 | 222.32 | 75.02, 470,295 | 386 |
+| `update v0.31.0`, 12:07:36 | native | v0.31.0 | not dropped | warm (`Directly load AOT compilation`) | 120.9 | 0.30 | 178.7 | 211.57 | 74.18, 465,027 | 361 |
+| `update`, 12:14:13 | native | v0.32.0 | not dropped | warm | 120.4 | 0.71 | 161.8 | 194.37 | 74.59, 467,617 | 335 |
+| step 1, 12:26:09 | container | v0.32.0 | dropped | warm | 141.1 | 0.23 | 0.5 (`Loaded 34 configs`) | 34.45 | 74.64, 467,896 | 197.4 |
+| step 3, 12:33:24 | native | v0.32.0 | dropped | warm | 122.2 | 0.25 | 161.9 | 193.96 | 74.34, 466,021 | 334 |
+| step 5, Marlin, 12:43:12 | native | v0.32.0 | not dropped | empty for the row's flags | 118.7 | 26.73 | not read | 62.94 | not read | 197 |
+
+Times are -04:00; the container's start is 16:26:09.224Z, and it was ready at 16:29:26.662Z, 197.4
+s. The native starts' times come from the journal to the second.
+
+- **Native's warm start took 334 s against the container's 197.4 s, and the difference is
+  FlashInfer's MoE autotune.** Weights loaded in 122 s natively and 141 s in the container, and
+  torch.compile loaded each method's saved compile in under a second; the init then took 193.96 s
+  natively against 34.45 s in the container. In the container, FlashInfer logged `Loaded 34 configs
+  from /home/vllm/.cache/vllm/flashinfer_autotune_cache/0.7.0.post1/121a/24be0327…/autotune_configs_dp0_rank0.json`
+  and `Config cache hit` for `trtllm::fused_moe::gemm1` and `gemm2`, and its autotune ended 0.5 s
+  after it started. Natively, vLLM logged `Using FlashInfer autotune cache file:
+  /opt/vllm/cache/vllm/flashinfer_autotune_cache/0.7.0.post1/121a/24be0327…/autotune_configs_dp0_rank0.json`,
+  loaded nothing, and tuned `gemm1` and `gemm2` over 17 token buckets, from 12:36:13 to 12:38:55,
+  each `gemm1` pass logging `Skipped 16 unsupported tactic(s)`. The same hash names both
+  directories, so both methods look for the same tuning.
+- **Native never saves its tuning.** After every native start, its v0.32.0 directory,
+  `/opt/vllm/cache/vllm/flashinfer_autotune_cache/0.7.0.post1/121a/24be0327…/`, was empty (made
+  12:04, at v0.32.0's first start). The container's file is 9,635 bytes, written 2026-10-26 at 14:43
+  (-04:00), during bench-gb10-container's first vLLM start, at
+  `~/.cache/vllm/.cache/vllm/flashinfer_autotune_cache/0.7.0.post1/121a/24be0327…/`. v0.32.0's
+  `kernel_warmup.py` saves only when FlashInfer's tuner records a change (`if tuner._dirty:
+  tuner.save_configs(str(cache_path))`, beside the comment `Skip the rewrite when nothing was tuned
+  this start`), and FlashInfer's `save_configs` skips a save whose file belongs to another
+  environment. v0.31.0's start writes `autotune_configs.json` in another hash's directory, 505
+  bytes, and its rollback start logged `Loaded 0 configs` from it, then tuned for 178.7 s. Why
+  native's 160 s of tuning leaves no file, where the container's did, isn't established here.
+- **Every native start tunes for 155 to 179 s, whichever release and compile cache.** So native's
+  first start, which compiled from scratch, took 386 s, and its warm starts 334 to 361 s; the
+  compile cache saves about 27 s, and the tuning costs about 160 s each start.
+- **The Marlin start tuned no MoE GEMMs.** Its init took 62.94 s, 26.73 of them torch.compile,
+  which compiled afresh for the row's flags; its autotune ended at 12:46:24, 16 s after
+  torch.compile finished. It was ready 197 s after the restart, without a page-cache drop.
+
+### Footprint
+
+The two timed starts, each from a dropped page cache. The footprint is MemAvailable before the
+start less after it, beside what vLLM logged; both reserve 0.80 of the GB10's memory.
+
+| Method | Cache before → after drop GiB | MemAvailable before GiB | MemAvailable after GiB | Footprint GiB | Weights GiB (logged) | KV cache GiB (logged) | CUDA graphs GiB (logged) | Consumed GiB (logged) | Free memory at startup GiB (logged) |
+|---|---|---|---|---|---|---|---|---|---|
+| Container | 15.26 → 0.18 | 117.99 | 17.38 | 100.61 | 18.13 | 74.64 | 0.10 + 0.07 | 21.85 | 114.03 of 121.63 |
+| Native | 17.19 → 0.19 | 118.01 | 17.47 | 100.54 | 18.13 | 74.34 | 0.09 + 0.07 | 22.15 | 114.24 of 121.63 |
+
+In kB, MemAvailable fell from 123,721,272 to 18,222,428 in the container and from 123,746,944 to
+18,321,568 natively, 72 MiB apart. Both logged a peak activation of 0.81 GiB, the same 0.80
+reservation of 97.3 GiB, and the same FLASHINFER_CUTLASS MoE backend. Native's consumed memory is
+0.30 GiB more, and its KV cache 0.30 GiB less; the walk's starts logged KV caches from 74.18 to
+75.84 GiB on the same row, so the KV cache moves start to start by more than the methods differ.
+Both reach the GPU as the one CUDA device through CUDA 13.0 on the host's 580.178.04 driver: the
+container through `--gpus all`, native through the cu130 wheels in its virtualenv.
+
+### The Marlin diagnostic
+
+A' on the Marlin row, natively, beside native's A' on FLASHINFER_CUTLASS and the day's container A':
+
+| Cell | MoE backend | Completed | Errored | Duration s | Output tok/s | TTFT median / p95 ms | ITL median / p95 ms | Latency median / p95 s | Server prompt | Server gen tok/s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A' | FLASHINFER_CUTLASS, container | 8 | 0 | 68.70 | 29.8 | 215 / 228 | 32.79 / 32.87 | 8.58 / 8.60 | 4,224 tokens, 5051.4 tok/s | 30.1 |
+| A' | FLASHINFER_CUTLASS, native | 8 | 0 | 69.76 | 29.4 | 220 / 227 | 33.30 / 33.37 | 8.72 / 8.73 | 4,224 tokens, 4925.5 tok/s | 29.7 |
+| A' | MARLIN, native | 8 | 0 | 68.11 | 30.1 | 222 / 226 | 32.45 / 32.59 | 8.50 / 8.53 | 4,224 tokens, 4771.2 tok/s | 30.4 |
+
+The start logged `Using 'MARLIN' NvFp4 MoE backend`, and its weights 18.12 GiB.
+
+- **Marlin decoded 2.4% faster than FLASHINFER_CUTLASS, within the A' runs' spread.** 30.1 against
+  29.4 output tok/s, ITL 32.45 against 33.30 ms, and 30.4 against 29.7 tok/s on the server. Five A'
+  runs on FLASHINFER_CUTLASS, in task 2, bench-gb10-container (Triton and FlashInfer attention), and
+  this session's two, ran 29.4 to 30.1 tok/s; Marlin's 30.1 is the top of that range, and level
+  with the container's A' of 2026-10-26 (30.1 tok/s, ITL 32.33 ms).
+- **The MoE kernel doesn't explain vLLM's slow NVFP4 decode on SM121.** llama.cpp serves the same
+  model, gemma-4-26B-A4B in QAT Q4_0, at 65.7 output tok/s, ITL 13.97 ms, and 70.8 tok/s on the
+  server at 1 stream ([Shapes](bench-gb10-container.md#shapes)); on Marlin vLLM reaches 30.1, 32.45
+  ms, and 30.4, still under half. Marlin's prompt rate was 3% below FLASHINFER_CUTLASS's, 4771.2
+  against 4925.5 tok/s.
+
+### Network path and version, per method
+
+| Run | `tailscale ping` | `/version` |
+|---|---|---|
+| Container | 16:29:55Z: direct, 1 ms (`tailscale ping`; addresses left out) | `0.32.0`; `/v1/models` `nvidia/Gemma-4-26B-A4B-NVFP4`, `max_model_len` 8192 |
+| Native | 16:39:56Z: direct, 2 ms (`tailscale ping`; addresses left out) | `0.32.0`; the same model and length |
+| Marlin diagnostic | 16:46:43Z: direct, 2 ms (`tailscale ping`; addresses left out) | `0.32.0`, from `update`'s own line on gb10-1 |
+
+### gb10-1's end state
+
+Back on the pin, `update` printed `vllm-server restarted under the server flags of row
+gemma-4-26B-A4B-NVFP4 (nvidia/Gemma-4-26B-A4B-NVFP4)` and `/version answers {"version":"0.32.0"};
+torch 2.13.0+cu130, CUDA 13.0`; that start wasn't timed. The stop removed the unit's `wants`
+symlink. The end-state read printed `llama` `Exited (0) 4 hours ago` and `vllm` `Exited (0) 20
+minutes ago`, each with restart `unless-stopped`, stopped by hand so it stays stopped at boot;
+`inactive` and `inactive`, then `disabled` and `disabled`, for `vllm-server` and `llama-router`;
+`current` naming `v0.32.0`; and `/opt/vllm` holding `cache`, `current`, `python`, `row`, and
+`v0.32.0`. Native vLLM, the vllm container, native llama.cpp, and the llama container are all
+stopped, and none starts at boot.
+
+## Findings
+
+Dated 2026-10-27, on gb10-1, vLLM v0.32.0 in vLLM's image and natively from its cu130 wheel on
+uv-managed CPython 3.12.16 with torch 2.13.0+cu130, on the host stack above, the comparison from
+12:26 to about 12:50 (-04:00), with the walk before it from 11:47 to 12:20.
+
+What it means for evidence 6, vLLM on the GB10, container against bare metal:
+
+- **Speed: parity within run noise.** Native served A' and B' 1.3 to 1.7% below the container,
+  ITL 1.5 to 1.6% higher, the server's generation rate 1.3 to 1.5% lower: about as far as the
+  container's own anchors moved between 2026-10-26 and this session (1.0 to 1.4%). The gap is in
+  the same direction in both cells, and one run each can't separate it from noise; neither method
+  gives a reason to choose it for speed.
+- **GPU and memory: the same.** Both load the same 18.13 GiB of weights, reserve the same 0.80, and
+  take 100.6 and 100.5 GiB of MemAvailable, 72 MiB apart; their KV caches differ by less than one
+  method's moves from start to start. Both reach the GB10 through CUDA 13.0 on the host driver,
+  with the same FlashInfer 0.7.0.post1 for SM121 and the same NVFP4 MoE backend.
+- **Startup: the container starts 137 s faster, because only it keeps FlashInfer's MoE tuning.**
+  The container's warm start took 197.4 s and native's 334 s, both from a dropped page cache with
+  a warm compile cache. Native spends 155 to 179 s of every start tuning FlashInfer's MoE GEMMs and
+  never writes the file its next start would load; the container loads its 34 configs, saved on
+  2026-10-26, in under a second. Native's first start, compiling from scratch, took 386 s. The
+  cause of the missing save isn't established; until it is, native's every start pays the tuning.
+- **Install, update, and rollback: one command each, natively, as in the container.** Install
+  builds a release's virtualenv with uv; update builds the new release while the old serves, stops
+  it, starts the new one, and only once it answers removes the old; a rollback is an update to the
+  older release, rebuilt from uv's cache; a second install changes nothing. Each step printed the
+  version and torch's CUDA 13.0, and only the serving release stays. Native adds the architect's
+  one-time root steps and uv ([Setup](../engines/vllm/setup.md#gb10-native)), and its compile
+  caches outlive a release, so a release that comes back starts on its saved compile.
+
+And the question bench-gb10-container left open:
+
+- **The NVFP4 MoE kernel is not the cause of vLLM's slow NVFP4 decode on SM121.** On Marlin, A' ran
+  30.1 tok/s against 29.4 on FLASHINFER_CUTLASS, +2.4%, at the top of the A' runs' range (29.4 to
+  30.1) and still under half of llama.cpp's 65.7 on the same model in QAT Q4_0. With the attention
+  backend ruled out before (bench-gb10-container) and the MoE kernel now, the gap's cause is
+  neither; this task tested nothing further.
+
+Also:
+
+- **A container started again keeps its earlier log.** `docker logs --timestamps vllm | grep -m 1
+  "Application startup complete"` returned 2026-10-26's line for this day's start. The setup and
+  update guides now read the line from the container's start only
+  ([6. Watch the cold start](../engines/vllm/setup.md#6-watch-the-cold-start-and-record-it)).
+- **gb10-1's end state.** Native vLLM, the vllm container, native llama.cpp, and the llama
+  container are all stopped and disabled, and none starts at boot; native vLLM stays installed at
+  v0.32.0.
