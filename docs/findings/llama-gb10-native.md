@@ -364,6 +364,34 @@ gb10-1 and UTC on the laptop. Each command is as the architect ran it.
 
 ### Uninstall, install, update, and rollback
 
+On gb10-1: the uninstall, the install at v0.6.0 and setup's checks
+([3. Check it serves](../engines/llama.cpp/setup.md#3-check-it-serves)), the update that failed
+and its check, the update to v0.6.0, and the update to the pin and its check:
+
+```sh
+host/engines llama-native uninstall
+host/engines llama-native install v0.6.0
+systemctl status llama-router --no-pager
+readlink /opt/llama.cpp/current
+/opt/llama.cpp/current/llama-server --version
+ldd /opt/llama.cpp/current/libggml-cuda.so | grep -E "cudart|cublas"
+curl -s "http://$(tailscale ip -4):8080/health"
+host/engines llama-native update
+readlink /opt/llama.cpp/current
+host/engines llama-native update v0.6.0
+host/engines llama-native update
+command ls /opt/llama.cpp
+```
+
+Then the rollback from the pin and forward again:
+
+```sh
+host/engines llama-native update v0.6.0
+readlink /opt/llama.cpp/current
+host/engines llama-native update
+command ls /opt/llama.cpp
+```
+
 | Step | Printed | Checks |
 |---|---|---|
 | `host/engines llama-native uninstall` | removed `/opt/llama.cpp/current`, the preset link, and `b11669`; `the architect's root steps stay: …` | — |
@@ -382,9 +410,16 @@ retry may succeed.
 
 ### llama-bench
 
-Two attempts, at about 10:03 and 10:09, ran the method's gemma-4-26B-A4B lines
-([llama-bench](#llama-bench)): `m=…/snapshots/$(ls …/snapshots)/gemma-4-26B_q4_0-it.gguf`, then
-native's llama-bench with `2>/dev/null`. Each printed only the table's header. The architect's
+Two attempts, at about 10:03 and 10:09, each printed only the table's header. The one at 10:09
+ran:
+
+```sh
+mkdir -p ~/bench
+m=/srv/models/models--google--gemma-4-26B-A4B-it-qat-q4_0-gguf/snapshots/$(ls /srv/models/models--google--gemma-4-26B-A4B-it-qat-q4_0-gguf/snapshots)/gemma-4-26B_q4_0-it.gguf
+/opt/llama.cpp/current/llama-bench -m "$m" -p 512 -n 256 -r 5 -ngl 99 -fa 1 -o md 2>/dev/null | tee ~/bench/walk-native-gemma26b.md
+```
+
+and the one at 10:03 the same, with `tee ~/bench/native-gemma26b.md`. The architect's
 interactive shell on gb10-1 aliases `ls` to eza, so `$(ls …)` returned eza's output, llama-bench
 got a wrong path, and `2>/dev/null` discarded the error that said so. The 10:03 attempt
 overwrote `~/bench/native-gemma26b.md`, the raw table of the native run above; its figures are
@@ -411,9 +446,21 @@ The `.err` file shows the GB10 found (124544 MiB) and the backends loaded from
 
 ### Cold load
 
-On gb10-1, native's cold-load lines from the method
+On gb10-1, from the clone, native's cold-load lines from the method
 ([Per method: the cold load and its footprint](#per-method-the-cold-load-and-its-footprint)), with
-`command grep` in place of `grep`, each entered at its own prompt:
+`command grep` in place of `grep`, each line at its own prompt:
+
+```sh
+model=ggml-org/gpt-oss-120b-GGUF:MXFP4
+command grep ^Cached /proc/meminfo; sync && sudo -n /usr/sbin/sysctl vm.drop_caches=3; command grep ^Cached /proc/meminfo
+command grep ^MemAvailable /proc/meminfo
+since=$(date "+%F %T"); start=$(date +%s.%N)
+curl -s -X POST "http://$(tailscale ip -4):8080/models/load" -H "Content-Type: application/json" -d "{\"model\": \"$model\"}"; echo
+while :; do s=$(curl -s "http://$(tailscale ip -4):8080/models" | jq -r --arg m "$model" '.data[] | select(.id == $m) | if .status.failed then "failed" else .status.value end'); [[ $s == loaded || $s == failed ]] && break; sleep 0.5; done
+echo "$s after $(awk -v a="$start" -v b="$(date +%s.%N)" 'BEGIN { printf "%.1f", b - a }') s"
+command grep ^MemAvailable /proc/meminfo
+journalctl -u llama-router --since "$since" --no-pager -o cat | command grep -E "buffer size|n_ctx  |flash_attn|Flash Attention|n_slots" | head -14
+```
 
 - `Cached` fell from 73,991,828 to 392,036 kB, and MemAvailable from 123,304,996 to
   58,462,648 kB, a footprint of 61.8 GiB.
@@ -425,25 +472,41 @@ On gb10-1, native's cold-load lines from the method
 
 ### From the laptop
 
+From the clone, each line at its own prompt: the path, the build, and the warm-up, then one cell,
+`walk-a`, on `bench/anchor-a.yaml`, and its read-out:
+
+```sh
+mkdir -p .state/bench
+date -u +%FT%TZ; tailscale ping -c 3 gb10-1
+model=ggml-org/gpt-oss-120b-GGUF:MXFP4
+curl -sG "http://gb10-1:8080/props" --data-urlencode "model=$model" --data-urlencode autoload=false | jq -r .build_info
+curl -s "http://gb10-1:8080/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}]}" | jq '.choices[0].message.content'
+export GUIDELLM__SPEC__BACKEND__TARGET="http://gb10-1:8080"
+model=ggml-org/gpt-oss-120b-GGUF:MXFP4
+cell=walk-a
+curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/llama-native-$cell.before.metrics
+MISE_ENV=bench mise exec -- guidellm run -c bench/anchor-a.yaml --output "kind=json,path=.state/bench/llama-native-$cell.json" > .state/bench/llama-native-$cell.log 2>&1; echo "llama-native-$cell: guidellm exit $?"
+curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/llama-native-$cell.after.metrics
+jq -c '.benchmarks[] | .metrics as $m | {streams: .config.strategy.streams, requests: $m.request_totals, output_tok_s: ($m.output_tokens_per_second.successful.mean|.*10|round/10), ttft_ms: ($m.time_to_first_token_ms.successful | {median: (.median|round), p95: (.percentiles.p95|round)}), itl_ms: ($m.inter_token_latency_ms.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)})}' .state/bench/llama-native-walk-a.json
+```
+
 At 14:18:07Z, `tailscale ping` went direct, 2 ms (addresses left out); `/props` build_info
-`b11669-620d2225c`; the warm-up answered. Then one cell, `walk-a`, on `bench/anchor-a.yaml`:
-`cell=walk-a` and the method's three lines ([Per cell](#per-cell)) with `llama-native-$cell`.
+`b11669-620d2225c`; the warm-up answered. guidellm exited 0:
 
 | Cell | Completed | Output tok/s | TTFT median / p95 ms | ITL median / p95 ms |
 |---|---|---|---|---|
 | `walk-a` | 8 of 8 | 48.5 | 421 / 440 | 19.00 / 19.27 |
 | Native A, above | 8 of 8 | 48.3 | 423 / 435 | 19.06 / 19.37 |
 
-guidellm exited 0.
-
 ### Stop and end state
 
 ```sh
 sudo -n systemctl stop llama-router && sudo -n systemctl disable llama-router
+systemctl is-active llama-router; systemctl is-enabled llama-router
 ```
 
-removed the unit's `wants` symlink, and `systemctl is-active` and `is-enabled` printed `inactive`
-and `disabled`. The end state is otherwise unchanged: the `llama` and `vllm` containers exited.
+The first line removed the unit's `wants` symlink, and the second printed `inactive` and
+`disabled`. The end state is otherwise unchanged: the `llama` and `vllm` containers exited.
 
 ## Findings
 
