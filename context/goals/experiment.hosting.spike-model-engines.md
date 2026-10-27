@@ -110,6 +110,10 @@ Door
   Two-way: the unit, sudoers rule and /opt/llama.cpp go by the setup
   guide's removal procedure, the builds by native uninstall.
 
+## Progress
+
+slices 1/4 committed (62e4b31) · standards — · spec — · editor —
+
 ## Decisions
 
 - setup: evidence is six items (install and guides; capability by shape, vision included;
