@@ -668,7 +668,7 @@ Slices 2–4 follow per the brief.
 - llama-strix-rocm: the laptop reaches a container's port 8080 on the Framework through a ufw route
   rule, `ufw route allow in on tailscale0 proto tcp to any port 8080`, since Omarchy's ufw with
   ufw-docker drops routed traffic to published ports; it names no container, so it holds across
-  flavor switches and for vLLM's container; rejected `ufw-docker allow llama` (bound to one
+  flavor switches; vLLM's container publishes 8000, whose rule is vllm-strix's root step; rejected `ufw-docker allow llama` (bound to one
   container) and `--network host` (changes the GB10's docker run) (architect, escalation, slice 1).
 
 ## Pending edits
