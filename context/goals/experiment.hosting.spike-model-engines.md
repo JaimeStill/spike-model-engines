@@ -136,7 +136,7 @@ Door
 
 ## Progress
 
-slices 0/3 committed · standards — · spec — · editor —
+slices 1/3 committed (slice 1 code; walk pending) · standards — · spec — · editor —
 
 ## Decisions
 
