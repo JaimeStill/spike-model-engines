@@ -1,8 +1,8 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** brief ready
-- **Task:** llama-gb10-native
-- **Branch:** llama-gb10-native
+- **State:** idle
+- **Task:** none
+- **Branch:** none
 
 ## Tasks
 
@@ -10,7 +10,7 @@
 2. [x] vllm-gb10-container
 3. [x] bench-gb10-container
 4. [x] host-rename
-5. [ ] llama-gb10-native
+5. [x] llama-gb10-native
 6. [ ] vllm-gb10-native
 7. [ ] llama-strix-rocm
 8. [ ] vllm-strix
@@ -109,10 +109,6 @@ Out of scope
 Door
   Two-way: the unit, sudoers rule and /opt/llama.cpp go by the setup
   guide's removal procedure, the builds by native uninstall.
-
-## Progress
-
-slices 4/4 · standards ✓ · spec ✓ (no gaps; tailnet address redacted from unpushed commits) · editor ✓ · walkthrough passed 2026-10-27, its gaps closed (21820ad, b95eb74, db12f6a); slice 2 walked on gb10-1 2026-10-27: install v0.6.0, update v0.7.0, rollback, forward, idempotent install, container refusals
 
 ## Decisions
 
