@@ -1,8 +1,8 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** idle
-- **Task:** none
-- **Branch:** none
+- **State:** building
+- **Task:** llama-gb10-native
+- **Branch:** llama-gb10-native
 
 ## Tasks
 
