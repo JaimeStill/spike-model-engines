@@ -67,7 +67,8 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
   ([setup](../docs/engines/llama.cpp/setup.md#7-allow-the-page-cache-drop)), or the five
   `systemctl` commands that start, stop, restart, enable, and disable native llama.cpp's
   `llama-router` unit, each named with its arguments
-  ([setup](../docs/engines/llama.cpp/setup.md#1-the-architects-root-steps)).
+  ([setup](../docs/engines/llama.cpp/setup.md#1-the-architects-root-steps)), and native vLLM's
+  `vllm-server` unit ([setup](../docs/engines/vllm/setup.md#1-the-architects-root-steps)).
 
 ## Capabilities
 
@@ -147,9 +148,10 @@ The practices every task on the GB10s follows, each with its reason:
   plain `du -sh` doesn't follow the links and shows a few MB
   ([models](../docs/engines/vllm/models.md#the-first-download)).
 - **One engine per host.** Each engine's install and update refuse while another engine serves:
-  the other engine's container, or native llama.cpp's `llama-router` unit, which serves on the
-  container's port. Beside a second server, vLLM's memory reservation would fail and its
-  container restart in a loop. Stop one before installing the other.
+  the other engine's container, or native llama.cpp's `llama-router` or native vLLM's
+  `vllm-server` unit, each of which serves on its engine's container's port. Beside a second
+  server, vLLM's memory reservation would fail and its container restart in a loop. Stop one
+  before installing the other.
 - **`ls` on the GB10s.** The GB10 setup in dotfiles aliases `ls` to eza, whose flags differ from
   coreutils' (`ls -laL` failed: eza reads `-L` as a tree depth), so guide commands use `du -shL`,
   `stat`, `readlink -f`, or `command ls` instead.
