@@ -2,10 +2,10 @@
 
 vLLM serves Hugging Face models through `vllm serve`, an OpenAI-compatible HTTP server. This spike
 runs it on gb10-1 in vLLM's CUDA 13.0 image, and natively, from vLLM's CUDA 13.0 wheel of the
-same release in a uv virtualenv, under a system unit, `vllm-server`. Unlike llama.cpp's
-router, a vLLM server serves one model, named on its command line when it starts, and loads no
-other on demand: changing the model means starting the server again, with `update`, on another
-row of model and flags.
+same release in a uv virtualenv, under a system unit, `vllm-server`. Unlike llama.cpp's router, a
+vLLM server serves one model, named on its command line when it starts, and loads no other on
+demand: changing the model means starting the server again, with `update`, on another row of
+model and flags.
 
 The spike follows vLLM's GitHub releases. The pin lives in `host/vllm.env`: release v0.32.0,
 image `vllm/vllm-openai:v0.32.0`, and the row the host serves by default,
@@ -16,7 +16,8 @@ server can serve is a row in `host/vllm-rows`, its model and its flags, and
 one is out.
 
 The `engines` commands install, update, and uninstall it. They run from a clone of this
-repository on the host, as `host/engines vllm <verb>`:
+repository on the host, as `host/engines vllm <verb>` for the container and `host/engines
+vllm-native <verb>` for native vLLM:
 
 | Command | What it does |
 |---|---|

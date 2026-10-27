@@ -564,8 +564,9 @@ systemctl show vllm-server --property ActiveEnterTimestamp
 journalctl -u vllm-server -o short-iso-precise --no-pager | grep "Application startup complete" | tail -n 1
 ```
 
-On gb10-1 a native start takes longer than the container's, about 335 s warm against 197 s,
-the difference nearly all FlashInfer tuning its MoE kernels at every native start
+On gb10-1 a native start takes longer than the container's, 334 s against 197 s, both from a
+dropped page cache with a warm compile cache. Nearly all the difference is FlashInfer tuning its
+MoE kernels, which native vLLM does again at every start
 ([vllm-gb10-native](../../findings/vllm-gb10-native.md#startup)).
 
 ### 5. Stop it

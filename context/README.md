@@ -75,7 +75,8 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
 - **Engine guides:** setup, models, APIs, updates, and uninstall, per engine, under
   `docs/engines/<engine>/`; llama.cpp's and vLLM's are written.
 - **The `engines` suite:** the scripted install, update, and uninstall steps, under `host/`;
-  llama.cpp's, in a container (`llama`) and natively (`llama-native`), and vLLM's are written.
+  llama.cpp's and vLLM's, each in a container (`llama`, `vllm`) and natively (`llama-native`,
+  `vllm-native`), are written.
 - **Served-load findings:** GuideLLM runs under `docs/findings/`.
   `bench-gb10-container.md` compares both engines on gb10-1 in containers by shape, quantization,
   concurrency, vision, ASR, and embeddings (granite-embedding-english-r2 on both engines), with
@@ -109,10 +110,8 @@ The tasks, in the order they run; each cites the evidence it proves.
 4. `llama-gb10-native`: llama.cpp native under systemd on gb10-1, llama-bench, anchor cells
    against the container, in `docs/findings/llama-gb10-native.md` (evidence 1, 6).
 5. `vllm-gb10-native`: vLLM's aarch64 wheel natively on gb10-1, anchor cells against the
-   container, in `docs/findings/vllm-gb10-native.md` (evidence 1, 6). Its plan round may take up
-   one question from bench-gb10-container: vLLM's NVFP4 rows decode at about half llama.cpp's
-   QAT Q4_0 rate, and FlashInfer attention didn't change that, so the NVFP4 path on SM121 is the
-   suspect, untested ([Findings](../docs/findings/bench-gb10-container.md#findings)).
+   container, and a Marlin MoE diagnostic on bench-gb10-container's question of vLLM's slow NVFP4
+   decode on SM121, in `docs/findings/vllm-gb10-native.md` (evidence 1, 6).
 6. `llama-strix-rocm`: llama.cpp ROCm in ggml's ROCm image against the native Vulkan router
    (evidence 1, 2, 3).
 7. `vllm-strix`: vLLM's ROCm image on gfx1151, serving or a recorded failure (evidence 1, 2).
@@ -152,6 +151,9 @@ The practices every task on the GB10s follows, each with its reason:
   `vllm-server` unit, each of which serves on its engine's container's port. Beside a second
   server, vLLM's memory reservation would fail and its container restart in a loop. Stop one
   before installing the other.
+- **A restarted container's log.** A container started again keeps the log of its earlier
+  starts, so a ready line is read only since the container's start
+  ([setup](../docs/engines/vllm/setup.md#6-watch-the-cold-start-and-record-it)).
 - **`ls` on the GB10s.** The GB10 setup in dotfiles aliases `ls` to eza, whose flags differ from
   coreutils' (`ls -laL` failed: eza reads `-L` as a tree depth), so guide commands use `du -shL`,
   `stat`, `readlink -f`, or `command ls` instead.

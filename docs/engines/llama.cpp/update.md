@@ -153,8 +153,8 @@ nothing changed`; when `llama-router` is stopped, it enables and starts it. It a
 `preset` when it names another directory than the clone's `host/llama-preset`, as after the clone
 moves, and restarts `llama-router` on it. It fails, changing nothing, when native llama.cpp isn't
 installed, and for the reasons `install` does: another engine's container running or
-`vllm-server` active, the root steps
-not done, `/srv/models` missing, or no tailnet address ([Setup](setup.md#2-install)).
+`vllm-server` active, the root steps not done, `/srv/models` missing, or no tailnet address
+([Setup](setup.md#2-install)).
 
 ### Rolling back
 

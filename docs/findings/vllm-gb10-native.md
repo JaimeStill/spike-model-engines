@@ -54,13 +54,12 @@ torch](#7-the-host-stack-and-both-methods-python-and-torch)), and native's match
 native start prints (`/version answers {"version":"0.32.0"}; torch 2.13.0+cu130, CUDA 13.0`) and
 uv's `Using CPython 3.12.16`. Both run torch 2.13.0+cu130 on CUDA 13.0, and both run CPython 3.12,
 the minor version the brief held native to; only the patch differs, 3.12.3 in the image against
-uv's 3.12.16. Both serve the pin's row,
-`gemma-4-26B-A4B-NVFP4`, from the same model store (`/srv/models`), on port 8000 of the tailnet
-address: `nvidia/Gemma-4-26B-A4B-NVFP4 --max-num-seqs 4 --max-model-len 8192
---gpu-memory-utilization 0.80 --kv-cache-dtype bfloat16 --reasoning-parser gemma4
---enable-auto-tool-choice --tool-call-parser gemma4`. The container's command adds `--host 0.0.0.0
---port 8000` inside the container, whose port 8000 Docker publishes on the tailnet address; the
-unit binds the tailnet address itself.
+uv's 3.12.16. Both serve the pin's row, `gemma-4-26B-A4B-NVFP4`, from the same model store
+(`/srv/models`), on port 8000 of the tailnet address: `nvidia/Gemma-4-26B-A4B-NVFP4 --max-num-seqs
+4 --max-model-len 8192 --gpu-memory-utilization 0.80 --kv-cache-dtype bfloat16 --reasoning-parser
+gemma4 --enable-auto-tool-choice --tool-call-parser gemma4`. The container's command adds
+`--host 0.0.0.0 --port 8000` inside the container, whose port 8000 Docker publishes on the tailnet
+address; the unit binds the tailnet address itself.
 
 The load tool is GuideLLM 0.8.1 on the laptop, in the spike's bench environment
 (`mise.bench.toml`: Python 3.14.10).
@@ -114,9 +113,9 @@ host/engines vllm-native install v0.31.0
 MISE_ENV=host mise exec -- uv pip list --python /opt/vllm/current
 ```
 
-The read-back set no `UV_CACHE_DIR`, so uv cached what it read of the interpreter in `~/.cache/uv`, as
-[Findings](#findings) records; the guide's read-backs now point uv's cache at `/opt/vllm/cache/uv`
-([Reading it back](../engines/vllm/setup.md#reading-it-back)).
+The read-back set no `UV_CACHE_DIR`, so uv cached what it read of the interpreter in
+`~/.cache/uv`, as [Findings](#findings) records; the guide's read-backs now point uv's cache at
+`/opt/vllm/cache/uv` ([Reading it back](../engines/vllm/setup.md#reading-it-back)).
 
 After the install, from the home directory, the session read the start's time and lines and the
 memory available, then kept the unit's journal so far in a local file:
@@ -438,10 +437,10 @@ Each method's cells start from the same state: a cold start from a dropped page 
 method's compile cache warm, then the one warm-up request, then A', then B', with A''s prefix
 cache. The Marlin diagnostic starts from a restart without the drop, then the warm-up, then A'.
 Native's first start ([8. Native's first start](#8-natives-first-start)) is from a dropped page
-cache with native's torch.compile cache removed, and no cell ran on it.
-Before every set of cells the warm-up returned a reply (`Hello!`, with its reasoning),
-`vllm:request_success_total` for `stop` read 1, and `vllm:num_requests_running` read 0: a
-confirmed warm start, as bench-gb10-container required. `vllm:num_requests_running` was 0 in every
+cache with native's torch.compile cache removed, and no cell ran on it. Before every set of cells
+the warm-up returned a reply (`Hello!`, with its reasoning), `vllm:request_success_total` for
+`stop` read 1, and `vllm:num_requests_running` read 0: a confirmed warm start, as
+bench-gb10-container required. `vllm:num_requests_running` was 0 in every
 cell's first snapshot.
 
 ### Reading the figures
@@ -867,11 +866,12 @@ Also:
   MoE kernels again.
 - **uv's read-backs left two entries in `~/.cache/uv`.** The guide's `uv pip list --python
   /opt/vllm/current` set no `UV_CACHE_DIR`, so uv cached what it read of the interpreter in the
-  home directory's cache: on gb10-1, `~/.cache/uv/interpreter-v4/7b48229e3f1ca7d0/4a08f68991786be6.msgpack`
-  at 11:58:52, from the walk's read-back, and `…/ef54843d1dbeff6d.msgpack` at 13:38:51, from the
-  walkthrough's, naming `/opt/vllm/python` and `/opt/vllm/current`. They are small, and left in
-  place; native's `uninstall` removes only what is under `/opt/vllm`, so it doesn't remove them. The
-  guides' read-backs now point uv's cache at `/opt/vllm/cache/uv`, as the `engines` commands do
+  home directory's cache. On gb10-1 it wrote
+  `~/.cache/uv/interpreter-v4/7b48229e3f1ca7d0/4a08f68991786be6.msgpack` at 11:58:52, from the
+  walk's read-back, and `…/ef54843d1dbeff6d.msgpack` at 13:38:51, from the walkthrough's, both
+  naming `/opt/vllm/python` and `/opt/vllm/current`. They are small, and left in place; native's
+  `uninstall` removes only what is under `/opt/vllm`, so it doesn't remove them. The guides'
+  read-backs now point uv's cache at `/opt/vllm/cache/uv`, as the `engines` commands do
   ([Reading it back](../engines/vllm/setup.md#reading-it-back)), so they write no more there.
 - **A reinstall after `uninstall` downloads everything again.** `uninstall` removes
   `/opt/vllm/cache`, uv's cache and the compile caches with it, so the next install fetched all 199
