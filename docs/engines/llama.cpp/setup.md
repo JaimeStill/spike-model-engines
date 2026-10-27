@@ -342,18 +342,30 @@ Python and llama.cpp's conversion scripts too.
 llama-bench loads its own copy of the model, so run it while no engine has a model loaded, for
 the memory and so no other load shares the GPU. It reads the model store directly: `-m` names a
 GGUF file in `/srv/models` (a split model's first shard), or `-hf` names a repository and
-quantization, as the preset's `hf-repo` does, which it resolves from `LLAMA_CACHE`. The general
-form, natively:
+quantization, as the preset's `hf-repo` does, which it resolves from `LLAMA_CACHE`. A model's
+GGUF is under its repository's `snapshots/<commit>/`; list the commit with `command ls`, which runs
+`ls` itself where the shell aliases it (to eza, say, whose output and options differ):
 
 ```sh
-LLAMA_CACHE=/srv/models /opt/llama.cpp/current/llama-bench -m <model.gguf> -p <prompt tokens> -n <generated tokens> -r <repetitions>
+command ls /srv/models/models--<owner>--<repository>/snapshots
+```
+
+The general form, natively, with the table written to `~/bench/<name>.md` and llama-bench's log
+to `~/bench/<name>.err` beside it (`mkdir -p ~/bench` first):
+
+```sh
+LLAMA_CACHE=/srv/models /opt/llama.cpp/current/llama-bench -m <model.gguf> -p <prompt tokens> -n <generated tokens> -r <repetitions> -o md 2>~/bench/<name>.err | tee ~/bench/<name>.md
 ```
 
 and in the container, as the invoking user, with the store mounted where it is on the host:
 
 ```sh
-docker run --rm --gpus all --user "$(id -u):$(id -g)" --volume /srv/models:/srv/models --env LLAMA_CACHE=/srv/models ghcr.io/ggml-org/llama.cpp:full-cuda13-b11669 --bench -m <model.gguf> -p <prompt tokens> -n <generated tokens> -r <repetitions>
+docker run --rm --gpus all --user "$(id -u):$(id -g)" --volume /srv/models:/srv/models --env LLAMA_CACHE=/srv/models ghcr.io/ggml-org/llama.cpp:full-cuda13-b11669 --bench -m <model.gguf> -p <prompt tokens> -n <generated tokens> -r <repetitions> -o md 2>~/bench/<name>.err | tee ~/bench/<name>.md
 ```
+
+When the table has only its header, llama-bench couldn't load the model, and the `.err` file says
+why (a wrong path, say). When it runs, the file shows the device it found and the backends it
+loaded.
 
 Other options set what the server's preset and log set: `-ngl` the layers on the GPU, `-fa` flash
 attention (`on`, `off`, or `auto`), and `-b` and `-ub` the batch sizes. Each option takes a

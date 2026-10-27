@@ -39,7 +39,7 @@ rm -rf /srv/models/models--ggml-org--gpt-oss-120b-GGUF
 The container writes the store as your account, so this needs no `sudo`. List what is left with:
 
 ```sh
-ls /srv/models
+command ls /srv/models
 ```
 
 Once vLLM has fetched its model, the store also holds vLLM's model directory, the shared store

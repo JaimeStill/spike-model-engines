@@ -356,6 +356,95 @@ After llama-bench, the end-state read printed `inactive`, `disabled`, `llama` `E
 `unless-stopped`, stopped by hand so it stays stopped at boot, and `vllm` on v0.32.0. Nothing
 serves on gb10-1.
 
+## Walkthrough
+
+On 2026-10-27, after the results above, the architect walked native llama.cpp from the guides,
+on gb10-1 from `~/repos/spike-model-engines` at a174558, and on the laptop. Times are -04:00 on
+gb10-1 and UTC on the laptop. Each command is as the architect ran it.
+
+### Uninstall, install, update, and rollback
+
+| Step | Printed | Checks |
+|---|---|---|
+| `host/engines llama-native uninstall` | removed `/opt/llama.cpp/current`, the preset link, and `b11669`; `the architect's root steps stay: …` | — |
+| `host/engines llama-native install v0.6.0` | both sha256 digests matched (`9c76d072…`, `ad62e46c…`); the `current` link created; `llama-router serves b11429 on port 8080 of the tailnet address` | setup's [3. Check it serves](../engines/llama.cpp/setup.md#3-check-it-serves): status `enabled`, `active (running)` since 09:56:31 EDT; `readlink` `b11429`; `--version` `0.6.0-dev (build 11429, commit d81235049)`; `ldd` lists `libcudart.so.13`, `libcublas.so.13`, and `libcublasLt.so.13` from `/opt/llama.cpp/current`; `/health` `{"status":"ok"}` |
+| `host/engines llama-native update`, at about 10:00 | failed: `llama.cpp's release b11669 has no asset llama-b11669-bin-ubuntu-cuda-13.4-arm64.tar.gz` | `current` stayed `b11429` |
+| `host/engines llama-native update v0.6.0` | `llama-router already serves b11429; nothing changed` | — |
+| `host/engines llama-native update` | both b11669 sha256 digests matched; `llama-router moved from b11429 to b11669`; `removed /opt/llama.cpp/b11429` | `command ls /opt/llama.cpp` lists `b11669`, `current`, and `preset` |
+| `host/engines llama-native update v0.6.0`, the rollback | `llama-router moved from b11669 to b11429`; `removed /opt/llama.cpp/b11669` | `readlink` `b11429` |
+| `host/engines llama-native update`, forward again | `llama-router moved from b11429 to b11669`; `removed /opt/llama.cpp/b11429` | `command ls /opt/llama.cpp` lists `b11669`, `current`, and `preset` |
+
+The failed update changed nothing, and the retry right after it succeeded. Six later reads of the
+same API URL from gb10-1 each returned 80,497 bytes with the asset listed, and GitHub's rate limit
+had 51 of 60 requests left, so the cause is unknown. The fetch now says, on that failure, what the
+response held: GitHub's `message`, or else its size and the number of assets it listed, and that a
+retry may succeed.
+
+### llama-bench
+
+Two attempts, at about 10:03 and 10:09, ran the method's gemma-4-26B-A4B lines
+([llama-bench](#llama-bench)): `m=…/snapshots/$(ls …/snapshots)/gemma-4-26B_q4_0-it.gguf`, then
+native's llama-bench with `2>/dev/null`. Each printed only the table's header. The architect's
+interactive shell on gb10-1 aliases `ls` to eza, so `$(ls …)` returned eza's output, llama-bench
+got a wrong path, and `2>/dev/null` discarded the error that said so. The 10:03 attempt
+overwrote `~/bench/native-gemma26b.md`, the raw table of the native run above; its figures are
+already in [Raw speed](#raw-speed).
+
+The run that worked:
+
+```sh
+m=/srv/models/models--google--gemma-4-26B-A4B-it-qat-q4_0-gguf/snapshots/d1c082be9cf3c8a514acf63b8761f4b41935842e/gemma-4-26B_q4_0-it.gguf
+ls -lL "$m"
+/opt/llama.cpp/current/llama-bench -m "$m" -p 512 -n 256 -r 5 -ngl 99 -fa 1 -o md 2>~/bench/walk-native-gemma26b.err | tee ~/bench/walk-native-gemma26b.md
+```
+
+`ls -lL` failed under eza (`invalid value … for '--level <DEPTH>'`, eza reading `-L` as its
+`--level`). llama-bench printed `build: 620d2225c (11669)` and:
+
+| Test | Walkthrough t/s | Native, above, t/s |
+|---|---|---|
+| pp512 | 3343.04 ± 75.65 | 3319.00 ± 73.46 |
+| tg256 | 80.18 ± 0.13 | 79.66 ± 0.13 |
+
+The `.err` file shows the GB10 found (124544 MiB) and the backends loaded from
+`/opt/llama.cpp/b11669`.
+
+### Cold load
+
+On gb10-1, native's cold-load lines from the method
+([Per method: the cold load and its footprint](#per-method-the-cold-load-and-its-footprint)), with
+`command grep` in place of `grep`, each entered at its own prompt:
+
+- `Cached` fell from 73,991,828 to 392,036 kB, and MemAvailable from 123,304,996 to
+  58,462,648 kB, a footprint of 61.8 GiB.
+- It printed `loaded after 55.0 s`. That isn't comparable with the 47.3 s above: the timer runs
+  from `start=` to the `echo`, and with each line entered at its own prompt it includes the time
+  between prompts.
+- The buffers are identical to the morning's: weights 59851.68 + 586.82 MiB, KV cache 1152 + 108
+  MiB, compute 98.77 + 31.28 MiB. Flash Attention enabled, and 4 slots of 8192.
+
+### From the laptop
+
+At 14:18:07Z, `tailscale ping` went direct, 2 ms (addresses left out); `/props` build_info
+`b11669-620d2225c`; the warm-up answered. Then one cell, `walk-a`, on `bench/anchor-a.yaml`:
+`cell=walk-a` and the method's three lines ([Per cell](#per-cell)) with `llama-native-$cell`.
+
+| Cell | Completed | Output tok/s | TTFT median / p95 ms | ITL median / p95 ms |
+|---|---|---|---|---|
+| `walk-a` | 8 of 8 | 48.5 | 421 / 440 | 19.00 / 19.27 |
+| Native A, above | 8 of 8 | 48.3 | 423 / 435 | 19.06 / 19.37 |
+
+guidellm exited 0.
+
+### Stop and end state
+
+```sh
+sudo -n systemctl stop llama-router && sudo -n systemctl disable llama-router
+```
+
+removed the unit's `wants` symlink, and `systemctl is-active` and `is-enabled` printed `inactive`
+and `disabled`. The end state is otherwise unchanged: the `llama` and `vllm` containers exited.
+
 ## Findings
 
 Dated 2026-10-27, on gb10-1, llama.cpp v0.7.0 (b11669) in ggml's container and natively, on the
@@ -383,5 +472,18 @@ host stack above, from 09:19 to 09:29 (-04:00).
 - **One `/health` refused right after an update.** The first laptop check after `update` exited 7
   while the journal showed the server listening; every later check answered. Observed once, not
   explained.
+- **One native update failed without a cause found, and changed nothing.** In the walkthrough,
+  the first `update` to b11669 said the release had no asset for the prebuilt, though six later
+  reads of the same API URL listed it and the rate limit had room; it left `current` on b11429,
+  and the retry right after it succeeded. The fetch now reports what GitHub's response held, so a
+  repeat can be read.
+- **A shell alias can feed llama-bench a wrong path.** On gb10-1 the architect's `ls` is eza, so
+  `$(ls …/snapshots)` named no file, and with its stderr discarded llama-bench printed only its
+  header. The setup guide now lists with `command ls` and writes llama-bench's log to a `.err` file
+  beside its table, to read when the table has only its header.
+- **The walkthrough reproduced native within run noise.** Its anchor A ran 48.5 tok/s, ITL 19.00
+  ms, against native's 48.3 and 19.06, and llama-bench's gemma-4-26B-A4B 3343.04 and 80.18 t/s
+  against 3319.00 and 79.66: pp512 within its standard deviation, tg256 0.52 t/s (0.7%) ahead.
+  The cold load logged identical buffers.
 - **gb10-1's end state.** Native llama.cpp, the llama container, and vLLM are all stopped, and
   none starts at boot.
