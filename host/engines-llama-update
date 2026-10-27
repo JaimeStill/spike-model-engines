@@ -2,12 +2,12 @@
 # engines:summary=Move llama to the pinned build and remove every other llama.cpp image
 # Pulls the pinned image before replacing the container, so a failed pull leaves the old build
 # serving. The container is replaced when its image isn't the pin's or its preset mount isn't the
-# clone's preset directory (as after the clone's scripts moved from engines/ to host/); one
-# replacement handles both, and when the image is already the pin's it pulls nothing. A replaced
-# container runs, even if the old one was stopped. When llama already runs the pin with the
-# clone's preset and no other image is left, it changes nothing; when that container is stopped,
-# it says docker start starts it, and never starts it itself. It refuses while the vllm container
-# runs, since one engine serves per host at a time.
+# clone's preset directory (as after the clone's scripts move); one replacement handles both, and
+# when the image is already the pin's it pulls nothing. A replaced container runs, even if the old
+# one was stopped. When llama already runs the pin with the clone's preset and no other image is
+# left, it changes nothing; when that container is stopped, it says docker start starts it, and
+# never starts it itself. It refuses while the vllm container runs, since one engine serves per
+# host at a time.
 set -euo pipefail
 # shellcheck source=host/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"

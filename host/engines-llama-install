@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # engines:summary=Run llama-server in router mode, at the pinned build or the b-build given
 # Starts the llama container (llama.sh) from the pinned image, or from the b-build given, such as
-# b11429. When the container already runs that image, with the clone's preset directory mounted,
-# it changes nothing, saying docker start starts it when it is stopped (it never starts it
-# itself). When the container runs another image, or mounts the preset from anywhere else (as
-# after the clone's scripts moved from engines/ to host/), it refuses, saying what it runs or
-# mounts, and points at update. It refuses while the vllm container runs, since one engine serves
-# per host at a time.
+# b11429. When the container already runs that image, with the clone's preset directory mounted, it
+# changes nothing, saying docker start starts it when it is stopped (it never starts it itself).
+# When the container runs another image, or mounts the preset from anywhere else (as after the
+# clone's scripts move), it refuses, saying what it runs or mounts, and points at update. It refuses
+# while the vllm container runs, since one engine serves per host at a time.
 set -euo pipefail
 # shellcheck source=host/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"

@@ -27,11 +27,10 @@ llama_running_image() {
   [[ -z $id ]] || docker container inspect --format '{{.Config.Image}}' "$id"
 }
 
-# The source of the container's preset mount (what /etc/llama-preset binds), or nothing when it
-# has none, after llama_running_image finds a container. Update replaces a container whose source
-# isn't LLAMA_PRESET_DIR, as when the clone's scripts moved from engines/ to host/ and the old
-# directory went with them. Fails when Docker does, so an unreachable daemon is never read as a
-# stale mount.
+# The source of the container's preset mount (what /etc/llama-preset binds), or nothing when it has
+# none, after llama_running_image finds a container. Update replaces a container whose source isn't
+# LLAMA_PRESET_DIR, as when the clone's scripts move. Fails when Docker does, so an unreachable
+# daemon is never read as a stale mount.
 llama_preset_mount() {
   docker container inspect --format \
     '{{range .Mounts}}{{if eq .Destination "/etc/llama-preset"}}{{.Source}}{{end}}{{end}}' \
