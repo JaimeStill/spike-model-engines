@@ -20,6 +20,12 @@ from the clone at 6be0589 on `llama-gb10-native`.
 | Driver | 580.178.04 |
 | CUDA | 13.0 |
 | Docker | 29.6.2 (build dfc4efb) |
+| NVIDIA Container Toolkit | 1.20.1 |
+| DGX OS | `DGX_SWBUILD_VERSION` 7.4.0, `DGX_OTA_VERSION` 7.6.0 |
+| Reboot pending | no (no `/var/run/reboot-required`) |
+
+gb10-1 had been brought current earlier on 2026-10-27, by the host-rename task, so this session
+made no upgrade: at its start `apt list --upgradable` listed 0 packages.
 
 ## Engine versions
 
@@ -56,39 +62,53 @@ sudo -k
 sudo -n systemctl stop llama-router
 ```
 
-Then the session's steps, each followed by the setup guide's checks
-([3. Check it serves](../engines/llama.cpp/setup.md#3-check-it-serves)) or the update's
-([Native](../engines/llama.cpp/update.md#native)), and from the laptop by `/health`:
+Then the session's install at v0.6.0 and update to the pin, on gb10-1, each followed by the setup
+guide's checks ([3. Check it serves](../engines/llama.cpp/setup.md#3-check-it-serves)) or the
+update's ([Native](../engines/llama.cpp/update.md#native)). `grep -v "#"` filters out the progress
+bars curl prints while it fetches:
 
 ```sh
-host/engines llama-native install v0.6.0
-host/engines llama-native update
-host/engines llama-native update v0.6.0
-host/engines llama-native update
-host/engines llama-native install
-host/engines llama install
-host/engines vllm install
+time host/engines llama-native install v0.6.0
+time host/engines llama-native update 2>&1 | grep -v "#"
 ```
+
+After each, from the laptop:
 
 ```sh
 curl -s http://gb10-1:8080/health
 ```
 
-### Switching between the methods
-
-Before the container's cells, on gb10-1, native llama.cpp stopped and disabled, and the container
-started:
+The rollback to v0.6.0 and forward to the pin, from the laptop, each update followed by the
+build, its version, the builds kept, and the time and `/health` from the laptop:
 
 ```sh
-sudo -n systemctl stop llama-router && sudo -n systemctl disable llama-router
+for v in v0.6.0 ""; do ssh gb10-1 "cd ~/repos/spike-model-engines && host/engines llama-native update $v 2>&1 | grep -v '#'; readlink /opt/llama.cpp/current; /opt/llama.cpp/current/llama-server --version 2>&1 | head -1; command ls /opt/llama.cpp | tr '\n' ' '; echo"; date +%T.%N; curl -sS -m5 http://gb10-1:8080/health; echo " exit=$?"; done
+```
+
+Then, on gb10-1, a second install and both containers' installs while native serves:
+
+```sh
+host/engines llama-native install
 host/engines llama install
-docker start llama
+host/engines vllm install
+```
+
+### Switching between the methods
+
+Before the container's cells, on gb10-1 from the clone, native llama.cpp stopped and disabled,
+and the container started, waited for, and listed:
+
+```sh
+sudo -n systemctl stop llama-router && sudo -n systemctl disable llama-router && systemctl is-active llama-router
+host/engines llama install
+docker start llama >/dev/null && until curl -fs "http://$(tailscale ip -4):8080/health" >/dev/null; do sleep 1; done
+docker ps --format "{{.Names}} {{.Image}} {{.Status}}"
 ```
 
 Before native's, the container stopped and native llama.cpp enabled and started:
 
 ```sh
-docker stop llama
+docker stop llama >/dev/null && docker ps -a --format "{{.Names}} {{.Status}}" | grep llama
 host/engines llama-native install
 ```
 
@@ -107,26 +127,44 @@ curl -s -X POST "http://$(tailscale ip -4):8080/models/load" -H "Content-Type: a
 while :; do s=$(curl -s "http://$(tailscale ip -4):8080/models" | jq -r --arg m "$model" '.data[] | select(.id == $m) | if .status.failed then "failed" else .status.value end'); [[ $s == loaded || $s == failed ]] && break; sleep 0.5; done
 echo "$s after $(awk -v a="$start" -v b="$(date +%s.%N)" 'BEGIN { printf "%.1f", b - a }') s"
 grep ^MemAvailable /proc/meminfo
-docker logs --since "$since" llama 2>&1 | grep -E "buffer size|model size|flash_attn|n_ctx |n_slots|n_parallel"
+docker logs --since "$since" llama 2>&1 | grep -E "buffer size|model size|flash_attn|n_ctx |n_slots|n_parallel" | head -20
 ```
 
-Native's, the same commands, but with `since` in the form `journalctl` reads, and the buffers read
+A later read confirmed the container's flash attention:
+
+```sh
+docker logs --since 5m llama 2>&1 | grep -i "flash attention\|flash_attn" | head -3
+```
+
+Native's, the same lines, but with `since` in the form `journalctl` reads, and the buffers read
 from the unit's journal:
 
 ```sh
 since=$(date "+%F %T"); start=$(date +%s.%N)
-journalctl -u llama-router --since "$since" --no-pager -o cat | grep -E "buffer size|n_ctx  |flash_attn|Flash Attention|n_slots"
+journalctl -u llama-router --since "$since" --no-pager -o cat | grep -E "buffer size|n_ctx  |flash_attn|Flash Attention|n_slots" | head -14
 ```
 
 ### Per method: the build, the path, and the warm-up
 
-On the laptop, from the clone, after each method's load, as bench-gb10-container ran them
+On the laptop, from the clone, after each method's load. Before the container's, the directory
+the cells write to, which `.state/` keeps untracked:
+
+```sh
+mkdir -p .state/bench
+```
+
+Then, for each method, the time and the network path:
+
+```sh
+date -u +%FT%TZ; tailscale ping -c 3 gb10-1
+```
+
+and the build and the warm-up, as bench-gb10-container ran them
 ([Per model: the build and the warm-up](bench-gb10-container.md#per-model-the-build-and-the-warm-up)):
 
 ```sh
 model=ggml-org/gpt-oss-120b-GGUF:MXFP4
 tok=openai/gpt-oss-120b
-tailscale ping -c 3 gb10-1
 curl -sG "http://gb10-1:8080/props" --data-urlencode "model=$model" --data-urlencode autoload=false | jq -r .build_info
 curl -s "http://gb10-1:8080/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one sentence.\"}]}" | jq '.choices[0].message.content'
 ```
@@ -136,23 +174,20 @@ curl -s "http://gb10-1:8080/v1/chat/completions" -H "Content-Type: application/j
 On the laptop, the anchor scenarios A (`bench/anchor-a.yaml`, 1 stream × 8 requests) and B
 (`bench/anchor-b.yaml`, 4 streams × 32), as task 1 defined them
 ([Method](llama-gb10-container.md#method)): gpt-oss-120b MXFP4, 512 synthetic prompt tokens and
-exactly 256 output tokens a request. With the target set once:
+exactly 256 output tokens a request. Each method's cells ran as one block, A then B; the
+container's:
 
 ```sh
-export GUIDELLM__SPEC__BACKEND__TARGET=http://gb10-1:8080
-```
-
-each cell ran with `cell` set to `a`, then `b`. The container's:
-
-```sh
-cell=a
+export GUIDELLM__SPEC__BACKEND__TARGET="http://gb10-1:8080"; model=ggml-org/gpt-oss-120b-GGUF:MXFP4
+for cell in a b; do
 curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/llama-container-anchor-$cell.before.metrics
-MISE_ENV=bench mise exec -- guidellm run -c bench/anchor-$cell.yaml --output "kind=json,path=.state/bench/llama-container-anchor-$cell.json" > .state/bench/llama-container-anchor-$cell.log 2>&1
+MISE_ENV=bench mise exec -- guidellm run -c bench/anchor-$cell.yaml --output "kind=json,path=.state/bench/llama-container-anchor-$cell.json" > .state/bench/llama-container-anchor-$cell.log 2>&1; echo "llama-container-anchor-$cell: guidellm exit $?"
 curl -sG "http://gb10-1:8080/metrics" --data-urlencode "model=$model" --data-urlencode autoload=false > .state/bench/llama-container-anchor-$cell.after.metrics
+done
 ```
 
-Native's, the same three commands with `llama-native-anchor-$cell` in each file name in place of
-`llama-container-anchor-$cell`.
+Native's, the same block with `llama-native-anchor-$cell` in place of
+`llama-container-anchor-$cell` throughout.
 
 ### Model state
 
@@ -175,28 +210,40 @@ awk '{ d[$1] += (NR == FNR ? -$2 : $2) } END { m = "llamacpp:"; printf "prompt %
 
 ### llama-bench
 
-On gb10-1, after native's cells, with native llama.cpp stopped and disabled and the container
-stopped, so no engine held a model:
+On gb10-1, after native's cells, with the container stopped, native llama.cpp stopped and
+disabled, so no engine held a model:
 
 ```sh
-sudo -n systemctl stop llama-router && sudo -n systemctl disable llama-router
+sudo -n systemctl stop llama-router && sudo -n systemctl disable llama-router; systemctl is-active llama-router
+mkdir -p ~/bench
 ```
 
 pp512 and tg256, 5 repetitions, every layer on the GPU, and flash attention on (`-fa 1`), since
 both servers logged `Flash Attention enabled` for gpt-oss-120b's load. `m` names the model's GGUF
-in the store, gpt-oss-120b MXFP4 first:
+in the store. gpt-oss-120b MXFP4 first, each run timed:
 
 ```sh
 m=/srv/models/models--ggml-org--gpt-oss-120b-GGUF/snapshots/7200b74bea78b0a2964ef9f3897eefa401e890ff/gpt-oss-120b-MXFP4.gguf
-/opt/llama.cpp/current/llama-bench -m "$m" -p 512 -n 256 -r 5 -ngl 99 -fa 1 -o md 2>/dev/null | tee ~/bench/native-gptoss.md
-docker run --rm --gpus all --user "$(id -u):$(id -g)" --volume /srv/models:/srv/models ghcr.io/ggml-org/llama.cpp:full-cuda13-b11669 --bench -m "$m" -p 512 -n 256 -r 5 -ngl 99 -fa 1 -o md 2>/dev/null | tee ~/bench/container-gptoss.md
+echo "== native"; time /opt/llama.cpp/current/llama-bench -m "$m" -p 512 -n 256 -r 5 -ngl 99 -fa 1 -o md 2>/dev/null | tee ~/bench/native-gptoss.md
+time docker run --rm --gpus all --user "$(id -u):$(id -g)" --volume /srv/models:/srv/models ghcr.io/ggml-org/llama.cpp:full-cuda13-b11669 --bench -m "$m" -p 512 -n 256 -r 5 -ngl 99 -fa 1 -o md 2>/dev/null | tee ~/bench/container-gptoss.md
 ```
 
-Then gemma-4-26B-A4B QAT Q4_0, the same two commands teeing to `~/bench/native-gemma26b.md` and
-`~/bench/container-gemma26b.md`:
+Then gemma-4-26B-A4B QAT Q4_0, untimed:
 
 ```sh
-m=/srv/models/models--google--gemma-4-26B-A4B-it-qat-q4_0-gguf/snapshots/d1c082be9cf3c8a514acf63b8761f4b41935842e/gemma-4-26B_q4_0-it.gguf
+m=/srv/models/models--google--gemma-4-26B-A4B-it-qat-q4_0-gguf/snapshots/$(ls /srv/models/models--google--gemma-4-26B-A4B-it-qat-q4_0-gguf/snapshots)/gemma-4-26B_q4_0-it.gguf
+/opt/llama.cpp/current/llama-bench -m "$m" -p 512 -n 256 -r 5 -ngl 99 -fa 1 -o md 2>/dev/null | tee ~/bench/native-gemma26b.md
+docker run --rm --gpus all --user "$(id -u):$(id -g)" --volume /srv/models:/srv/models ghcr.io/ggml-org/llama.cpp:full-cuda13-b11669 --bench -m "$m" -p 512 -n 256 -r 5 -ngl 99 -fa 1 -o md 2>/dev/null | tee ~/bench/container-gemma26b.md
+```
+
+The snapshot resolves to `d1c082be9cf3c8a514acf63b8761f4b41935842e`.
+
+### End state
+
+On gb10-1, after llama-bench:
+
+```sh
+systemctl is-active llama-router; systemctl is-enabled llama-router; docker ps -a --format "{{.Names}} {{.Status}} {{.Image}}"
 ```
 
 ## Results
@@ -204,8 +251,8 @@ m=/srv/models/models--google--gemma-4-26B-A4B-it-qat-q4_0-gguf/snapshots/d1c082b
 Run on 2026-10-27 on gb10-1, all times -04:00, from the files each step wrote: the container's
 cells from 09:19:59 to 09:22:45, native's from 09:23:57 to 09:26:47, and llama-bench from 09:27
 to 09:29 (its files written at 09:27:49, 09:28:24, 09:29:01, and 09:29:20, in the order above).
-No run took over 10 minutes: A ran 41 to 42 s, B 101 s, and each gpt-oss-120b llama-bench run
-about 36 to 38 s.
+No run took over 10 minutes: A ran 41 to 42 s, B 101 s, and gpt-oss-120b's llama-bench runs
+37.8 s natively and 35.9 s in the container, real.
 
 ### Install, update, and rollback
 
@@ -216,8 +263,8 @@ Native's walk, from v0.6.0 (b11429) to v0.7.0 (b11669), back, and forward again:
 | Root steps | — | `sudo -n systemctl stop llama-router` printed nothing | — |
 | `install v0.6.0` | 28.8 s real | both sha256 digests matched (`9c76d072…`, `ad62e46c…`); `llama-router serves b11429 on port 8080 of the tailnet address` | `--version` `0.6.0-dev (build 11429, commit d81235049)`; `ldd` lists `libcudart.so.13`, `libcublas.so.13`, and `libcublasLt.so.13` from `/opt/llama.cpp/current`; `/health` ok on gb10-1 and from the laptop |
 | `update` | 26.9 s real | `llama-router moved from b11429 to b11669`; `removed /opt/llama.cpp/b11429` | `/opt/llama.cpp` lists `b11669`, `current`, and `preset`; `/health` from the laptop, see below |
-| `update v0.6.0`, the rollback | — | `llama-router moved from b11669 to b11429`; `removed /opt/llama.cpp/b11669` | `/health` ok from the laptop |
-| `update`, forward again | — | `llama-router moved from b11429 to b11669` | `/health` ok from the laptop |
+| `update v0.6.0`, the rollback | `/health` at 09:17:30.98 | `llama-router moved from b11669 to b11429`; `removed /opt/llama.cpp/b11669` | `/health` ok from the laptop |
+| `update`, forward again | `/health` at 09:18:00.48 | `llama-router moved from b11429 to b11669` | `/health` ok from the laptop |
 | `install`, a second time | — | `llama-router already serves b11669; nothing changed` | — |
 | `host/engines llama install`, `host/engines vllm install` | — | each refused: `llama-router is active, and one engine serves per host at a time; sudo -n systemctl stop llama-router && sudo -n systemctl disable llama-router stops it` | — |
 
@@ -225,9 +272,9 @@ Native's walk, from v0.6.0 (b11429) to v0.7.0 (b11669), back, and forward again:
   about 700 MB. Update keeps the old build until the new one answers `/health`, and only then
   removes it, so a rollback downloads the older build again.
 - The first laptop `/health` after the update, `curl -s http://gb10-1:8080/health` run right after
-  it, exited 7 (connection refused), while the unit's journal shows the server listening at
-  09:16:36.08. The next check, seconds later, answered ok, and so did every later one. Recorded as
-  observed; not explained.
+  it, exited 7 (connection refused), at about 09:16:36 to 09:16:37, while the unit's journal
+  shows the server listening at 09:16:36.08. The next check, seconds later, answered ok, and so
+  did every later one. Recorded as observed; not explained.
 - Switching to the container, `host/engines llama install` printed `llama is installed with
   ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669 but stopped; docker start llama starts it`, and
   `docker start llama` started it. The container's own install, update, and rollback are task 1's
@@ -304,9 +351,10 @@ didn't test the behavior.
 
 ### gb10-1's end state
 
-After llama-bench: `llama-router` inactive and disabled; the `llama` container exited, on
-`server-cuda13-b11669` with restart `unless-stopped`, stopped by hand so it stays stopped at boot;
-the `vllm` container exited, on v0.32.0. Nothing serves on gb10-1.
+After llama-bench, the end-state read printed `inactive`, `disabled`, `llama` `Exited (0)`, and
+`vllm` `Exited (0)`: the `llama` container on `server-cuda13-b11669`, with restart
+`unless-stopped`, stopped by hand so it stays stopped at boot, and `vllm` on v0.32.0. Nothing
+serves on gb10-1.
 
 ## Findings
 
