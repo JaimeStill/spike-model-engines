@@ -93,8 +93,43 @@ old release still serves. Then, since two servers can't both reserve 0.80 of the
 it stops `vllm-server` before it points `current` at the new release, writes the row file, and
 starts it again. It waits for `/health` to answer, for at most 10 minutes. Only once the new
 release serves does it remove every other release, so only the serving release is kept. It prints
-uv's and the kernel install's output, then what moved and what it removed, then the server's
-`/version` and torch's version and CUDA, 13.0.
+uv's and the kernel install's output, phase by phase as `install` does ([What the native install
+runs](setup.md#what-the-native-install-runs)), then what moved and what it removed, then the
+server's `/version` and torch's version and CUDA, 13.0. From v0.31.0 to the pin, `update v0.32.0`
+in [the walk](#the-walk), uv's install reads:
+
+```text
+Using Python 3.12.16 environment at: /opt/vllm/v0.32.0
+Resolved 198 packages in 675ms
+Downloading vllm (306.5MiB)
+```
+
+then seven more `Downloading` lines, transformers and NVIDIA's CUTLASS DSL libraries among them,
+their `Downloaded` lines, and
+
+```text
+Prepared 17 packages in 17.45s
+Installed 198 packages in 200ms
+```
+
+uv downloads only the 17 packages v0.31.0's install didn't leave in its cache; the other 181
+come from the cache. The kernel install starts with the line `vllm download-kernels` prints
+before it installs anything ([What the native install runs](setup.md#what-the-native-install-runs)),
+`FlashInfer kernels are disabled: …`, and since v0.32.0 has v0.31.0's FlashInfer, 0.7.0.post1,
+both wheels come from the cache too (`Prepared 9 packages in 150ms`). It ends:
+
+```text
+built /opt/vllm/v0.32.0
+vllm-server moved from v0.31.0 to v0.32.0
+removed /opt/vllm/v0.31.0
+/version answers {"version":"0.32.0"}; torch 2.13.0+cu130, CUDA 13.0
+```
+
+Between `built` and `moved` it waits, silent, for minutes, while the new release starts; follow
+`journalctl -fu vllm-server` in a second terminal to watch it. Stopping v0.31.0 before the
+start writes `ERROR` lines to the journal, an `EngineDeadError` traceback from vLLM's API server
+once its engine is killed on `SIGTERM`; that is v0.31.0 shutting down, not a failure, and
+v0.32.0's stop logs none.
 
 When the start fails, `update` stops before removing anything, saying `journalctl -u
 vllm-server` shows why and that the old release stays, with the update that moves back to it,
@@ -128,11 +163,45 @@ stops the server, re-points `current` at it, starts it, and removes the newer on
 host/engines vllm-native update v0.31.0
 ```
 
+The build is the cache's: uv resolves the 199 packages and downloads almost none, against 199 in
+about 2 minutes on the first install, and the kernel wheels come from the cache as well:
+
+```text
+Using Python 3.12.16 environment at: /opt/vllm/v0.31.0
+Resolved 199 packages in 325ms
+Prepared 5 packages in 1ms
+Installed 199 packages in 151ms
+```
+
+It ends:
+
+```text
+built /opt/vllm/v0.31.0
+vllm-server moved from v0.32.0 to v0.31.0
+removed /opt/vllm/v0.32.0
+/version answers {"version":"0.31.0"}; torch 2.13.0+cu130, CUDA 13.0
+```
+
 Forward again is an update with no release, or the pin's:
 
 ```sh
 host/engines vllm-native update
 ```
+
+It builds v0.32.0 from the cache in the same way (`Prepared 5 packages in 18ms`), prints the
+`FlashInfer kernels are disabled: …` line before its kernel install, as v0.32.0 does, and ends:
+
+```text
+built /opt/vllm/v0.32.0
+vllm-server moved from v0.31.0 to v0.32.0
+removed /opt/vllm/v0.31.0
+/version answers {"version":"0.32.0"}; torch 2.13.0+cu130, CUDA 13.0
+```
+
+Removing a release removes its virtualenv only. The compile caches in `/opt/vllm/cache` stay, so
+a release that comes back starts on the torch.compile it saved the first time: the rollback's
+start logged `Directly load AOT compilation from path …` and `torch.compile took 0.30 s in total`,
+and the forward's `0.71 s`, against 27 s on each release's first start.
 
 ### The walk
 
@@ -149,4 +218,6 @@ host/engines vllm-native update
 ```
 
 Each start is a cold start; time and record it as [Setup](setup.md#4-check-it-serves) shows. The
-first start of each release compiles from an empty compile cache for that release.
+first start of each release compiles from an empty compile cache for that release; a later start
+of it, the rollback's and the forward's, loads what that first start saved
+([Rolling back](#rolling-back)).
