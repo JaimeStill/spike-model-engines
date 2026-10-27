@@ -755,6 +755,31 @@ comma-separated list, and llama-bench runs every combination. The exact commands
 runs are in its finding's method, as gb10-1's native and container runs are in
 [llama-gb10-native](../../findings/llama-gb10-native.md#llama-bench).
 
+### On the Framework
+
+The Framework runs llama-bench from three builds of the same b-build, to compare the backends
+with the server taken out: ggml's `full-rocm-<build>` image, with the ROCm flavor's devices,
+`/dev/kfd` and `/dev/dri`, in place of `--gpus all`; `full-vulkan-<build>`, with `/dev/dri` alone;
+and ggml's native Vulkan prebuilt, unpacked in `~/llama.cpp/b11669-vulkan`
+([Models](models.md#on-the-framework)), which runs on the host's Mesa where the Vulkan image runs
+its own. The full images are about 34 GB (ROCm) and 3.6 GB (Vulkan), uncompressed. Each lists the
+GPU it finds:
+
+```sh
+docker run --rm --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-rocm-b11669 --bench --list-devices
+docker run --rm --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-vulkan-b11669 --bench --list-devices
+~/llama.cpp/b11669-vulkan/llama-bench --list-devices
+```
+
+ROCm lists `ROCm0: Radeon 8060S Graphics` with the GTT ceiling, 114688 MiB; both Vulkan builds
+list `Vulkan0` as `RADV STRIX_HALO` with 115200 MiB, the ceiling plus the firmware's 512 MiB.
+The `llama` container holds the GPU's memory while it serves, so stop it first (`docker stop
+llama`) and start it again after. A run then takes the general form above, the container's with
+its flavor's devices in place of `--gpus all`, or the prebuilt's path in place of
+`/opt/llama.cpp/current`. The matrix and the exact commands, at depths 0 and 8192 and each run
+held to the 10-minute cap, are in
+[llama-strix-rocm](../../findings/llama-strix-rocm.md#llama-bench).
+
 ### What it reports
 
 By default, a Markdown table with one row per test: the model, its size and parameters, the
