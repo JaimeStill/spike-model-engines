@@ -6,22 +6,22 @@ router, a vLLM server serves one model, named on its command line when it starts
 other on demand: changing the model means starting the server again, with `update`, on another
 row of model and flags.
 
-The spike follows vLLM's GitHub releases. The pin lives in `engines/vllm.env`: release v0.32.0,
+The spike follows vLLM's GitHub releases. The pin lives in `host/vllm.env`: release v0.32.0,
 image `vllm/vllm-openai:v0.32.0`, and the row the host serves by default,
 `gemma-4-26B-A4B-NVFP4`: `nvidia/Gemma-4-26B-A4B-NVFP4` with its server flags. Every model the
-server can serve is a row in `engines/vllm-rows`, its model and its flags, and
+server can serve is a row in `host/vllm-rows`, its model and its flags, and
 `VLLM_MODEL=<row id>` before `install` or `update` serves another row for one run
 ([Models](models.md#changing-the-model)). `mise run currency` reports the release when a newer
 one is out.
 
 The `engines` commands install, update, and uninstall it. They run from a clone of this
-repository on the host, as `engines/engines vllm <verb>`:
+repository on the host, as `host/engines vllm <verb>`:
 
 | Command | What it does |
 |---|---|
-| `engines/engines vllm install` | Runs the server on the pinned row, or `VLLM_MODEL`'s, at the pinned release or the release given |
-| `engines/engines vllm update` | Moves the server to the pinned release and row, or `VLLM_MODEL`'s, and removes every other vLLM image |
-| `engines/engines vllm uninstall` | Removes the server, every vLLM image, and the compile cache, keeping `/srv/models` |
+| `host/engines vllm install` | Runs the server on the pinned row, or `VLLM_MODEL`'s, at the pinned release or the release given |
+| `host/engines vllm update` | Moves the server to the pinned release and row, or `VLLM_MODEL`'s, and removes every other vLLM image |
+| `host/engines vllm uninstall` | Removes the server, every vLLM image, and the compile cache, keeping `/srv/models` |
 
 Each changes nothing, and says so, when run a second time. One engine serves per host at a time:
 vLLM's install and update refuse while llama.cpp's `llama` container runs, and llama.cpp's

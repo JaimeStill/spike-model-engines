@@ -26,8 +26,8 @@ pending, and the CDI spec was regenerated after the upgrade
 
 | Engine | Release | Build or image |
 |---|---|---|
-| llama.cpp | v0.7.0 | b11669, `ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669` (`engines/llama.env`) |
-| vLLM | v0.32.0 | `vllm/vllm-openai:v0.32.0` (`engines/vllm.env`) |
+| llama.cpp | v0.7.0 | b11669, `ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669` (`host/llama.env`) |
+| vLLM | v0.32.0 | `vllm/vllm-openai:v0.32.0` (`host/vllm.env`) |
 
 The load tool is GuideLLM 0.8.1 on the laptop, in the spike's bench environment
 (`mise.bench.toml`: Python 3.14.10, with the `vision` and `audio` extras).
@@ -157,7 +157,7 @@ model, except for E4B's QAT row, which takes the BF16 model's, as llama.cpp's E4
 | `granite-embedding-english-r2` | `ibm-granite/granite-embedding-english-r2` | `ibm-granite/granite-embedding-english-r2` |
 | `gpt-oss-120b` | `openai/gpt-oss-120b` | `openai/gpt-oss-120b` |
 
-The rows' flags are in `engines/vllm-rows` ([vLLM's Models](../engines/vllm/models.md#the-rows)).
+The rows' flags are in `host/vllm-rows` ([vLLM's Models](../engines/vllm/models.md#the-rows)).
 
 The client figures are GuideLLM's, and the server figures each engine's own `/metrics` counters,
 differenced over each cell, as in [llama.cpp's anchor cells](llama-gb10-container.md#method) and
@@ -212,7 +212,7 @@ preset:
 
 ```sh
 git pull --ff-only
-engines/engines llama install
+host/engines llama install
 curl -s "http://$(tailscale ip -4):8080/models?reload=1" > /dev/null
 curl -s "http://$(tailscale ip -4):8080/models" | jq '.data[] | {id, status: .status.value}'
 ```
@@ -427,9 +427,9 @@ returns to the default (`verb=default`):
 
 ```sh
 case $verb in
-  install) engines/engines vllm install ;;
-  row) VLLM_MODEL=$row engines/engines vllm update ;;
-  default) engines/engines vllm update ;;
+  install) host/engines vllm install ;;
+  row) VLLM_MODEL=$row host/engines vllm update ;;
+  default) host/engines vllm update ;;
 esac 2>&1 | tail -3
 ```
 
@@ -594,7 +594,7 @@ quote. Its start is timed and its footprint read like every other row's, and on 
 gb10-1, a second update changes nothing and says so:
 
 ```sh
-engines/engines vllm update
+host/engines vllm update
 ```
 
 ### The round 5 runs
@@ -1182,7 +1182,7 @@ In order:
 1. On vLLM's default row, which step 9 left running, the vision probe from
    [vLLM's API page](../engines/vllm/api.md#probes-of-the-api-surface), which served as the
    warm-up, then A'. Its decode reproduces step 1's (30.0 against 30.5 tok/s on the server).
-2. On gb10-1, `docker stop vllm`, then `engines/engines llama install`, which reported `llama`
+2. On gb10-1, `docker stop vllm`, then `host/engines llama install`, which reported `llama`
    stopped, then `docker start llama`.
 3. On the laptop, gpt-oss-120b loaded through the router's `/models/load`, and `/models` listed
    until it showed `loaded`.
@@ -1208,7 +1208,7 @@ cold. The walkthrough with it named, after the method's sections:
 
    ```sh
    docker stop vllm
-   engines/engines llama install
+   host/engines llama install
    docker start llama
    ```
 

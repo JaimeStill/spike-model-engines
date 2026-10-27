@@ -7,18 +7,18 @@ its models preset, as a child process, when asked over its API. The router loads
 demand, so one server serves every model in the preset.
 
 The spike follows llama.cpp's semver releases and runs the b-build each one names. The pin lives
-in `engines/llama.env`: release v0.7.0, build b11669, image
+in `host/llama.env`: release v0.7.0, build b11669, image
 `ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669`. `mise run currency` reports the build when a
 newer semver release names a newer one.
 
 The `engines` commands install, update, and uninstall it. They run from a clone of this
-repository on the host, as `engines/engines llama <verb>`:
+repository on the host, as `host/engines llama <verb>`:
 
 | Command | What it does |
 |---|---|
-| `engines/engines llama install` | Runs the router at the pin, or at the b-build given |
-| `engines/engines llama update` | Moves the router to the pin and removes every other llama.cpp image |
-| `engines/engines llama uninstall` | Removes the router and every llama.cpp image, keeping `/srv/models` |
+| `host/engines llama install` | Runs the router at the pin, or at the b-build given |
+| `host/engines llama update` | Moves the router to the pin and removes every other llama.cpp image |
+| `host/engines llama uninstall` | Removes the router and every llama.cpp image, keeping `/srv/models` |
 
 Each changes nothing, and says so, when run a second time. One engine serves per host at a time:
 install and update refuse while vLLM's `vllm` container runs ([vLLM](../vllm/README.md)).

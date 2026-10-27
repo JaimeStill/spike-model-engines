@@ -4,7 +4,7 @@ Recorded on 2026-10-23, from [the llama.cpp setup guide](../engines/llama.cpp/se
 in a container.
 
 The pinned build is b11669, the b-build named by llama.cpp's latest semver release, v0.7.0, run
-from `ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669` (`engines/llama.env`).
+from `ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669` (`host/llama.env`).
 
 ## Host stack
 
@@ -45,7 +45,7 @@ started the image first time.
 
 ## Serving and the model store
 
-`engines/engines llama install` started the router at b11669 on both hosts, bound to each host's
+`host/engines llama install` started the router at b11669 on both hosts, bound to each host's
 tailnet address on port 8080; a second run changed nothing, and `/health` answered
 `{"status":"ok"}`. The server warns that it has no API key and that CORS allows every origin; the
 port is published on the tailnet address only, and access control belongs to spike-model-gateway.
@@ -66,7 +66,7 @@ From the laptop, gb10-1 answered an OpenAI chat completion ("Say hello in one se
 `content` "Hello!" and gpt-oss's reasoning in `reasoning_content`, and `/v1/models` listed the
 model `loaded`.
 
-`engines/engines llama update` on gb10-1, already at the pin, changed nothing. `engines/engines
+`host/engines llama update` on gb10-1, already at the pin, changed nothing. `host/engines
 llama uninstall` on gb10-2 removed the container and its image, a second run changed nothing, no
 llama.cpp image remained, and `/srv/models` kept the model.
 
@@ -208,13 +208,13 @@ gpt-oss-120b, so no step downloaded it.
 
 | Step | gb10-2 | gb10-1 |
 |---|---|---|
-| `engines/engines llama install b11429`, `/props` build_info | `b11429-d81235049` | `b11429-d81235049` |
+| `host/engines llama install b11429`, `/props` build_info | `b11429-d81235049` | `b11429-d81235049` |
 | Chat completion at b11429 | "Hello! I hope your day is wonderful." | "Hello! Hope you’re having a wonderful day." |
-| `engines/engines llama update`, images left | `server-cuda13-b11669` only | `server-cuda13-b11669` only; it printed `llama moved from …b11429 to …b11669` and `removed image …b11429` |
-| Second `engines/engines llama update` | nothing changed | nothing changed |
+| `host/engines llama update`, images left | `server-cuda13-b11669` only | `server-cuda13-b11669` only; it printed `llama moved from …b11429 to …b11669` and `removed image …b11429` |
+| Second `host/engines llama update` | nothing changed | nothing changed |
 | Model reloaded from the store, `/props` build_info | `b11669-620d2225c` | `b11669-620d2225c` |
 | Chat completion at b11669 | "Hello! I’m glad you’re here." | "Hello, I hope your day is going spectacularly well!" |
-| `engines/engines llama uninstall`, images left, store | container and b11669 image removed; none left; model kept | container and b11669 image removed; none left; model kept |
+| `host/engines llama uninstall`, images left, store | container and b11669 image removed; none left; model kept | container and b11669 image removed; none left; model kept |
 
 After the walkthrough, the standards review changed the scripts (a preflight before any pull or
 removal, Docker errors passed up, and the container found by an exact name filter). The cell B

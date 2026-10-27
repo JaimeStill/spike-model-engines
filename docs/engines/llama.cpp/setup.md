@@ -49,7 +49,7 @@ needs.
 
 ### 3. Prove the pinned image runs on the GPU
 
-Pull the pinned image (`engines/llama.env`), ask its `llama-server` for its build, then list the
+Pull the pinned image (`host/llama.env`), ask its `llama-server` for its build, then list the
 devices it finds with the GPU attached:
 
 ```sh
@@ -75,7 +75,7 @@ Every later command on the host runs from `spike-model-engines`. With no argumen
 lists its commands, each with what it does:
 
 ```sh
-engines/engines
+host/engines
 ```
 
 ### 5. Create the model store
@@ -91,11 +91,11 @@ sudo install -d -o "$(id -un)" -g "$(id -gn)" /srv/models
 ### 6. Install
 
 ```sh
-engines/engines llama install
+host/engines llama install
 ```
 
 `install` pulls the pinned image and starts one container, `llama`, running `llama-server` in
-router mode: no model on its command line, the models preset (`engines/llama-preset/models.ini`)
+router mode: no model on its command line, the models preset (`host/llama-preset/models.ini`)
 mounted read-only, and `/srv/models` mounted as llama.cpp's download cache (`LLAMA_CACHE`). It
 runs with `--restart unless-stopped`, so Docker starts it again after a reboot, and publishes port
 8080 on the host's tailnet IPv4 address only. The router starts no model by itself

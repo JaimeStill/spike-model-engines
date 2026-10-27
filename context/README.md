@@ -69,7 +69,7 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
 
 - **Engine guides:** setup, models, APIs, updates, and uninstall, per engine, under
   `docs/engines/<engine>/`; llama.cpp's and vLLM's are written.
-- **The `engines` suite:** the scripted install, update, and uninstall steps, under `engines/`;
+- **The `engines` suite:** the scripted install, update, and uninstall steps, under `host/`;
   llama.cpp's and vLLM's are written.
 - **Served-load findings:** GuideLLM runs under `docs/findings/`.
   `bench-gb10-container.md` compares both engines on gb10-1 in containers by shape, quantization,

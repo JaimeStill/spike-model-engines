@@ -16,7 +16,7 @@ the date, in the task's finding.
 
 ### 2. Prove the pinned image runs on the GPU
 
-Pull the pinned image (`engines/vllm.env`). The image's entrypoint is `vllm serve`, so each check
+Pull the pinned image (`host/vllm.env`). The image's entrypoint is `vllm serve`, so each check
 below replaces it with `--entrypoint`: first ask `vllm` for its version, then ask PyTorch, in the
 image's Python, for the GPU it finds:
 
@@ -73,14 +73,14 @@ docker stop llama
 Then install:
 
 ```sh
-engines/engines vllm install
+host/engines vllm install
 ```
 
 `install` pulls the pinned image and starts one container, `vllm`, running `vllm serve` on the
 pin's default row, `gemma-4-26B-A4B-NVFP4`: the model `nvidia/Gemma-4-26B-A4B-NVFP4` and its
 server flags. It runs as your account, with `--restart unless-stopped`, so Docker starts it again
 after a reboot, and publishes port 8000 on the host's tailnet IPv4 address only. The row's flags
-are in `engines/vllm-rows` ([Models](models.md#the-rows)):
+are in `host/vllm-rows` ([Models](models.md#the-rows)):
 
 | Flag | Value | Why |
 |---|---|---|
@@ -157,5 +157,5 @@ curl -s -o /dev/null -w '%{http_code}\n' "http://$(tailscale ip -4):8000/health"
 While `vllm` runs, llama.cpp's install refuses, naming `docker stop vllm`, and changes nothing:
 
 ```sh
-engines/engines llama install
+host/engines llama install
 ```

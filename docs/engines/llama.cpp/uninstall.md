@@ -5,7 +5,7 @@
 On the host, from the clone:
 
 ```sh
-engines/engines llama uninstall
+host/engines llama uninstall
 ```
 
 `uninstall` removes the `llama` container and every llama.cpp image, and keeps the model store,

@@ -5,9 +5,9 @@
 # (/srv/models) as llama.cpp's download cache. It runs as the invoking user, so the store's files
 # stay that user's, and publishes port 8080 on the host's tailnet IPv4 address only.
 
-# shellcheck source=engines/engines.sh
+# shellcheck source=host/engines.sh
 source "$(dirname "${BASH_SOURCE[0]}")/engines.sh"
-# shellcheck source=engines/llama.env
+# shellcheck source=host/llama.env
 source "$(dirname "${BASH_SOURCE[0]}")/llama.env"
 
 LLAMA_CONTAINER=llama

@@ -4,7 +4,7 @@ Recorded on 2026-10-23, from [the vLLM setup guide](../engines/vllm/setup.md), G
 container.
 
 The pinned release is v0.32.0, vLLM's latest GitHub release, run from `vllm/vllm-openai:v0.32.0`,
-and the model it serves is `nvidia/Gemma-4-26B-A4B-NVFP4` (`engines/vllm.env`).
+and the model it serves is `nvidia/Gemma-4-26B-A4B-NVFP4` (`host/vllm.env`).
 
 ## Host stack
 
@@ -38,9 +38,9 @@ Both hosts pulled the same image:
 
 ## Serving and the model store
 
-`engines/engines vllm install` started the server at v0.32.0 on each host, bound to its tailnet
+`host/engines vllm install` started the server at v0.32.0 on each host, bound to its tailnet
 address on port 8000, with 4 sequences of 8192 tokens and 0.80 of the GPU's memory
-(`engines/vllm.sh`). [Cold starts](#cold-starts) lists every start's time and how it was taken.
+(`host/vllm.sh`). [Cold starts](#cold-starts) lists every start's time and how it was taken.
 
 ### gb10-1
 
@@ -65,7 +65,7 @@ FP8 but ships no k/v scales, and that the experts' `w1` and `w3` `weight_scale_2
 first warning the architect chose a BF16 KV cache (`--kv-cache-dtype bfloat16`), and install and
 update now compare the whole served command, flags included, not the image and model alone.
 
-`engines/engines vllm update` restarted the container under the BF16 flags, without a pull or a
+`host/engines vllm update` restarted the container under the BF16 flags, without a pull or a
 download; a second update changed nothing. Before it, `docker inspect` showed the running
 container's command with `--kv-cache-dtype auto`.
 
@@ -127,15 +127,15 @@ Against gb10-1 under the BF16 flags, by its short name, which MagicDNS resolves:
 
 ### llama.cpp refuses
 
-While `vllm` ran on gb10-1, `engines/engines llama install` refused, changing nothing: `vllm is
-running, and one engine serves per host at a time; docker stop vllm stops it`. On 2026-10-24 `engines/engines
+While `vllm` ran on gb10-1, `host/engines llama install` refused, changing nothing: `vllm is
+running, and one engine serves per host at a time; docker stop vllm stops it`. On 2026-10-24 `host/engines
 llama update` refused the same way (exit 1).
 
 ### A stopped container
 
 Found at the brief: install reported "already runs; nothing changed" for a stopped container.
 After the fix, on gb10-1 on 2026-10-24, with `vllm` stopped by `docker stop vllm`, both
-`engines/engines vllm install` and `update` printed `vllm is installed with
+`host/engines vllm install` and `update` printed `vllm is installed with
 vllm/vllm-openai:v0.32.0 and nvidia/Gemma-4-26B-A4B-NVFP4 but stopped; docker start vllm starts
 it` (exit 0) and left it exited. After `docker start vllm`, both said `already runs …; nothing
 changed`. From the laptop, `/version` answered `0.32.0`. The session then uninstalled vLLM again,
@@ -160,7 +160,7 @@ An earlier install on gb10-2, during the guide's step 6, had started `vllm` at 2
 the FP8 flags, before the copy, and downloaded the model itself in 735.8 s. Its FP8 KV cache held
 945,745 tokens; weight load took 140.2 s and engine init 87.34 s (compile 34.03 s).
 
-After the pull, `engines/engines vllm install` refused, as it should, since the running container
+After the pull, `host/engines vllm install` refused, as it should, since the running container
 served other flags: `under other server flags; engines vllm update moves it to the pin`. Update
 then restarted it under the BF16 flags:
 
@@ -175,7 +175,7 @@ that a copied model loads without a download.
 
 ### A copied model in an emptied store
 
-During the walkthrough, gb10-2 proved it. After `engines/engines vllm uninstall`, the architect
+During the walkthrough, gb10-2 proved it. After `host/engines vllm uninstall`, the architect
 deleted the model with the guide's procedure
 ([Uninstall](../engines/vllm/uninstall.md#deleting-the-model)). The list of shared files held 3
 blobs: the two weight shards and `tokenizer.json`. After the delete, the model's directory was
@@ -185,7 +185,7 @@ gone and the shared store, `/srv/models/blobs`, measured 32K. gb10-1 then copied
 |---|---|---|---|---|
 | `rsync -a` over SSH, gb10-1 to gb10-2-qsfp | 18,825,681,731 | 20 | 0:00:40 | 447.34 MB/s |
 
-`find -xtype l` printed nothing and `du -shL` of the model showed 18G. `engines/engines vllm
+`find -xtype l` printed nothing and `du -shL` of the model showed 18G. `host/engines vllm
 install v0.31.0` then started the server with no download line in its log.
 
 ## Anchor cells
@@ -339,12 +339,12 @@ throughout; gb10-2 deleted it and took a fresh copy before installing
 
 | Step | gb10-1 | gb10-2 |
 |---|---|---|
-| `engines/engines vllm uninstall` | removed the container, the v0.32.0 image, and the compile cache | the same |
+| `host/engines vllm uninstall` | removed the container, the v0.32.0 image, and the compile cache | the same |
 | Second `uninstall` | `vllm is not installed; nothing changed`; no vLLM images; model kept, 18G | not recorded |
 | Model | kept | deleted and copied again from gb10-1 |
-| `engines/engines vllm install v0.31.0` | digest `sha256:c1c9f6fd5c10…`; no download, empty compile cache; weight load 114.34 s, engine init 85.25 s (compile 27.96 s); BF16 KV cache 469,993 tokens | no download, empty compile cache; weight load 114.48 s, engine init 85.94 s (compile 27.64 s); KV cache 469,821 tokens |
+| `host/engines vllm install v0.31.0` | digest `sha256:c1c9f6fd5c10…`; no download, empty compile cache; weight load 114.34 s, engine init 85.25 s (compile 27.96 s); BF16 KV cache 469,993 tokens | no download, empty compile cache; weight load 114.48 s, engine init 85.94 s (compile 27.64 s); KV cache 469,821 tokens |
 | `/version` from the laptop | `0.31.0` | `0.31.0` |
-| `engines/engines vllm update` | pulled v0.32.0 (digest `befccf0e…`) before removing v0.31.0, and printed `moved from … to …`; the container's command shows `bfloat16` | pulled v0.32.0 first, printed `moved from … to …`, and removed v0.31.0 |
+| `host/engines vllm update` | pulled v0.32.0 (digest `befccf0e…`) before removing v0.31.0, and printed `moved from … to …`; the container's command shows `bfloat16` | pulled v0.32.0 first, printed `moved from … to …`, and removed v0.31.0 |
 | Images left | v0.32.0 only (10.3 GB content, 35.3 GB on disk) | v0.32.0 only |
 | Second `update` | nothing changed | nothing changed |
 | `/version` from the laptop | not recorded (the container's command showed `vllm/vllm-openai:v0.32.0`) | `0.32.0` |

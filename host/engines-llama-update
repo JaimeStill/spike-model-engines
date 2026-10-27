@@ -5,7 +5,7 @@
 # pin's container is stopped, it says docker start starts it, and never starts it itself. It
 # refuses while the vllm container runs, since one engine serves per host at a time.
 set -euo pipefail
-# shellcheck source=engines/llama.sh
+# shellcheck source=host/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
 
 engines_refuse_running vllm

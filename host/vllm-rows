@@ -1,6 +1,6 @@
 # vLLM's rows: one a model the server can serve, each the model and its server flags, named by
 # the pin (VLLM_ROWS in vllm.env). The pin's VLLM_MODEL names the row the host serves by default;
-# `VLLM_MODEL=<row id> engines/engines vllm update` serves another for one run
+# `VLLM_MODEL=<row id> host/engines vllm update` serves another for one run
 # (docs/engines/vllm/models.md, "Changing the model").
 #
 # A row is its id in brackets, then the model's Hugging Face repository, then its server flags,
