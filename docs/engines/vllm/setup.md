@@ -56,8 +56,8 @@ stat -c %U /srv/models
 
 ### 5. Install
 
-`install` refuses while llama.cpp's `llama` container runs, since one engine serves per host at
-a time. See whether it runs:
+`install` refuses while llama.cpp's `llama` container runs or its native `llama-router` unit is
+active, since one engine serves per host at a time. See whether the container runs:
 
 ```sh
 docker ps --filter name=llama
@@ -70,7 +70,8 @@ llama` brings it back once `vllm` is stopped:
 docker stop llama
 ```
 
-Then install:
+When native llama.cpp serves instead, stop `llama-router` as its
+[Setup](../llama.cpp/setup.md#4-stop-it) does. Then install:
 
 ```sh
 host/engines vllm install
@@ -102,9 +103,9 @@ temperature 1.0, top_p 0.95, top_k 64. Two directories are mounted:
 
 It prints the image, the model, and the port it serves on, without the address. A second run
 changes nothing and says so; when `vllm` is stopped, it says `docker start vllm` starts it, and
-leaves it stopped. It fails, changing nothing, while `llama` runs, when `/srv/models`
-is missing, when the host has no tailnet IPv4 address, or when `vllm` already runs another
-release, another model, or other server flags; [Update](update.md) moves a running one. Given a
+leaves it stopped. It fails, changing nothing, while `llama` or `llama-router` runs, when
+`/srv/models` is missing, when the host has no tailnet IPv4 address, or when `vllm` already runs
+another release, another model, or other server flags; [Update](update.md) moves a running one. Given a
 release, such as `v0.31.0`, it installs that release instead of the pin; given
 `VLLM_MODEL=<row id>` before it, it serves that row instead of the default
 ([Models](models.md#serving-another-row-for-one-run)).

@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# engines:summary=Serve native llama.cpp under llama-router, at the pin or the version given
+# Fetches the pinned build, or the build for the version given (a semver release, such as v0.6.0,
+# runs the b-build its notes name; a b-build, such as b11429, runs as given), into /opt/llama.cpp,
+# points current at it and preset at the clone's preset directory, then enables and starts the
+# llama-router unit and waits until it answers (llama-native.sh). When native llama.cpp is already
+# at that build with the clone's preset, it changes nothing if llama-router serves (active and
+# enabled), and otherwise enables and starts it. When it is at another build, or its preset link
+# names anywhere else, it refuses, saying which, and points at update. It refuses while the llama
+# or vllm container runs, since one engine serves per host at a time, and refuses, pointing at the
+# setup guide, until the architect's root steps are done. It refuses a version that is neither,
+# or a release whose notes it can't read, before it reads Docker or the host.
+set -euo pipefail
+# shellcheck source=host/llama-native.sh
+source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama-native.sh"
+
+build=$(llama_build "${1:-}")
+engines_refuse_running "$LLAMA_CONTAINER"
+engines_refuse_running vllm
+llama_native_preflight
+# The update that moves it to what install was asked for: the pin, or the version given.
+update="engines llama-native update${1:+ $1} moves it to ${1:-the pin}"
+
+current=$(llama_native_current)
+preset=$(llama_native_preset)
+if [[ -n $current && $current != "$build" ]]; then
+  echo "native llama.cpp is at $current, not $build; $update" >&2
+  exit 1
+elif [[ -n $current && $preset != "$LLAMA_PRESET_DIR" ]]; then
+  echo "$LLAMA_NATIVE_DIR/preset names ${preset:-nothing}, not $LLAMA_PRESET_DIR;" \
+    "$update" >&2
+  exit 1
+elif [[ -n $current ]] && llama_native_serving; then
+  echo "$LLAMA_UNIT already serves $build; nothing changed"
+  exit 0
+fi
+
+restart=
+if [[ -z $current ]]; then
+  llama_native_fetch "$build"
+  llama_native_link preset "$LLAMA_PRESET_DIR"
+  llama_native_link current "$build"
+  restart=restart
+fi
+llama_native_serve "$restart"
+echo "$LLAMA_UNIT serves $build on port 8080 of the tailnet address"

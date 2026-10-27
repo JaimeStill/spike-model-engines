@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# engines:summary=Stop and disable llama-router and remove every native build, keeping /srv/models
+# Stops llama-router when it runs, disables it when it is enabled, and removes every build under
+# /opt/llama.cpp with the current and preset links (llama-native.sh). The model store stays;
+# deleting models is a typed command (docs/engines/llama.cpp/uninstall.md). So do the architect's
+# root steps, /opt/llama.cpp, the unit, and the sudoers rule, which it says, every run: the
+# uninstall guide removes them.
+set -euo pipefail
+# shellcheck source=host/llama-native.sh
+source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama-native.sh"
+
+changed=
+if engines_unit_up "$LLAMA_UNIT"; then
+  sudo -n systemctl stop "$LLAMA_UNIT"
+  echo "stopped $LLAMA_UNIT"
+  changed=yes
+fi
+if llama_native_enabled; then
+  sudo -n systemctl disable "$LLAMA_UNIT"
+  echo "disabled $LLAMA_UNIT"
+  changed=yes
+fi
+for link in current preset; do
+  if [[ -L $LLAMA_NATIVE_DIR/$link ]]; then
+    rm -- "$LLAMA_NATIVE_DIR/$link"
+    echo "removed $LLAMA_NATIVE_DIR/$link"
+    changed=yes
+  fi
+done
+removed=$(llama_native_remove_builds)
+[[ -n $removed ]] && echo "$removed"
+[[ -n $changed$removed ]] || echo "native llama.cpp is not installed; nothing changed"
+echo "the architect's root steps stay: $LLAMA_NATIVE_DIR, the $LLAMA_UNIT unit, and its sudoers" \
+  "rule; docs/engines/llama.cpp/uninstall.md removes them"

@@ -24,8 +24,8 @@ repository on the host, as `host/engines vllm <verb>`:
 | `host/engines vllm uninstall` | Removes the server, every vLLM image, and the compile cache, keeping `/srv/models` |
 
 Each changes nothing, and says so, when run a second time. One engine serves per host at a time:
-vLLM's install and update refuse while llama.cpp's `llama` container runs, and llama.cpp's
-refuse while `vllm` runs.
+vLLM's install and update refuse while llama.cpp serves, in its `llama` container or natively
+under its `llama-router` unit, and llama.cpp's refuse while `vllm` runs.
 
 Every start of the container is a cold start: the server loads the model, compiles it, and
 captures its CUDA graphs before it answers. Each page that starts it says how to time the start,

@@ -40,9 +40,9 @@ send in `"model"`, each with its status.
 curl -sG "http://gb10-1:8080/props" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false | jq -r .build_info
 ```
 
-The build a loaded model runs, as `b<build>-<commit>`, such as `b11669-620d2225c`. In router mode
-`/props` names its model in the `model` query parameter, and `autoload=false` keeps the request
-from loading a model that isn't loaded.
+The build a loaded model runs, as `b<build>-<commit>`, such as `b11669-620d2225c` at v0.7.0. In
+router mode `/props` names its model in the `model` query parameter, and `autoload=false` keeps
+the request from loading a model that isn't loaded.
 
 ## Metrics
 

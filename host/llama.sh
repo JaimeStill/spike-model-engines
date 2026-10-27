@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # The llama.cpp container, in one place: sourced by the engines-llama-* commands so install and
-# update start the same container. It runs llama-server in router mode, with no model on its
-# command line, the models preset (llama-preset/models.ini) read-only, and the model store
-# (/srv/models) as llama.cpp's download cache. It runs as the invoking user, so the store's files
-# stay that user's, and publishes port 8080 on the host's tailnet IPv4 address only.
+# update start the same container, from the image for the version given (llama-release.sh). It
+# runs llama-server in router mode, with no model on its command line, the models preset
+# (llama-preset/models.ini) read-only, and the model store (/srv/models) as llama.cpp's download
+# cache. It runs as the invoking user, so the store's files stay that user's, and publishes port
+# 8080 on the host's tailnet IPv4 address only.
 
 # shellcheck source=host/engines.sh
 source "$(dirname "${BASH_SOURCE[0]}")/engines.sh"
-# shellcheck source=host/llama.env
-source "$(dirname "${BASH_SOURCE[0]}")/llama.env"
+# shellcheck source=host/llama-release.sh
+source "$(dirname "${BASH_SOURCE[0]}")/llama-release.sh"
 
 LLAMA_CONTAINER=llama
 LLAMA_STORE=$ENGINES_STORE

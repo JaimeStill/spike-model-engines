@@ -18,6 +18,25 @@ engines_refuse_running() {
   fi
 }
 
+# Whether the system unit named is up: active, or activating, as a failing one is between restarts,
+# or reloading. A host without the unit, or without systemd, reads as not up.
+engines_unit_up() {
+  local state
+  state=$(systemctl is-active "$1" 2>/dev/null) || true
+  [[ $state == active || $state == activating || $state == reloading ]]
+}
+
+# Refuses, naming the commands that stop it, while the system unit named is up (engines_unit_up):
+# native llama.cpp's llama-router (llama-native.sh) serves on the same port and memory as a
+# container would.
+engines_refuse_unit() {
+  if engines_unit_up "$1"; then
+    echo "$1 is active, and one engine serves per host at a time;" \
+      "sudo -n systemctl stop $1 && sudo -n systemctl disable $1 stops it" >&2
+    return 1
+  fi
+}
+
 # Prints the ID of the container named when it exists but is stopped (exited, or created and never
 # started), and nothing otherwise, so install and update can say "stopped" rather than "already
 # runs" after a docker stop. Fails when Docker does, so an unreachable daemon is never read as
