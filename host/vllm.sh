@@ -28,15 +28,14 @@ VLLM_ROWS_FILE=$(dirname "${BASH_SOURCE[0]}")/$VLLM_ROWS
 # Resolves the flavor, the GPU platform vLLM's image is built for, into VLLM_FLAVOR; the image
 # repository vllm_image names into VLLM_REPOSITORY; the docker run options that give the container
 # the GPU into VLLM_DEVICES; and, when VLLM_MODEL names no row for the run, the flavor's default
-# row into VLLM_MODEL. VLLM_FLAVOR, when set, names it: cuda, vLLM's
-# CUDA image on the NVIDIA Container Toolkit's GPU (--gpus all); or rocm, vLLM's ROCm image on the
-# kernel's AMD GPU driver, its compute device and its render nodes (/dev/kfd, /dev/dri), with no
-# --group-add, seccomp, or ptrace options, since the device files are open to every account on
-# the Framework. Unset or empty, it follows the GPU the host has, as llama_flavor does: rocm when
-# any DRM card under /sys/class/drm has AMD's PCI vendor ID, 0x1002, as the Framework's Strix Halo
-# does, and cuda otherwise, as on the GB10s, so a host with no AMD GPU resolves to the image,
-# devices, and default row it had before flavors. Reading the vendor ID needs no root and no
-# Docker. Refuses any other flavor, before Docker is read.
+# row into VLLM_MODEL. VLLM_FLAVOR, when set, names it: cuda, vLLM's CUDA image on the NVIDIA
+# Container Toolkit's GPU (--gpus all); or rocm, vLLM's ROCm image on the kernel's AMD GPU driver,
+# its compute device and its render nodes (/dev/kfd, /dev/dri), with no --group-add, seccomp, or
+# ptrace options, since the device files are open to every account on the Framework. Unset or
+# empty, it follows the GPU the host has, as llama_flavor does: rocm when any DRM card under
+# /sys/class/drm has AMD's PCI vendor ID, 0x1002, as the Framework's Strix Halo does, and cuda
+# otherwise, as on the GB10s. Reading the vendor ID needs no root and no Docker. Refuses any other
+# flavor, before Docker is read.
 vllm_flavor() {
   if [[ -z ${VLLM_FLAVOR:-} ]]; then
     VLLM_FLAVOR=cuda
@@ -76,10 +75,10 @@ vllm_row_words() {
 
 # Reads the row VLLM_MODEL names (after vllm_flavor, which sets the flavor's default) into
 # VLLM_ARGS, what the container serves after its image: the row's model, the address it listens
-# on, and the row's flags. vllm_run starts the container with
-# VLLM_ARGS, and vllm_running's comparison reads them back from the container's command, so the
-# two can't drift. No element holds a space, so the command joined with spaces reads back
-# unambiguously. Refuses an id with no row, listing the rows.
+# on, and the row's flags. vllm_run starts the container with VLLM_ARGS, and vllm_running's
+# comparison reads them back from the container's command, so the two can't drift. No element
+# holds a space, so the command joined with spaces reads back unambiguously. Refuses an id with
+# no row, listing the rows.
 vllm_row() {
   local words
   mapfile -t words < <(vllm_row_words "$VLLM_MODEL")
@@ -138,8 +137,7 @@ vllm_preflight() {
 vllm_run() {
   mkdir -p "$VLLM_CACHE_DIR"
   docker run --detach --name "$VLLM_CONTAINER" --restart unless-stopped "${VLLM_DEVICES[@]}" \
-    --ipc host \
-    --user "$(id -u):$(id -g)" \
+    --ipc host --user "$(id -u):$(id -g)" \
     --publish "$VLLM_ADDR:8000:8000" \
     --volume "$VLLM_STORE:$VLLM_STORE" --env "HF_HUB_CACHE=$VLLM_STORE" \
     --volume "$VLLM_CACHE_DIR:$VLLM_HOME" --env "HOME=$VLLM_HOME" --env "USER=$(id -un)" \

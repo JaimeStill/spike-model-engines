@@ -10,15 +10,14 @@
 # row of the same model; each is unique. No flag or value holds a space or a #, since the served
 # command is compared joined with spaces and # starts a comment.
 #
-# Every row reserves 0.80 of the host's GPU memory, on every host, which leaves the rest to the
-# host it shares it with, and serves sequences of 8192 tokens, as each of llama.cpp's slots. The
-# model's own generation config sets its sampling (vLLM's default, --generation-config auto).
-# Gemma 4's rows hold 4 sequences, mirroring llama.cpp's 4 slots; keep a BF16 KV cache, since the
-# NVFP4 checkpoints declare a static FP8 one but ship no calibrated k/v scales, so vLLM would
-# quantize it with a scale of 1.0, and every Gemma 4 row matches them; and use Gemma 4's own
-# reasoning and tool-call parsers. Their vision encoder loads (no --language-model-only), and
-# E4B's and 12B's audio encoder too: vLLM allows every modality the model has without
-# --limit-mm-per-prompt.
+# Every row reserves 0.80 of the GPU's memory, which leaves the rest to the host it shares it
+# with, and serves sequences of 8192 tokens, as each of llama.cpp's slots. The model's own
+# generation config sets its sampling (vLLM's default, --generation-config auto). Gemma 4's rows
+# hold 4 sequences, mirroring llama.cpp's 4 slots; keep a BF16 KV cache, since the NVFP4
+# checkpoints declare a static FP8 one but ship no calibrated k/v scales, so vLLM would quantize
+# it with a scale of 1.0, and every Gemma 4 row matches them; and use Gemma 4's own reasoning and
+# tool-call parsers. Their vision encoder loads (no --language-model-only), and E4B's and 12B's
+# audio encoder too: vLLM allows every modality the model has without --limit-mm-per-prompt.
 
 # The cuda flavor's default: Gemma 4 26B-A4B, MoE, NVIDIA's NVFP4. The anchors A' and B', and
 # vision.
@@ -104,9 +103,9 @@ ibm-granite/granite-embedding-english-r2
 
 # OpenAI's gpt-oss-120b in its native MXFP4, the rocm flavor's default, at 16 sequences,
 # mirroring llama.cpp's 16-slot section: its anchor-load cells and the concurrency sweep run on
-# this one start. Its KV cache
-# stays the checkpoint's (BF16), and its parsers are gpt-oss's: openai_gptoss for the reasoning,
-# which vLLM would choose for gpt-oss anyway, and openai for the tool calls.
+# this one start. Its KV cache stays the checkpoint's (BF16), and its parsers are gpt-oss's:
+# openai_gptoss for the reasoning, which vLLM would choose for gpt-oss anyway, and openai for the
+# tool calls.
 [gpt-oss-120b]
 openai/gpt-oss-120b
 --max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.80
