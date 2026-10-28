@@ -195,7 +195,7 @@ Door
 
 ## Progress
 
-slices 1/4 committed (slice 1 host step waits on ggml's b11960 images) · standards — · spec — · editor —
+slices 1/4 committed (slice 1 host step waits on ggml's b11960 images) · slice 2 code 712b35c, host steps next (omarchy update, first walk) · standards — · spec — · editor —
 
 ## Decisions
 
