@@ -924,7 +924,7 @@ flavor's default row, serves
 --max-model-len 8192 --gpu-memory-utilization 0.80 --reasoning-parser openai_gptoss
 --enable-auto-tool-choice --tool-call-parser openai`, and `llama` stays at flavor `vulkan`,
 `ghcr.io/ggml-org/llama.cpp:server-vulkan-b11960`. Their restart policy is `unless-stopped`, so
-neither starts at boot. `llama-router` is disabled and inactive, and `ss` printed only its header:
+neither starts at boot. `llama-router` reads `disabled` and `inactive` (`systemctl is-enabled`, `is-active`, 20:19:36Z), and `ss` printed only its header:
 nothing listens on 8000 or 8080.
 
 The end state's block, run at about 19:37Z after the probe, recorded the state before the
