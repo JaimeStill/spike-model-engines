@@ -466,7 +466,7 @@ flavors' timed cold loads, step 1 on a router just started; the others are each 
 | Flavor | Model | Format | Cache before → after drop GiB | MemAvailable before → after GiB | Footprint GiB | GTT used before → after GiB | VRAM used before → after MiB | Offloaded | Weights MiB (logged, GPU + host) | KV cache MiB (logged) | Compute MiB (logged, GPU + host) | Projector MiB (logged) | Load s |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | ROCm | gpt-oss-120b | MXFP4 | 72.17 → 0.38 | 118.28 → 55.75 | 62.53 | 0.23 → 60.19 (+59.96) | 468.40 → 470.46 (+2.06) | 37/37 | 59851.68 + 586.82 (output 3.07) | 1152.00 + 108.00 | 98.77 + 31.28 | — | 12.9 |
-| Vulkan | gpt-oss-120b | MXFP4 | 1.62 → 0.37 | 118.35 → 56.06 | 62.29 | 0.23 → 60.61 (+60.38) | 468.36 → 470.70 (+2.34) | 37/37 | 59851.64 + 586.82 | 1152.00 + 108.00 | 98.77 + 31.29 | — | 18.2 |
+| Vulkan | gpt-oss-120b | MXFP4 | 1.62 → 0.37 | 118.35 → 56.06 | 62.29 | 0.23 → 60.61 (+60.38) | 468.36 → 470.70 (+2.34) | 37/37 | 59851.64 + 586.82 (output 3.07) | 1152.00 + 108.00 | 98.77 + 31.29 | — | 18.2 |
 | ROCm | gemma-4-E4B | Q8_0 | 54.47 → 0.37 | 118.34 → 106.68 | 11.66 | 0.23 → 6.58 (+6.35) | 468.40 → 468.63 (+0.23) | 43/43 | 4788.12 + 3536.00 (output 4.00) | 512.00 + 160.00 | 136.02 + 50.03 | 533.83; compute 101.27 + 101.19 | 3.1 |
 | Vulkan | gemma-4-E4B | Q8_0 | 54.37 → 0.37 | 118.41 → 107.01 | 11.40 | 0.23 → 9.92 (+9.69) | 468.36 → 469.75 (+1.38) | 43/43 | 4788.10 + 3536.00 (output 4.00) | 512.00 + 160.00 | 131.02 + 50.04 | 533.83; compute 101.27 + 101.19 | 4.2 |
 | ROCm | gemma-4-E4B | QAT Q4_0 | 8.83 → 0.36 | 118.26 → 109.07 | 9.18 | 0.23 → 4.94 (+4.71) | 468.40 → 468.63 (+0.23) | 43/43 | 2696.06 + 2730.00 (output 4.00) | 512.00 + 160.00 | 136.02 + 50.03 | 945.51; compute 101.27 + 101.19 | 2.6 |
@@ -498,7 +498,6 @@ flavors' timed cold loads, step 1 on a router just started; the others are each 
   of 8192. The logged buffers are the same on both flavors to within 0.07 MiB, except the compute
   buffers on the GPU: Vulkan's 5.00 MiB smaller for E4B, 10.50 larger for the 31B, 44.00 smaller
   for the 26B-A4B, and its 12B projector's 4.50 larger.
-- Vulkan's step 1 output buffer isn't in the session's record.
 - Each projector also logged compute buffers on the CPU: 6.77 and 1.58 MiB for E4B's two, 6.75 and
   7.32 for the 12B's, and 6.77 for the 31B's and the 26B-A4B's.
 
@@ -649,12 +648,12 @@ None: both flavors served every cell, and every guidellm exited 0.
 
 | Flavor | Image and devices | Model | `tailscale ping` | Build | `requests_processing` before each cell |
 |---|---|---|---|---|---|
-| ROCm | `ghcr.io/ggml-org/llama.cpp:server-rocm-b11669`, as `docker ps` read it before llama-bench; the start block's `docker inspect` read isn't in the session's record | each model, steps 1 to 7 | direct on the LAN at every step, 0 to 1 ms (addresses left out) | `/props` build_info `b11669-620d2225c` at every step | 0 at every cell |
+| ROCm | `ghcr.io/ggml-org/llama.cpp:server-rocm-b11669`, devices `/dev/kfd /dev/dri` | each model, steps 1 to 7 | direct on the LAN at every step, 0 to 1 ms (addresses left out) | `/props` build_info `b11669-620d2225c` at every step | 0 at every cell |
 | Vulkan | `ghcr.io/ggml-org/llama.cpp:server-vulkan-b11669`, devices `/dev/dri` | each model, steps 1 to 7 | direct on the LAN at every step, 0 to 1 ms (addresses left out) | `/props` build_info `b11669-620d2225c` at every step | 0 at every cell |
 
 The switch printed `llama moved from ghcr.io/ggml-org/llama.cpp:server-rocm-b11669 to
 ghcr.io/ggml-org/llama.cpp:server-vulkan-b11669`. Every warm-up returned a greeting, ROCm's step 1
-`"Hello!"`, and granite's an embedding of 8 prompt tokens. Step 1's warm-ups ran at 23:12:02Z on
+`"Hello!"`, Vulkan's `"Hello, I hope you’re having a wonderful day!"`, and granite's an embedding of 8 prompt tokens. Step 1's warm-ups ran at 23:12:02Z on
 ROCm and 23:43:01Z on Vulkan.
 
 ### framework's end state
