@@ -195,7 +195,7 @@ Door
 
 ## Progress
 
-slices 1/4 committed and shown on the Framework (b11960-8642541b2) · slice 2 code 712b35c, omarchy update done, gpt-oss-120b staged; first walk next · standards — · spec — · editor —
+slices 2/4 shown: slice 1 b11960-8642541b2; slice 2 viable (gfx1151, 112 GiB, first start ~189 s, anchor A 10.0 tok/s served) · slice 3 next: staging · standards — · spec — · editor —
 
 ## Decisions
 
