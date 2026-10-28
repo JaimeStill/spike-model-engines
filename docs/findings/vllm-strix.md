@@ -95,7 +95,39 @@ cell here.
   llama.cpp's 45.13 tok/s is b11669's, from llama-strix-rocm. The anchors below rerun it.
 - **One engine per host holds.** While `vllm` ran, `host/engines llama install` and `update` both
   exited 1 with `vllm is running, and one engine serves per host at a time, since each reserves
-  most of the host's GPU memory; docker stop vllm stops it`.
+  most of the host's GPU memory; docker stop vllm stops it`. The other side, checked by the
+  session at 20:15Z from the clone at 6e09aae, after the walkthrough: with `llama` running,
+  `host/engines vllm install` and `update` both exited 1 with `llama is running, and one engine
+  serves per host at a time, since each reserves most of the host's GPU memory; docker stop llama
+  stops it`. `llama` was then stopped again.
+
+## Staging
+
+Every model the rows name was staged through hf on framework before the first step
+([Models](../engines/vllm/models.md#on-the-framework)): gpt-oss-120b earlier the same day, at
+snapshot `b5c939de8f754692c1647ca79fbf85e8c1e70f8a`, and the six Gemma 4 and granite rows from
+about 15:50 to 16:55Z, all unauthenticated, since the architect's `hf` login came after they had
+finished. The session read the staging back at 17:58Z, over `ssh framework`, with the guide's
+checks (`tail -qn 1 ~/prestage/*.log`, `find /srv/models -name "*.incomplete"`, `du -shL`):
+
+- every log in `~/prestage` ended `exit 0`, none failed: `google--gemma-4-E4B-it`,
+  `-E4B-it-qat-w4a16-ct`, `-12B-it-qat-w4a16-ct`, `-31B-it-qat-w4a16-ct`, `-26B-A4B-it`,
+  `ibm-granite--granite-embedding-english-r2`, and `openai--gpt-oss-120b`;
+- `find` printed nothing: no `*.incomplete` file was left in the store;
+- both images were present, `server-vulkan-b11960` and `vllm-openai-rocm:v0.32.0`;
+- the root drive had 540G free.
+
+The store's size for each model, following its links (`du -shL`):
+
+| Model | Size |
+|---|---|
+| openai/gpt-oss-120b | 61G |
+| google/gemma-4-26B-A4B-it | 49G |
+| google/gemma-4-E4B-it | 15G |
+| google/gemma-4-E4B-it-qat-w4a16-ct | 11G |
+| google/gemma-4-12B-it-qat-w4a16-ct | 9.6G |
+| google/gemma-4-31B-it-qat-w4a16-ct | 22G |
+| ibm-granite/granite-embedding-english-r2 | 288M |
 
 ## Method
 
@@ -507,9 +539,10 @@ systemctl is-enabled llama-router; systemctl is-active llama-router
 ss -ltn '( sport = :8000 or sport = :8080 )'
 ```
 
-Both containers read `Exited`, `llama-router` reads `disabled` and `inactive`. `vllm` is left on
-step 7's row, granite-embedding-english-r2, which its command shows; `host/engines vllm update`
-returns it to the flavor's default row, and this task doesn't run it.
+Both containers read `Exited`, `llama-router` reads `disabled` and `inactive`. Run at about 19:37Z,
+it found `vllm` on step 7's row, granite-embedding-english-r2, which its command showed; the
+walkthrough's `host/engines vllm update` then moved it back to the flavor's default row
+([Walkthrough](#walkthrough)), where [framework's end state](#frameworks-end-state) records it.
 
 ### Run times
 
@@ -698,12 +731,21 @@ GTT, and VRAM in use before and after (`mem_info_gtt_used`, `mem_info_vram_used`
   every row, whatever its weights: the KV cache takes what the weights leave of the 89.6 GiB.
   granite, run by the pooling runner, logged no free-memory, KV cache, or reservation line, and
   left MemAvailable at 114.40 GiB after its timed start.
-- **The first starts' figures.** After them, MemAvailable read 22.11, 21.32, 21.05, 21.82, and
-  23.91 GiB for steps 2 to 6 and 114.31 for granite, and GTT in use 90.05, 90.04, 90.19, 89.87,
-  and 90.09 GiB and 0.89 for granite. Their weights loaded in 5.9, 8.0, 12.8, 28.0, 17.0, and 2.3
+- **The first starts' figures.** Their weights loaded in 5.9, 8.0, 12.8, 28.0, 17.0, and 2.3
   s, and their KV caches matched the timed starts' within 0.05 GiB: 1,993,146, 2,098,873, 333,678
   (80.07 GiB), 107,108, and 249,375 tokens. gpt-oss-120b's first start logged 18.63 GiB and
-  357,622 tokens.
+  357,622 tokens. Their memory before and after, read as at the timed starts but with the page
+  cache as it was, not dropped; gpt-oss-120b's is [Viability](#viability)'s:
+
+  | Row | MemAvailable before → after GiB | GTT used before → after GiB | VRAM used before → after MiB |
+  |---|---|---|---|
+  | gpt-oss-120b | 116.49 → 23.93 | 0.23 → 89.04 | 468.35 → 495.67 |
+  | E4B BF16 | 117.09 → 22.11 | 0.26 → 90.05 | 425.48 → 446.90 |
+  | E4B QAT w4a16 | 117.02 → 21.32 | 0.26 → 90.04 | 425.48 → 433.38 |
+  | 12B QAT w4a16 | 116.82 → 21.05 | 0.26 → 90.19 | 425.48 → 427.45 |
+  | 31B QAT w4a16 | 116.91 → 21.82 | 0.26 → 89.87 | 425.48 → 443.66 |
+  | 26B-A4B BF16 | 117.66 → 23.91 | 0.26 → 90.09 | 425.48 → 471.34 |
+  | granite BF16 | 117.16 → 114.31 | 0.26 → 0.89 | 425.48 → 425.84 |
 - **The warm compile cache shortens the start.** Each Gemma row's first start compiled for 43.68
   to 58.94 s; its timed start, from a dropped page cache, for 0.15 to 0.22 s, and took 70.0 to
   97.6 s against 163.3 to 168.7. gpt-oss-120b's timed start took 160.9 s, and its two graph
@@ -875,11 +917,74 @@ requests, so the differenced server figures are the rerun's alone.
 
 ### framework's end state
 
-At about 19:37Z, after the probe, both containers read `Exited (0)`: `vllm` since 24 minutes
-before, and `llama` since 2, stopped by the probe's block; the end state's `docker stop llama`
-found it stopped. `vllm` serves step 7's row,
+At 20:15:50Z, after the walkthrough and the vLLM-side refusals ([Viability](#viability)), both
+containers read `Exited (0)`. `vllm`, which the walkthrough's `update` had moved back to the
+flavor's default row, serves
+`vllm/vllm-openai-rocm:v0.32.0 openai/gpt-oss-120b --host 0.0.0.0 --port 8000 --max-num-seqs 16
+--max-model-len 8192 --gpu-memory-utilization 0.80 --reasoning-parser openai_gptoss
+--enable-auto-tool-choice --tool-call-parser openai`, and `llama` stays at flavor `vulkan`,
+`ghcr.io/ggml-org/llama.cpp:server-vulkan-b11960`. Their restart policy is `unless-stopped`, so
+neither starts at boot. `llama-router` is disabled and inactive, and `ss` printed only its header:
+nothing listens on 8000 or 8080.
+
+The end state's block, run at about 19:37Z after the probe, recorded the state before the
+walkthrough: `vllm` then on step 7's row,
 `ibm-granite/granite-embedding-english-r2 --host 0.0.0.0 --port 8000 --runner pooling
---max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.80`, and `llama` stays at flavor
-`vulkan`, b11960. Their restart policy is `unless-stopped`, so neither starts at boot.
-`llama-router` read `disabled` and `inactive`, and `ss` printed only its header: nothing listens on
-8000 or 8080.
+--max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.80`, `llama` stopped 2 minutes
+before by the probe's block, `llama-router` `disabled` and `inactive`, and nothing on 8000 or
+8080.
+
+## Walkthrough
+
+After the audio probe, from about 19:53 to 20:06Z, the architect walked slice 4: vLLM's refusal of
+the wrong row, an anchor on each engine, and the handover between them, to see that the method
+reproduces in other hands. Each anchor ran after the engine's warm-up, as at the steps, and wrote
+under `.state/vllm-strix/walk/`, so the steps' files are unchanged.
+
+| Cell | Completed | Errored | Output tok/s | TTFT median ms | TTFT p95 ms | ITL median ms | ITL p95 ms | Latency median s | Latency p95 s |
+|---|---|---|---|---|---|---|---|---|---|
+| A, vLLM, the default row | 8 | 0 | 10.0 | 799 | 813 | 97.67 | 97.67 | 25.71 | 25.71 |
+| A, llama.cpp b11960, gpt-oss-120b | 7 | 1 | 39.5 | 640 | 671 | 19.75 | 19.82 | 5.69 | 5.71 |
+
+In order:
+
+1. On framework, with `vllm` stopped on step 7's granite row, `host/engines vllm install`
+   refused, as the run log records it, with the image names elided: `vllm runs ... with
+   ibm-granite/granite-embedding-english-r2, not ... with row gpt-oss-120b ...; engines vllm
+   update moves it to the row`. `host/engines vllm update` then moved `vllm` back to the default
+   row, and `/health` answered 200 at 19:55:31Z.
+2. On the laptop, vLLM's warm-up, then A, from 19:56:52 to 20:00:17Z: 8 of 8, 10.0 output tok/s
+   (9.96 by the read-out, the successful mean), TTFT median 799 ms, ITL 97.67 ms.
+3. The handover, on framework: `docker stop vllm`, then `docker start llama`. The router runs
+   with `--no-models-autoload`, so it served no model until gpt-oss-120b was loaded through its
+   `/models/load` ([llama.cpp's Models](../engines/llama.cpp/models.md#loading-a-model)).
+4. On the laptop, llama.cpp's warm-up, then A, from 20:04:07 to 20:04:52Z: 7 of 8 successful and
+   1 errored, 39.5 output tok/s by the read-out, TTFT median 640 ms, ITL median 19.75 ms.
+
+**The 8th request.** The client dropped its stream at 244 of its 256 tokens: llama.cpp logged
+`http client error: Failed to read connection`, then `cancel task`, and GuideLLM had entered its
+compile stage before the request finished. GuideLLM's JSON records it as errored, with
+`JSONDecodeError('Unterminated string starting at: line 1 column 64 (char 63)')`. It is a
+GuideLLM client fault, not the server's. The read-out's successful mean counts the 7 requests'
+1,792 output tokens over the run; GuideLLM's total mean, 44.89 tok/s, counts the dropped
+request's 244 too, 2,036 tokens.
+
+**Beside slice 3's anchors** ([Anchors](#anchors)). vLLM's A served 9.96 against step 1's 10.06
+tok/s, 1.0% lower, with TTFT median 799 against 794 ms and ITL median 97.67 against 96.70 ms.
+llama.cpp's A served 39.51 by the read-out against step 1's 44.98, 12.2% lower, because the
+read-out leaves out the dropped request's tokens; its total mean, 44.89, is 0.2% below 44.98, its
+TTFT median 640 against 637 ms, and its ITL median 19.75 against 19.78 ms.
+
+The figures are the read-out of [Reading the figures](#reading-the-figures), run against the
+walkthrough's files, with the total mean and the output tokens beside it:
+
+```sh
+for f in .state/vllm-strix/walk/*.json; do
+  echo "$f"
+  jq -c '.metadata as $v | .benchmarks[] | .metrics as $m | {streams: .config.strategy.streams, duration_s: (.duration|floor), requests: $m.request_totals, prompt_tokens: $m.prompt_token_count.successful.median, output_tokens: $m.output_token_count.successful.median, output_tok_s: ($m.output_tokens_per_second.successful.mean|.*10|round/10), ttft_ms: ($m.time_to_first_token_ms.successful | {median: (.median|round), p95: (.percentiles.p95|round)}), itl_ms: ($m.inter_token_latency_ms.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)}), latency_s: ($m.request_latency.successful | {median: (.median*100|round/100), p95: (.percentiles.p95*100|round/100)}), audio_s_per_s: $m.audio.seconds.input_per_second.successful.mean}' "$f"
+  jq -c '.benchmarks[].metrics | {successful_mean: .output_tokens_per_second.successful.mean, total_mean: .output_tokens_per_second.total.mean, output_tokens: (.output_token_count | {successful: .successful.total_sum, errored: .errored.total_sum})}' "$f"
+done
+```
+
+The walkthrough ended with `vllm` and `llama` both stopped, `vllm` on the default row
+([framework's end state](#frameworks-end-state)).

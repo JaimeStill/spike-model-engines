@@ -20,6 +20,9 @@ was stopped for vLLM:
 docker start llama
 ```
 
+Its router serves no model until one is loaded, since it runs with `--no-models-autoload`; load
+one through its API, as [llama.cpp's Models](../llama.cpp/models.md#loading-a-model) does.
+
 ## Deleting the model
 
 Deleting the model is a typed step, apart from the uninstall. The models hf pre-staged
@@ -63,7 +66,14 @@ On the Framework, `host/engines vllm uninstall` removes the `vllm` container and
 every release, `vllm/vllm-openai-rocm:<release>`, as on gb10-1 it removes the CUDA image's
 ([Removing vLLM](#removing-vllm)), and the compile cache, `~/.cache/vllm`. It keeps `/srv/models`;
 with `vllm` gone, llama.cpp's install and update no longer refuse, and `docker start llama` brings
-back a `llama` stopped for vLLM.
+back a `llama` stopped for vLLM. Its router serves no model until one is loaded, since it runs
+with `--no-models-autoload`:
+
+```sh
+curl -s -X POST "http://$(tailscale ip -4):8080/models/load" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4"}'
+```
+
+[llama.cpp's Models](../llama.cpp/models.md#loading-a-model) loads any other.
 
 Every model vLLM serves on the Framework was staged through hf
 ([Models](models.md#on-the-framework)), so each is deleted with hf, as llama.cpp's are ([Deleting

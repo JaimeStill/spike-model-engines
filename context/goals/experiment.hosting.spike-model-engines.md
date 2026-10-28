@@ -773,8 +773,9 @@ slices 4/4: walkthrough done (anchor A vLLM 10.0, llama.cpp 39.5 by the method, 
   (no torchcodec, ffmpeg, av, soundfile or librosa), so E4B BF16's audio cells return 500 and are
   unsupported on the official image. As the session's last step, after llama.cpp's Vulkan set and
   before the end state, a probe: a Dockerfile under host/ FROM the official image by digest, adding
-  vLLM's audio extra's packages at v0.32.0's pins, built on framework without root, serving only
-  E4B BF16's audio A and B, recorded beside the official image's result. The suite, the flavor and
+  the packages of vLLM's audio extra the image lacks, pinned at the versions uv resolved on
+  2026-10-28, av 19.0.2, soundfile 0.14.0 and soxr 1.1.0, since the extra pins none, built on
+  framework without root, serving only E4B BF16's audio A and B, recorded beside the official image's result. The suite, the flavor and
   the pin are unchanged; whether the suite carries it is the answer task's. Rejected the suite
   carrying it now, a follow-on task, and no build.
 

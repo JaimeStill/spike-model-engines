@@ -659,8 +659,13 @@ task's finding:
 - the `Size:` of its `GLOBAL` pool, in KB, the memory ROCm gives the GPU. Record it also in GiB
   (KB / 1048576), beside the GTT ceiling the last command prints, in bytes (112 GiB). llama.cpp's
   ROCm image counted the whole ceiling as the GPU's memory
-  ([llama.cpp's Setup](../llama.cpp/setup.md#9-prove-the-pinned-image-runs-on-the-gpu)); this
-  read-back says whether vLLM's does.
+  ([llama.cpp's Setup](../llama.cpp/setup.md#9-prove-the-pinned-image-runs-on-the-gpu)).
+
+On the Framework, on 2026-10-28, `vllm --version` printed `0.32.0+rocm723`, and `rocminfo` named
+the agent `gfx1151`, with its `GLOBAL` coarse-grained and extended-fine-grained pools each
+117440512 KB, 112 GiB: the whole GTT ceiling, 120259084288 bytes, as llama.cpp's ROCm image
+counted it. vLLM's first start then logged `Free memory on device (112.0/112.0 GiB)`, and reserved
+0.80 of it ([the finding's Viability](../../findings/vllm-strix.md#viability)).
 
 When `awk` prints nothing, no agent is gfx1151: the container didn't reach the GPU, or the
 image's ROCm doesn't know it. Run the `rocminfo` command without the `awk` to keep its whole
@@ -681,12 +686,19 @@ from the models drive, but not the Hugging Face repository vLLM serves, `openai/
 On the first walk the architect's step; later the session's. `install` refuses while
 llama.cpp's `llama` container runs or any `llama-router` unit is active, spike-model-hosting's
 included, or native vLLM's `vllm-server` is, since one engine serves per host at a time. See
-whether `llama` runs, and stop it when it does; `docker start llama` brings it back once `vllm`
-is stopped:
+whether `llama` runs, and stop it when it does:
 
 ```sh
 docker ps --filter name=llama
 docker stop llama
+```
+
+`docker start llama` brings the container back once `vllm` is stopped, but its router serves no
+model until one is loaded, since it runs with `--no-models-autoload`. Load one through its API, as
+[llama.cpp's Models](../llama.cpp/models.md#loading-a-model) does, such as gpt-oss-120b:
+
+```sh
+curl -s -X POST "http://$(tailscale ip -4):8080/models/load" -H "Content-Type: application/json" -d '{"model": "ggml-org/gpt-oss-120b-GGUF:MXFP4"}'
 ```
 
 The first start compiles from an empty compile cache. `~/.cache/vllm` is absent before the first
