@@ -769,6 +769,14 @@ slices 2/4 shown: slice 1 b11960-8642541b2; slice 2 viable (gfx1151, 112 GiB, fi
   which fails for the Framework's llama-router; both engines (r1 q13).
 - vllm-strix: the goal's pending edits and vllm-strix's own ship in one coordinator PR at this
   task's SHIP; rejected leaving them to the answer task (r1 q14).
+- vllm-strix: escalation 1, during BUILD: vllm/vllm-openai-rocm:v0.32.0 ships no audio decoder
+  (no torchcodec, ffmpeg, av, soundfile or librosa), so E4B BF16's audio cells return 500 and are
+  unsupported on the official image. As the session's last step, after llama.cpp's Vulkan set and
+  before the end state, a probe: a Dockerfile under host/ FROM the official image by digest, adding
+  vLLM's audio extra's packages at v0.32.0's pins, built on framework without root, serving only
+  E4B BF16's audio A and B, recorded beside the official image's result. The suite, the flavor and
+  the pin are unchanged; whether the suite carries it is the answer task's. Rejected the suite
+  carrying it now, a follow-on task, and no build.
 
 ## Pending edits
 
