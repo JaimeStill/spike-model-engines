@@ -224,16 +224,23 @@ left, about 48 GB. It also fetches both flavors' images, the server image each `
 the full image llama-bench runs, and ggml's native Vulkan prebuilt of the same build, for
 llama-bench outside the container.
 
-Set the exports and define `stage` as above, then start everything together:
+Set the exports, define the Framework's `stage`, and start everything together.
+The session runs this step over SSH, and a plain `nohup … &` job started by a non-interactive
+`ssh framework '…'` command dies when that command returns, so `stage`, the image pulls, and the
+prebuilt's job each start with `setsid nohup … < /dev/null &`, in a session of its own with no
+terminal input, which outlives the command:
 
 ```sh
+export MISE_ENV=host HF_HUB_CACHE=/srv/models HF_XET_HIGH_PERFORMANCE=1
+mkdir -p ~/prestage
+stage() { setsid nohup bash -c 'mise exec -- hf download "$@"; echo "exit $?"' stage "$@" > ~/prestage/"${1//\//--}".log 2>&1 < /dev/null & }
 stage google/gemma-4-E4B-it-qat-q4_0-gguf --include gemma-4-E4B_q4_0-it.gguf --include gemma-4-E4B-it-mmproj.gguf
 stage google/gemma-4-12B-it-qat-q4_0-gguf --include gemma-4-12b-it-qat-q4_0.gguf --include mmproj-gemma-4-12b-it-qat-q4_0.gguf
 stage google/gemma-4-31B-it-qat-q4_0-gguf --include gemma-4-31B_q4_0-it.gguf --include gemma-4-31B-it-mmproj.gguf
 stage google/gemma-4-26B-A4B-it-qat-q4_0-gguf --include gemma-4-26B_q4_0-it.gguf --include gemma-4-26B-it-mmproj.gguf
 stage mrutkows/granite-embedding-english-r2-GGUF --include granite-embedding-english-r2-bf16.gguf
-for image in server-rocm full-rocm server-vulkan full-vulkan; do nohup bash -c 'docker pull "ghcr.io/ggml-org/llama.cpp:$0-b11669"; echo "exit $?"' "$image" > ~/prestage/"$image".log 2>&1 & done
-nohup bash -c '(set -e; cd ~/prestage; curl -fsSLO https://github.com/ggml-org/llama.cpp/releases/download/b11669/llama-b11669-bin-ubuntu-vulkan-x64.tar.gz; echo "e8709e5ba6c1b093dea7f3de57f4aba842f9a188fba6b465782d65d6fcfa4d9f  llama-b11669-bin-ubuntu-vulkan-x64.tar.gz" | sha256sum -c; mkdir -p ~/llama.cpp/b11669-vulkan; tar -xzf llama-b11669-bin-ubuntu-vulkan-x64.tar.gz -C ~/llama.cpp/b11669-vulkan --strip-components=1); echo "exit $?"' > ~/prestage/llama-vulkan-x64.log 2>&1 &
+for image in server-rocm full-rocm server-vulkan full-vulkan; do setsid nohup bash -c 'docker pull "ghcr.io/ggml-org/llama.cpp:$0-b11669"; echo "exit $?"' "$image" > ~/prestage/"$image".log 2>&1 < /dev/null & done
+setsid nohup bash -c '(set -e; cd ~/prestage; curl -fsSLO https://github.com/ggml-org/llama.cpp/releases/download/b11669/llama-b11669-bin-ubuntu-vulkan-x64.tar.gz; echo "e8709e5ba6c1b093dea7f3de57f4aba842f9a188fba6b465782d65d6fcfa4d9f  llama-b11669-bin-ubuntu-vulkan-x64.tar.gz" | sha256sum -c; mkdir -p ~/llama.cpp/b11669-vulkan; tar -xzf llama-b11669-bin-ubuntu-vulkan-x64.tar.gz -C ~/llama.cpp/b11669-vulkan --strip-components=1); echo "exit $?"' > ~/prestage/llama-vulkan-x64.log 2>&1 < /dev/null &
 ```
 
 A pull of an image already present, such as the ROCm ones from
@@ -252,7 +259,10 @@ and through it the host's Mesa driver, `vulkan-radeon`.
 
 The checks are those of [Checking that every download is
 complete](#checking-that-every-download-is-complete), with the prebuilt's download among the
-processes, and every image of both flavors listed:
+processes, and every image of both flavors listed. The `pgrep` check works at a prompt on the
+host, but run as `ssh framework '…'` it matches its own command line and never reads empty; over
+SSH the check is the logs instead: `tail -qn 1 ~/prestage/*.log` shows `exit 0` for every job once
+all have finished.
 
 ```sh
 pgrep -af "hf download|docker pull|vulkan-x64"

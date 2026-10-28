@@ -9,10 +9,11 @@
 # serving. The container is replaced when its image isn't that one or its preset mount isn't the
 # clone's preset directory (as after the clone's scripts move); one replacement handles both, and
 # when the image is already that one it pulls nothing. A replaced container runs, even if the old
-# one was stopped. Then it removes the server image of every other build, in every flavor, and keeps
-# the build's own in each, so a switch back needs no pull; it never removes a full-<flavor> image,
-# llama-bench's (llama_remove_images). When llama already runs that image with the clone's preset
-# and no other build's server image is left, it changes nothing; when that container is stopped, it
+# one was stopped. Then it removes every image of every other build, server and full, in every
+# flavor, and every untagged image, and keeps the build's own, server and full, in each, so a switch
+# back needs no pull and llama-bench keeps the build's full images (llama_remove_images). When llama
+# already runs that image with the clone's preset and no other build's image is left, it changes
+# nothing; when that container is stopped, it
 # says docker start starts it, and never starts it itself. It refuses while the vllm container runs,
 # or native llama.cpp's llama-router unit or native vLLM's vllm-server unit is active, since one
 # engine serves per host at a time. It refuses an unknown flavor, a version that is neither, or a

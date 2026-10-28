@@ -9,12 +9,13 @@ git pull
 host/engines llama update
 ```
 
-`update` pulls the pinned image, replaces the `llama` container with one running it, and removes the
-server image of every other build, so only the pinned build's server images remain. It keeps ggml's
-full images, which llama-bench runs ([Setup](setup.md#llama-bench)), and the pinned build's server
-image in another flavor ([Switching the flavor](#switching-the-flavor)). It pulls before it removes
-anything, so a failed pull leaves the old build serving. When `llama` already runs the pin and no
-other build's server image is left, it changes nothing and says so; when that `llama` is stopped, it
+`update` pulls the pinned image, replaces the `llama` container with one running it, and removes every
+image of every other build, server and full, and every untagged image, so only the pinned build's
+images remain. It keeps the pinned build's images, server and full, in every flavor: its server
+image in another flavor ([Switching the flavor](#switching-the-flavor)) and its full images, which
+llama-bench runs ([Setup](setup.md#llama-bench)). It pulls before it removes anything, so a failed
+pull leaves the old build serving. When `llama` already runs the pin and no other build's image is
+left, it changes nothing and says so; when that `llama` is stopped, it
 says `docker start llama` starts it, and leaves it stopped. It fails, changing nothing, when
 llama.cpp isn't installed or while vLLM's `vllm` container runs (`docker stop vllm` stops it) or its
 native `vllm-server` unit is active ([vLLM's Setup](../vllm/setup.md#5-stop-it)), and, before it
@@ -28,7 +29,7 @@ docker inspect --format '{{.Config.Image}}' llama
 docker image ls ghcr.io/ggml-org/llama.cpp
 ```
 
-The first prints the pinned image; the second lists it, and no server image of another build. Once
+The first prints the pinned image; the second lists it, and no image of another build. Once
 the model is loaded, the laptop confirms the build the model itself runs ([API](api.md#build)),
 which reads `b11669-620d2225c` at the pin, v0.7.0 (b11669).
 
@@ -123,8 +124,8 @@ host/engines llama update v0.6.0
 host/engines llama update b11429
 ```
 
-It says `llama moved from <old image> to <new image>`, and removes the server image of every other
-build, the pin's among them, so only the version given's server images remain. Run a second time, it
+It says `llama moved from <old image> to <new image>`, and removes every image of every other
+build, the pin's among them, so only the version given's images remain. Run a second time, it
 changes nothing and says so. With no version, `update` moves back to the pin:
 
 ```sh

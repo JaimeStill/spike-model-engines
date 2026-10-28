@@ -8,18 +8,10 @@ On the host, from the clone:
 host/engines llama uninstall
 ```
 
-`uninstall` removes the `llama` container and every llama.cpp server image, of every build and
-flavor, and keeps the model store, `/srv/models`, so a later install serves the same models
+`uninstall` removes the `llama` container and every llama.cpp image, of every build and flavor:
+the server images, ggml's full images, which llama-bench runs ([Setup](setup.md#llama-bench)), and
+any untagged one. It keeps the model store, `/srv/models`, so a later install serves the same models
 without downloading them again. A second run changes nothing and says so.
-
-ggml's full images, which llama-bench runs ([Setup](setup.md#llama-bench)), aren't the
-`engines` commands' to remove: a session pulls them itself, and removes them itself. List what
-`uninstall` left, then remove each by name, such as gb10-1's:
-
-```sh
-docker image ls ghcr.io/ggml-org/llama.cpp
-docker image rm ghcr.io/ggml-org/llama.cpp:full-cuda13-b11669
-```
 
 ## Deleting models
 
@@ -96,14 +88,13 @@ sudo rmdir /opt/llama.cpp
 ## The Framework
 
 On the Framework, `host/engines llama uninstall` removes the `llama` container, started by hand or
-by `install`, of either flavor, and every llama.cpp server image, the ROCm and Vulkan ones
+by `install`, of either flavor, and every llama.cpp image, the ROCm and Vulkan server and full images
 ([Removing llama.cpp](#removing-llamacpp)). It keeps `/srv/models`.
 
-The full images and the native Vulkan prebuilt that pre-staging fetched for llama-bench
-([Models](models.md#on-the-framework)) are the session's to remove:
+The native Vulkan prebuilt that pre-staging fetched for llama-bench
+([Models](models.md#on-the-framework)) isn't an image, so it is the session's to remove:
 
 ```sh
-docker image rm ghcr.io/ggml-org/llama.cpp:full-rocm-b11669 ghcr.io/ggml-org/llama.cpp:full-vulkan-b11669
 rm -r ~/llama.cpp/b11669-vulkan
 ```
 

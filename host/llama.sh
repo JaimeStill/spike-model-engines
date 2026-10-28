@@ -82,19 +82,20 @@ llama_run() {
     --host 0.0.0.0 --port 8080
 }
 
-# Removes the suite's images, the server images (server-*) in LLAMA_REPOSITORY, but those of the
-# b-build given, in every flavor, so a flavor switch keeps the build's other server image; given
-# an empty build, it removes every server image. It leaves every other image in the repository: the
-# full-<flavor> images llama-bench runs, which a session pulls itself, and an untagged image,
-# whose tag no longer says what it is. Prints each image it removes, and stops at the first
-# failure, so it never reports an image it did not remove.
+# Removes the images in LLAMA_REPOSITORY but those of the b-build given: every tagged image whose
+# tag names another build, server-* and full-*, in every flavor, and every untagged image, by ID,
+# since its tag no longer says which build it is. It keeps the given build's images, server and
+# full, in every flavor, so a flavor switch keeps the build's other server image and llama-bench
+# keeps the build's full images; given an empty build, it removes every llama.cpp image. Prints
+# each image it removes, and stops at the first failure, so it never reports an image it did not
+# remove.
 llama_remove_images() {
-  local tags tag
-  tags=$(docker image ls "$LLAMA_REPOSITORY" --format '{{.Tag}}') || return
-  for tag in $tags; do
-    [[ $tag == server-* ]] || continue
-    [[ -n $1 && $tag == *-"$1" ]] && continue
-    docker image rm "$LLAMA_REPOSITORY:$tag" >/dev/null || return
-    echo "removed image $LLAMA_REPOSITORY:$tag"
+  local refs ref
+  refs=$(docker image ls "$LLAMA_REPOSITORY" \
+    --format '{{if eq .Tag "<none>"}}{{.ID}}{{else}}{{.Repository}}:{{.Tag}}{{end}}') || return
+  for ref in $refs; do
+    [[ -n $1 && $ref == "$LLAMA_REPOSITORY":*-"$1" ]] && continue
+    docker image rm "$ref" >/dev/null || return
+    echo "removed image $ref"
   done
 }

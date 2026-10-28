@@ -19,8 +19,8 @@ repository on the host, as `host/engines llama <verb>`:
 | Command | What it does |
 |---|---|
 | `host/engines llama install [version]` | Runs the router at the pin, or at the version given |
-| `host/engines llama update [version]` | Moves the router to the pin, or to the version given, and removes every other build's server image |
-| `host/engines llama uninstall` | Removes the router and every llama.cpp server image, keeping `/srv/models` |
+| `host/engines llama update [version]` | Moves the router to the pin, or to the version given, and removes every other build's images |
+| `host/engines llama uninstall` | Removes the router and every llama.cpp image, keeping `/srv/models` |
 | `host/engines llama-native install [version]` | Serves the native router at the pin, or at the version given |
 | `host/engines llama-native update [version]` | Moves the native router to the pin, or to the version given, and removes every other build |
 | `host/engines llama-native uninstall` | Stops and disables the native router and removes every build, keeping `/srv/models` |
