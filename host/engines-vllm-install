@@ -15,15 +15,16 @@ set -euo pipefail
 # shellcheck source=host/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 
-# The flavor given, read before vllm_flavor resolves it, so the update install points at names it.
-given=${VLLM_FLAVOR:-}
+# The flavor and the row given, read before vllm_flavor resolves them, so the update install
+# points at names them.
+given=${VLLM_FLAVOR:+VLLM_FLAVOR=$VLLM_FLAVOR }${VLLM_MODEL:+VLLM_MODEL=$VLLM_MODEL }
 vllm_flavor
 engines_refuse_running llama
 engines_refuse_unit llama-router
 engines_refuse_unit vllm-server
 vllm_row
 serves=$(vllm_serves)
-update="${given:+VLLM_FLAVOR=$given }engines vllm update moves it to the row"
+update="${given}engines vllm update moves it to the row"
 
 image=$(vllm_image "${1:-$VLLM_RELEASE}")
 served=$(vllm_served "$image")
