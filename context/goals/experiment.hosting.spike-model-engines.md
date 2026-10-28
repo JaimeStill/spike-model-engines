@@ -195,7 +195,7 @@ Door
 
 ## Progress
 
-slices 0/4 committed · standards — · spec — · editor —
+slices 1/4 committed (slice 1 host step waits on ggml's b11960 images) · standards — · spec — · editor —
 
 ## Decisions
 
