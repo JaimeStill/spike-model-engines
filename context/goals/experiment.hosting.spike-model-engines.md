@@ -195,7 +195,7 @@ Door
 
 ## Progress
 
-slices 3/4: slice 3 measured (vLLM 7 rows, llama.cpp Vulkan b11960 set, audio probe), end state reached; finding results being written · slice 4 walkthrough next · standards — · spec — · editor —
+slices 4/4: walkthrough done (anchor A vLLM 10.0, llama.cpp 44.9; end state on the default row) · standards running · spec — · editor —
 
 ## Decisions
 
