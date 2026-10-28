@@ -195,7 +195,7 @@ Door
 
 ## Progress
 
-slices 2/4 shown: slice 1 b11960-8642541b2; slice 2 viable (gfx1151, 112 GiB, first start ~189 s, anchor A 10.0 tok/s served) · slice 3 next: staging · standards — · spec — · editor —
+slices 3/4: slice 3 measured (vLLM 7 rows, llama.cpp Vulkan b11960 set, audio probe), end state reached; finding results being written · slice 4 walkthrough next · standards — · spec — · editor —
 
 ## Decisions
 
