@@ -20,12 +20,12 @@ Recorded on 2026-10-28, after the architect's `omarchy update`, which moved `goo
 
 | Item | framework |
 |---|---|
-| OS | Omarchy (to read) (Arch Linux) |
+| OS | Omarchy 4.0.6 (Arch Linux) |
 | Kernel | 7.2.8-9-omarchy (`linux-omarchy`) |
 | Mesa | 26.2.5 |
 | linux-firmware | 20260916 |
 | Docker | 29.9.2 |
-| ROCm | host `rocm-core` 7.2.4-1, unused by both containers; vLLM's image's own ROCm (to read); llama.cpp's Vulkan image has none |
+| ROCm | host `rocm-core` 7.2.4-1, unused by both containers; vLLM's image's own ROCm 7.2.3 (`/opt/rocm/.info/version`); llama.cpp's Vulkan image has none |
 | GTT ceiling | 112 GiB: `mem_info_gtt_total` 120259084288 |
 | Firmware carve-out (VRAM) | 512 MiB |
 | RAM | 125.1 GiB |
