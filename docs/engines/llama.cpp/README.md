@@ -10,7 +10,8 @@ API. The router loads models on demand, so one server serves every model in the 
 The spike follows llama.cpp's semver releases and runs the b-build each one names. The pin lives
 in `host/llama.env`: v0.7.0 (b11669). Every flavor of server image runs that build, as
 `ghcr.io/ggml-org/llama.cpp:server-<flavor>-b11669`: `cuda13` on gb10-1, and `rocm` or `vulkan` on
-the Framework ([Update](update.md#switching-the-flavor)).
+the Framework. With none named, the `engines` commands pick `rocm` on a host with an AMD GPU and
+`cuda13` otherwise; `LLAMA_FLAVOR` names the flavor ([Update](update.md#switching-the-flavor)).
 `mise run currency` reports the build when a newer semver release names a newer one.
 
 The `engines` commands install, update, and uninstall it. They run from a clone of this
@@ -36,14 +37,18 @@ notes name, or a b-build, such as `b11429`, which runs as given
 ## Pages
 
 - [Setup](setup.md): bring a host current, record its stack, prove the image, install, and allow
-  the session's page-cache drop; natively, the architect's root steps, install, and stop.
-- [Models](models.md): the preset, pre-staging every model with hf, loading a model, watching or
-  cancelling its download, copying it to gb10-2 under a borrow, and listing models.
+  the session's page-cache drop; natively, the architect's root steps, install, and stop; on the
+  Framework, the GTT ceiling, Docker, the ufw route rules, stopping spike-model-hosting's router,
+  and the ROCm image's first run.
+- [Models](models.md): the preset, pre-staging every model with hf, the Framework's staging and
+  the seeding of its store, loading a model, watching or cancelling its download, copying it to
+  gb10-2 under a borrow, and listing models.
 - [API](api.md): a chat completion from the laptop, `/health`, `/v1/models`, the build a model
   runs (`/props`), and `/metrics`.
 - [Update](update.md): moving to the pinned build, switching the flavor, moving to another
   version, rehearsing an update, how the pin moves, and the native update and rollback.
-- [Uninstall](uninstall.md): removing llama.cpp, deleting models, with hf or by hand, and
-  removing native llama.cpp and its root steps.
+- [Uninstall](uninstall.md): removing llama.cpp, deleting models, with hf or by hand, removing
+  native llama.cpp and its root steps, and removing the Framework's prebuilt and root steps.
 - [llama-bench](setup.md#llama-bench): llama.cpp's raw pp/tg benchmark, natively and in ggml's
-  full-cuda13 image.
+  full-cuda13 image on gb10-1, and on the Framework in the full-rocm and full-vulkan images and
+  from ggml's native Vulkan prebuilt.

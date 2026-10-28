@@ -14,7 +14,7 @@
 6. [x] vllm-gb10-native
 7. [ ] llama-strix-rocm
 8. [ ] vllm-strix
-9. [ ] strix-native
+9. [ ] strix-native (dropped by llama-strix-rocm's verdict; leaves the manifest with the pending edit)
 10. [ ] answer
 
 ## Task brief · llama-strix-rocm
@@ -153,7 +153,7 @@ Door
 
 ## Progress
 
-slices 4/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A served 17:25; slice 2: e2f0146, 3686b6a, flavor switch shown and staging done 18:17; slice 3: ba21982, dc6332e, f05056b, measured 19:04–20:02; slice 4: the architect's walkthrough 2026-10-28 09:30, matched) · standards — · spec — · editor —
+slices 4/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A served 17:25; slice 2: e2f0146, 3686b6a, flavor switch shown and staging done 18:17; slice 3: ba21982, dc6332e, f05056b, measured 19:04–20:02; slice 4: the architect's walkthrough 2026-10-28 09:30, matched) · standards ✓ (e2af95c, 7fa6eb5) · spec 1 round, gaps closed (fc1bc69, editor) · editor ✓
 
 ## Decisions
 
@@ -676,8 +676,42 @@ slices 4/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A 
   2055.80 ± 5.61, tg256 71.38 ± 0.07, against the slice's 2040.48 and 71.37), anchor A on Vulkan
   (8/8, 45.2 output tok/s, TTFT median 626.9 ms, ITL 19.7 ms, against 45.13), then back to rocm,
   stopped, router disabled, port 8080 free. Every step matched the guide; nothing to correct.
+- llama-strix-rocm: strix-native drops. Neither condition in its summary holds: ROCm didn't lead
+  on the Framework, and bare metal measured level with the container on gb10-1 for both engines
+  (llama-gb10-native, vllm-gb10-native). Retiring spike-model-hosting's router falls to the answer
+  task (r2 q3).
+- llama-strix-rocm: personal-agents' preparation doc and spike-model-hosting's runbook describe the
+  Framework's earlier settings (a 96 GiB GTT ceiling, the router serving); updating them is the
+  architect's, outside the spike.
+- llama-strix-rocm: for vllm-strix: `host/engines.sh` justifies one engine per host in GB10 terms
+  ("most of the GB10's memory"), and a unit's refusal hint, `sudo -n systemctl stop <unit> &&
+  sudo -n systemctl disable <unit>`, assumes gb10-1's NOPASSWD rules, which the Framework doesn't
+  have for spike-model-hosting's `llama-router`. llama.cpp v0.8.0 (b11960) was released
+  2026-10-28T12:47Z, after this task's measurements, so vllm-strix moves the pin and reruns one
+  anchor per engine first (Comparisons rule).
+- llama-strix-rocm: the editor split the notes' practices into "Running on every host", "Running
+  on the GB10s", and "Running on the Framework", so a practice both host classes follow is
+  written once.
 
 ## Pending edits
 
 (PR #100, merged 2026-10-26, carried every edit tasks 1–3 owed until then. PR #104 carried the
 `engines/` rename's roadmap edit.)
+
+- coordinator · roadmap.toml: delete
+  `[goals.experiment.hosting.spike-model-engines.tasks.strix-native]`. llama-strix-rocm's verdict
+  is that ROCm doesn't lead, and the GB10 native tasks measured bare metal level with the
+  container, so neither condition in its summary holds; the manifest holds only what remains.
+- coordinator · roadmap.toml, `experiment.hosting.spike-model-engines.tasks.vllm-strix`'s summary:
+  replace "against llama.cpp's leading Strix backend" with "against llama.cpp in ggml's Vulkan
+  image, its leading Strix backend".
+- coordinator · roadmap.toml, `experiment.hosting.spike-model-engines.tasks.answer`'s summary: add
+  that it retires spike-model-hosting's `llama-router` on the Framework, which strix-native would
+  have.
+- coordinator · roadmap.toml, `experiment.hosting.spike-model-engines.tasks.llama-strix-rocm`'s
+  summary: replace "against the native Vulkan router" with "against ggml's Vulkan image".
+- coordinator · ai-hosting.md, "The existing setup: personal-agents", the Framework's
+  "Hardware": replace "about 96GB of it exposed to the GPU" with "112 GiB of it reachable by the
+  GPU as GTT (spike-model-engines, llama-strix-rocm)"; and "Serving": say the router is stopped
+  and disabled while the spike-model-engines sessions own the Framework, until its answer task
+  retires it. The "3.30 GiB of the 96GB GPU pool" line stays, as measured at that ceiling.

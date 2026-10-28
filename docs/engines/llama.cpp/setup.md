@@ -455,8 +455,7 @@ systemctl is-active llama-router
 ss -ltn 'sport = :8080'
 ```
 
-Retiring the router for good is a later task's: the Framework's native task, or the spike's
-answer. Until then it comes back with:
+Retiring the router for good is the spike's answer task's. Until then it comes back with:
 
 ```sh
 sudo systemctl enable --now llama-router
@@ -478,7 +477,7 @@ cat /sys/class/drm/card*/device/mem_info_gtt_total
 In order, they print Omarchy's version, the kernel, the packages (Mesa, its Vulkan driver for
 Radeon, the GPU's firmware, Docker, and the host's ROCm), Docker's server, and the GTT ceiling, in
 bytes. The container doesn't use the host's ROCm, `rocm-core`; it is recorded beside the image's
-own, ROCm 7.2.1, for the native task.
+own, ROCm 7.2.1, for any native ROCm build.
 
 ### 7. Get the clone onto the host
 
@@ -491,8 +490,8 @@ git clone https://github.com/JaimeStill/spike-model-engines.git ~/repos/spike-mo
 cd ~/repos/spike-model-engines
 ```
 
-Until the task's branch merges, these steps and the scripts they run are on that branch alone,
-so check it out; after the merge, `main` holds them:
+The clone's default branch holds these steps and the scripts they run. A session running a task
+that hasn't merged checks out that task's branch instead, which is named for the task, such as:
 
 ```sh
 git switch llama-strix-rocm
