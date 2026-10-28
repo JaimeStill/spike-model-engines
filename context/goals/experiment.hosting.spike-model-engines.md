@@ -1,6 +1,6 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** building
+- **State:** brief ready
 - **Task:** llama-strix-rocm
 - **Branch:** llama-strix-rocm
 
