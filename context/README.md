@@ -221,8 +221,8 @@ The practices every task on the Framework follows, each with its reason:
   other server holds port 8080 or the GTT while the task measures.
 - **The GTT ceiling.** The GPU reaches up to 112 GiB of RAM as GTT, set by TTM's `pages_limit`
   and amdgpu's `gttsize`, built into the boot image. Above 90% of RAM, `amd-ttm` warns that a GPU
-  filling memory can starve the host; clearing the options halves the ceiling to the kernel's
-  default ([setup](../docs/engines/llama.cpp/setup.md#2-set-the-gtt-ceiling)).
+  filling memory can starve the host; clearing the options drops the ceiling to the kernel's
+  default of half of RAM, about 62.5 GiB ([setup](../docs/engines/llama.cpp/setup.md#2-set-the-gtt-ceiling)).
 - **The store and its snapshots.** `/srv/models` is on the root drive, a btrfs subvolume Snapper
   snapshots before each `omarchy update`, so a deleted model frees its space only once the last
   snapshot holding it ages out
@@ -241,7 +241,7 @@ The practices every task on the Framework follows, each with its reason:
   task's.
 - **Flavors.** `host/engines llama` picks the `rocm` flavor on the Framework's AMD GPU, and
   `LLAMA_FLAVOR=vulkan host/engines llama update` switches to `vulkan`. Update keeps the same
-  build's other flavor, so a switch pulls nothing
+  build's other flavor, so switching back pulls nothing
   ([update](../docs/engines/llama.cpp/update.md#switching-the-flavor)).
 - **Sudoers files without an editor.** `sudo` drops an `EDITOR` set on its command line, so
   `visudo` opens vim, and vim inside another editor's terminal takes `visudo`'s `--` for a file
