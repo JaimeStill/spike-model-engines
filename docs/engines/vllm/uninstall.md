@@ -8,9 +8,10 @@ On the host, from the clone:
 host/engines vllm uninstall
 ```
 
-`uninstall` removes the `vllm` container, every vLLM image, and the compile cache,
-`~/.cache/vllm`, and keeps the model store, `/srv/models`, so a later install serves the same
-model without downloading it again. A second run changes nothing and says so.
+`uninstall` removes the `vllm` container, every vLLM image of either flavor, `vllm/vllm-openai`'s
+and `vllm/vllm-openai-rocm`'s, and the compile cache, `~/.cache/vllm`, and keeps the model store,
+`/srv/models`, so a later install serves the same model without downloading it again. A second run
+changes nothing and says so. It reads no flavor, so it runs the same on every host.
 
 With `vllm` gone, llama.cpp's install and update no longer refuse. Start `llama` again, when it
 was stopped for vLLM:
@@ -55,6 +56,25 @@ them.
 The container writes the store as your account, so this needs no `sudo`. The store is llama.cpp's
 too, so leave the rest of it; llama.cpp's [Uninstall](../llama.cpp/uninstall.md#deleting-models)
 deletes its models and the store itself.
+
+## The Framework
+
+On the Framework, `host/engines vllm uninstall` removes the `vllm` container and the ROCm image of
+every release, `vllm/vllm-openai-rocm:<release>`, as on gb10-1 it removes the CUDA image's
+([Removing vLLM](#removing-vllm)), and the compile cache, `~/.cache/vllm`. It keeps `/srv/models`;
+with `vllm` gone, llama.cpp's install and update no longer refuse, and `docker start llama` brings
+back a `llama` stopped for vLLM.
+
+Every model vLLM serves on the Framework was staged through hf
+([Models](models.md#on-the-framework)), so each is deleted with hf, as llama.cpp's are ([Deleting
+models](../llama.cpp/uninstall.md#deleting-models)), such as `openai/gpt-oss-120b`'s repository,
+which llama.cpp's GGUF of the same model doesn't share.
+
+vLLM added no root step on the Framework ([Setup](setup.md#1-the-root-steps-already-in-place)). The
+root steps it uses, the `docker` group, the ufw rule for port 8000, the page-cache rule, the store,
+and the GTT ceiling, are llama.cpp's, and go with [Removing the Framework's root
+steps](../llama.cpp/uninstall.md#removing-the-frameworks-root-steps), once neither engine is
+installed.
 
 ## Removing native vLLM
 

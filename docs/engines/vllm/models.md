@@ -2,10 +2,14 @@
 
 ## The pinned model
 
-A vLLM server serves one model, named on its command line, and loads no other on demand. The
-model and its server flags are a row of `host/vllm-rows`, and the pin beside the release in
-`host/vllm.env` names the row the host serves by default, as `VLLM_MODEL`:
-`gemma-4-26B-A4B-NVFP4`. Its model is `nvidia/Gemma-4-26B-A4B-NVFP4`, NVIDIA's NVFP4
+A vLLM server serves one model, named on its command line, and loads no other on demand. The model
+and its server flags are a row of `host/vllm-rows`, and the pin beside the release in
+`host/vllm.env` names the row each flavor serves by default ([Update](update.md#the-flavor)). The
+`cuda` flavor's, on the GB10s, is `VLLM_MODEL_CUDA`: `gemma-4-26B-A4B-NVFP4`. The `rocm` flavor's,
+on the Framework, is `VLLM_MODEL_ROCM`: `gpt-oss-120b`, the model of llama.cpp's anchors,
+`openai/gpt-oss-120b` in its native MXFP4, since NVFP4 is CUDA's alone.
+
+The `cuda` flavor's model is `nvidia/Gemma-4-26B-A4B-NVFP4`, NVIDIA's NVFP4
 quantization of Gemma 4 26B-A4B, a mixture of experts with 4B of its 26B parameters active per
 token. It is 18.8 GB, ungated, so no token. The server serves another row for one run when it is
 named ([Changing the model](#changing-the-model)).
@@ -39,12 +43,70 @@ fetches when they're missing:
 | dense small, QAT w4a16 | `google/gemma-4-E4B-it-qat-w4a16-ct` | 11.55 GB |
 | dense mid, QAT w4a16 | `google/gemma-4-12B-it-qat-w4a16-ct` | 10.30 GB |
 | dense large, NVFP4 | `nvidia/Gemma-4-31B-IT-NVFP4` | 32.67 GB |
+| dense large, QAT w4a16 | `google/gemma-4-31B-it-qat-w4a16-ct` | 23.30 GB |
 | MoE, NVFP4 | `nvidia/Gemma-4-26B-A4B-NVFP4` | 18.83 GB, in the store |
+| MoE, BF16 | `google/gemma-4-26B-A4B-it` | 51.64 GB |
 | embedding, BF16 | `ibm-granite/granite-embedding-english-r2` | 0.30 GB, without `pytorch_model.bin` |
 | MoE, MXFP4 | `openai/gpt-oss-120b` | 65.28 GB, without the weights in `original/` and `metal/` |
 
-The w4a16 models are Google's quantization-aware trained ones. The sizes are the repositories',
-from Hugging Face's API. The pinned model is already in the store, from its first download.
+The w4a16 models are Google's quantization-aware trained ones. The sizes are the repositories', from
+Hugging Face's API. The `cuda` flavor's default model is already in gb10-1's store, from its first
+download.
+
+### On the Framework
+
+The session's step, from `~/repos/spike-model-engines`, once hf is set up there
+([Setting up hf](../llama.cpp/models.md#setting-up-hf)). The Framework stages the models of the
+rows the `rocm` flavor can serve ([The rows on the Framework](#the-rows-on-the-framework)),
+seven repositories, about 178 GB, and vLLM's ROCm image. gpt-oss-120b's GGUF, seeded into the
+store for llama.cpp ([llama.cpp's Models](../llama.cpp/models.md#seeding-the-frameworks-store)),
+isn't the repository vLLM serves, so `openai/gpt-oss-120b` downloads too.
+
+Set the exports and define the Framework's `stage`, as llama.cpp's Framework staging does
+([On the Framework](../llama.cpp/models.md#on-the-framework)): each job starts with `setsid nohup
+… < /dev/null &`, so it outlives a non-interactive `ssh framework '…'` command:
+
+```sh
+export MISE_ENV=host HF_HUB_CACHE=/srv/models HF_XET_HIGH_PERFORMANCE=1
+mkdir -p ~/prestage
+stage() { setsid nohup bash -c 'mise exec -- hf download "$@"; echo "exit $?"' stage "$@" > ~/prestage/"${1//\//--}".log 2>&1 < /dev/null & }
+```
+
+Before the first start, gpt-oss-120b alone, with the image, which step 2 of
+[Setup](setup.md#2-read-the-gpu-back-through-the-image) pulls; a pull of an image already present
+fetches nothing:
+
+```sh
+stage openai/gpt-oss-120b --exclude "original/*.safetensors" --exclude "metal/*"
+setsid nohup bash -c 'docker pull vllm/vllm-openai-rocm:v0.32.0; echo "exit $?"' > ~/prestage/vllm-rocm-image.log 2>&1 < /dev/null &
+```
+
+Before any comparison cell or timed start, the rest, together, with the same exports and
+`stage`:
+
+```sh
+stage google/gemma-4-E4B-it
+stage google/gemma-4-E4B-it-qat-w4a16-ct
+stage google/gemma-4-12B-it-qat-w4a16-ct
+stage google/gemma-4-31B-it-qat-w4a16-ct
+stage google/gemma-4-26B-A4B-it
+stage ibm-granite/granite-embedding-english-r2 --exclude "*.bin"
+```
+
+The checks are llama.cpp's ([Checking that every download is
+complete](../llama.cpp/models.md#checking-that-every-download-is-complete)), read from the logs,
+since over SSH the `pgrep` check matches its own command line and never reads empty: every log
+ends with `exit 0`, no `*.incomplete` file is left, and each model's size, following its links,
+matches its row above, in GiB:
+
+```sh
+tail -qn 1 ~/prestage/*.log
+find /srv/models -name "*.incomplete"
+du -shL /srv/models/models--openai--gpt-oss-120b /srv/models/models--google--gemma-4-* /srv/models/models--ibm-granite--*
+docker image ls vllm/vllm-openai-rocm
+```
+
+The last lists `v0.32.0`. `rm -r ~/prestage` then removes the logs.
 
 ## The first download
 
@@ -110,31 +172,56 @@ the load and the compile alone; record it.
 
 ### The rows
 
-Every model the server serves is a row of `host/vllm-rows`: an id in brackets, the model's
-Hugging Face repository, then its server flags. The file's comments give each flag's reason.
-Every row serves sequences of 8192 tokens and reserves 0.80 of the GB10's memory
-(`--max-model-len 8192 --gpu-memory-utilization 0.80`), and the model's own generation config
-sets its sampling. Beyond those:
+Every model the server serves is a row of `host/vllm-rows`: an id in brackets, the model's Hugging
+Face repository, then its server flags. The file's comments give each flag's reason. The rows are
+one set for both flavors. Every row serves sequences of 8192 tokens and reserves 0.80 of the host's
+GPU memory, on every host (`--max-model-len 8192 --gpu-memory-utilization 0.80`), and the model's
+own generation config sets its sampling. Beyond those:
 
 | Row id | Model | Flags | Serves |
 |---|---|---|---|
-| `gemma-4-26B-A4B-NVFP4` | `nvidia/Gemma-4-26B-A4B-NVFP4` | `--max-num-seqs 4 --kv-cache-dtype bfloat16 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4` | the pin's default; the anchors A' and B', vision |
+| `gemma-4-26B-A4B-NVFP4` | `nvidia/Gemma-4-26B-A4B-NVFP4` | `--max-num-seqs 4 --kv-cache-dtype bfloat16 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4` | the `cuda` flavor's default; the anchors A' and B', vision |
 | `gemma-4-26B-A4B-NVFP4-flashinfer` | `nvidia/Gemma-4-26B-A4B-NVFP4` | the default's, plus `--attention-backend FLASHINFER --language-model-only` | the FlashInfer diagnostic, text only |
 | `gemma-4-26B-A4B-NVFP4-marlin` | `nvidia/Gemma-4-26B-A4B-NVFP4` | the default's, plus `--moe-backend marlin` | the Marlin MoE diagnostic, with vision |
+| `gemma-4-26B-A4B-it` | `google/gemma-4-26B-A4B-it` | the default's | MoE, BF16, with its vision |
 | `gemma-4-E4B-it` | `google/gemma-4-E4B-it` | the default's | dense small, BF16, with its vision and audio |
 | `gemma-4-E4B-it-qat-w4a16-ct` | `google/gemma-4-E4B-it-qat-w4a16-ct` | the default's | dense small, QAT w4a16, with its vision and audio |
 | `gemma-4-12B-it-qat-w4a16-ct` | `google/gemma-4-12B-it-qat-w4a16-ct` | the default's | dense mid, QAT w4a16 |
 | `Gemma-4-31B-IT-NVFP4` | `nvidia/Gemma-4-31B-IT-NVFP4` | the default's | dense large, NVFP4 |
+| `gemma-4-31B-it-qat-w4a16-ct` | `google/gemma-4-31B-it-qat-w4a16-ct` | the default's | dense large, QAT w4a16 |
 | `granite-embedding-english-r2` | `ibm-granite/granite-embedding-english-r2` | `--runner pooling --max-num-seqs 16` | `/v1/embeddings` only |
-| `gpt-oss-120b` | `openai/gpt-oss-120b` | `--max-num-seqs 16 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai` | 16 sequences, its KV cache the checkpoint's |
+| `gpt-oss-120b` | `openai/gpt-oss-120b` | `--max-num-seqs 16 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai` | the `rocm` flavor's default; 16 sequences, its KV cache the checkpoint's |
 
 granite-embedding-english-r2, a ModernBERT encoder with heads of 64, runs its encoder-only
 attention on `FLASH_ATTN` on the GB10's SM121.
+
+"The default's" is the `gemma-4-26B-A4B-NVFP4` row's flags.
 
 A row's id is its repository's name without the organization, with a suffix for a second row of
 the same model. The container's command is the row's model, `--host 0.0.0.0 --port 8000`, then
 the row's flags, which `docker inspect` shows
 ([Update](update.md#moving-to-the-pinned-release-or-model)).
+
+### The rows on the Framework
+
+The `rocm` flavor serves the rows whose format ROCm runs, every one but the NVFP4 rows, which are
+CUDA's alone. Whether each serves on gfx1151 at v0.32.0 is the vllm-strix task's finding; a row
+that doesn't is marked unsupported there, with its reason.
+
+| Row id | Shape |
+|---|---|
+| `gpt-oss-120b` | MoE, MXFP4, the `rocm` flavor's default |
+| `gemma-4-26B-A4B-it` | MoE, BF16, with its vision |
+| `gemma-4-E4B-it` | dense small, BF16, with its vision and audio |
+| `gemma-4-E4B-it-qat-w4a16-ct` | dense small, QAT w4a16, with its vision and audio |
+| `gemma-4-12B-it-qat-w4a16-ct` | dense mid, QAT w4a16 |
+| `gemma-4-31B-it-qat-w4a16-ct` | dense large, QAT w4a16 |
+| `granite-embedding-english-r2` | embedding, BF16, `/v1/embeddings` only |
+
+Every model is staged through hf before its row starts ([On the Framework](#on-the-framework)).
+A row serves on the Framework as on the GB10, named in `VLLM_MODEL` before `update`
+([Serving another row for one run](#serving-another-row-for-one-run)); the flavor is the host's
+own, so the image stays `vllm/vllm-openai-rocm:v0.32.0` and only the row changes.
 
 ### Serving another row for one run
 
@@ -170,23 +257,24 @@ command, and restart `vllm-server` on the row when they differ
 
 ### Returning to the default
 
-`update` without `VLLM_MODEL` serves the pin's default row again:
+`update` without `VLLM_MODEL` serves the flavor's default row again:
 
 ```sh
 host/engines vllm update
 ```
 
-It prints `vllm moved from ... to vllm/vllm-openai:v0.32.0 with row gemma-4-26B-A4B-NVFP4
-(nvidia/Gemma-4-26B-A4B-NVFP4)`, another cold start to record. Leave every host on the default
+On gb10-1 it prints `vllm moved from ... to vllm/vllm-openai:v0.32.0 with row gemma-4-26B-A4B-NVFP4
+(nvidia/Gemma-4-26B-A4B-NVFP4)`, and on the Framework `... to vllm/vllm-openai-rocm:v0.32.0 with row
+gpt-oss-120b (openai/gpt-oss-120b)`, another cold start to record. Leave every host on the default
 row when a session ends. Use `VLLM_MODEL=...` only as the command's prefix, never `export` it: an
 exported one would keep naming its row for every later command in that shell.
 
 ### Adding a row, or moving the default
 
-A new model is a new row in `host/vllm-rows`, and moving the default is an edit of
-`VLLM_MODEL` in `host/vllm.env`, with the model this guide, [Setup](setup.md), and
-[API](api.md) quote to match. A Gemma 4 row takes the default row's parser flags; a model of
-another family takes its own. Commit and push; then, on the host, `git pull` and
-`host/engines vllm update` ([Update](update.md#moving-to-the-pinned-release-or-model)). A
-model the store lacks downloads on its first start, a cold start to record, and an old model
-stays in the store until it is deleted ([Uninstall](uninstall.md#deleting-the-model)).
+A new model is a new row in `host/vllm-rows`, and moving a flavor's default is an edit of
+`VLLM_MODEL_CUDA` or `VLLM_MODEL_ROCM` in `host/vllm.env`, with the model this guide,
+[Setup](setup.md), and [API](api.md) quote to match. A Gemma 4 row takes the default row's parser
+flags; a model of another family takes its own. Commit and push; then, on the host, `git pull` and
+`host/engines vllm update` ([Update](update.md#moving-to-the-pinned-release-or-model)). A model the
+store lacks downloads on its first start, a cold start to record, and an old model stays in the
+store until it is deleted ([Uninstall](uninstall.md#deleting-the-model)).

@@ -79,11 +79,13 @@ When native llama.cpp serves instead, stop `llama-router` as its
 host/engines vllm install
 ```
 
-`install` pulls the pinned image and starts one container, `vllm`, running `vllm serve` on the
-pin's default row, `gemma-4-26B-A4B-NVFP4`: the model `nvidia/Gemma-4-26B-A4B-NVFP4` and its
-server flags. It runs as your account, with `--restart unless-stopped`, so Docker starts it again
-after a reboot, and publishes port 8000 on the host's tailnet IPv4 address only. The row's flags
-are in `host/vllm-rows` ([Models](models.md#the-rows)):
+`install` pulls the pinned image and starts one container, `vllm`, running `vllm serve` on the pin's
+default row, `gemma-4-26B-A4B-NVFP4`: the model `nvidia/Gemma-4-26B-A4B-NVFP4` and its server flags.
+That is the `cuda` flavor, which it picks on a host without an AMD GPU
+([Update](update.md#the-flavor)): vLLM's CUDA image, with `--gpus all`. It runs as your account,
+with `--restart unless-stopped`, so Docker starts it again after a reboot, and publishes port 8000
+on the host's tailnet IPv4 address only. The row's flags are in `host/vllm-rows`
+([Models](models.md#the-rows)):
 
 | Flag | Value | Why |
 |---|---|---|
@@ -580,3 +582,233 @@ sudo -n systemctl stop vllm-server && sudo -n systemctl disable vllm-server
 
 Install, given the release `current` names, enables and starts it again: with no release at the
 pin, or `host/engines vllm-native install v0.31.0` at v0.31.0.
+
+## Framework, in a container
+
+Run these steps on the Framework, `framework`: Omarchy on an AMD Strix Halo whose GPU is gfx1151
+([llama.cpp's Setup](../llama.cpp/setup.md#framework-in-a-container)). vLLM runs there in its
+official ROCm image, `vllm/vllm-openai-rocm:v0.32.0`, the same release as the GB10's CUDA image.
+The image brings its own ROCm runtime; the host gives it only the kernel's GPU driver, through
+two device files, `/dev/kfd` and `/dev/dri`, in place of the NVIDIA Container Toolkit's `--gpus
+all`, with no `--group-add`, seccomp, or ptrace options, since the device files are open to every
+account on this host. The `engines` commands pick that image, the `rocm` flavor, on any host with
+an AMD GPU, and with it the flavor's default row, `gpt-oss-120b`
+([Update](update.md#the-flavor)).
+
+Each step says whose it is. Commands with `sudo` are root steps, the architect's; the rest the
+session runs, as `jaime`. Each Framework session owns the host: nothing else serves on it while
+one runs.
+
+### 1. The root steps already in place
+
+vLLM adds no root step on the Framework. llama.cpp's Framework setup made every one it needs,
+and they hold for vLLM's container too:
+
+- [Bring the host current](../llama.cpp/setup.md#1-bring-the-host-current-1), `omarchy update`, the
+  architect's at every session's start, with a newer installed kernel than the running one
+  recorded as a pending reboot;
+- [the GTT ceiling](../llama.cpp/setup.md#2-set-the-gtt-ceiling), 112 GiB;
+- [Docker for jaime](../llama.cpp/setup.md#3-docker-for-jaime), the `docker` group;
+- [the ufw rule](../llama.cpp/setup.md#4-route-the-ports-through-ufw) that routes the tailnet's
+  traffic to port 8000, vLLM's, beside 8080;
+- [the router stopped](../llama.cpp/setup.md#5-stop-the-router), spike-model-hosting's
+  `llama-router`;
+- [the model store](../llama.cpp/setup.md#8-create-the-model-store), `/srv/models`;
+- [the page-cache drop](../llama.cpp/setup.md#11-allow-the-page-cache-drop), the sudoers rule.
+
+The session checks them without root. In order: `jaime` is in the `docker` group (prints
+`docker`), the page-cache rule is in place (prints its line), the GTT ceiling in bytes (prints
+`120259084288`), the router is stopped (prints `inactive`), and the store is `jaime`'s (prints
+`jaime`):
+
+```sh
+id -nG | tr ' ' '\n' | grep -x docker
+sudo -n -l | grep drop_caches
+cat /sys/class/drm/card*/device/mem_info_gtt_total
+systemctl is-active llama-router
+stat -c %U /srv/models
+```
+
+ufw's rules are root's to read; the architect checks that `sudo ufw status verbose` lists
+`8000/tcp ALLOW FWD Anywhere on tailscale0`. Then the session records the host stack, as
+llama.cpp's [Record the host stack](../llama.cpp/setup.md#6-record-the-host-stack) does, and
+brings the clone, `~/repos/spike-model-engines`, to the task's branch
+([Get the clone onto the host](../llama.cpp/setup.md#7-get-the-clone-onto-the-host)).
+
+### 2. Read the GPU back through the image
+
+The architect's first walk of vLLM's ROCm image; the session walks them through it. Pull the
+image, ask `vllm` for its version, then run the image's `rocminfo`, which lists the GPU as ROCm
+sees it from inside the container. The image's entrypoint is `vllm serve`, so each check replaces
+it with `--entrypoint`, as on the GB10
+([2. Prove the pinned image runs on the GPU](#2-prove-the-pinned-image-runs-on-the-gpu)):
+
+```sh
+docker pull vllm/vllm-openai-rocm:v0.32.0
+docker run --rm --device /dev/kfd --device /dev/dri --entrypoint vllm vllm/vllm-openai-rocm:v0.32.0 --version
+docker run --rm --device /dev/kfd --device /dev/dri --entrypoint rocminfo vllm/vllm-openai-rocm:v0.32.0 | awk '/^Agent [0-9]+/ { gpu = 0 } /Name: +gfx1151/ { gpu = 1 } gpu && /Name:|Segment:|Size:/'
+cat /sys/class/drm/card*/device/mem_info_gtt_total
+```
+
+`rocminfo` lists every agent, the CPU and the GPU, each under an `Agent <n>` header; `awk` keeps
+only the agent whose `Name:` is `gfx1151`, and of it the lines that name it and its memory pools,
+each pool's `Segment:` and `Size:`. Read two things and record them, with the date, in the
+task's finding:
+
+- the agent's `Name:`, which reads `gfx1151` when the image's ROCm knows the GPU;
+- the `Size:` of its `GLOBAL` pool, in KB, the memory ROCm gives the GPU. Record it also in GiB
+  (KB / 1048576), beside the GTT ceiling the last command prints, in bytes (112 GiB). llama.cpp's
+  ROCm image counted the whole ceiling as the GPU's memory
+  ([llama.cpp's Setup](../llama.cpp/setup.md#9-prove-the-pinned-image-runs-on-the-gpu)); this
+  read-back says whether vLLM's does.
+
+When `awk` prints nothing, no agent is gfx1151: the container didn't reach the GPU, or the
+image's ROCm doesn't know it. Run the `rocminfo` command without the `awk` to keep its whole
+output. If Docker says `rocminfo` isn't found on the image's `PATH`, name it by ROCm's own
+directory, `--entrypoint /opt/rocm/bin/rocminfo`. A read-back that still names no gfx1151 is a
+failure: record it with its output, and the session escalates at once, with no retry under
+another setting.
+
+### 3. Stage gpt-oss-120b
+
+The session's step. The first start reads the model only from the store, so gpt-oss-120b is
+staged through hf first, with the image already pulled in step 2
+([Models](models.md#on-the-framework)). The store holds llama.cpp's GGUF of gpt-oss-120b, seeded
+from the models drive, but not the Hugging Face repository vLLM serves, `openai/gpt-oss-120b`.
+
+### 4. Install
+
+On the first walk the architect's step; later the session's. `install` refuses while
+llama.cpp's `llama` container runs or any `llama-router` unit is active, spike-model-hosting's
+included, or native vLLM's `vllm-server` is, since one engine serves per host at a time. See
+whether `llama` runs, and stop it when it does; `docker start llama` brings it back once `vllm`
+is stopped:
+
+```sh
+docker ps --filter name=llama
+docker stop llama
+```
+
+The first start compiles from an empty compile cache. `~/.cache/vllm` is absent before the first
+install, and goes with [Uninstall](uninstall.md#removing-vllm); this prints `absent` when it is:
+
+```sh
+test -e ~/.cache/vllm && du -sh ~/.cache/vllm || echo absent
+```
+
+Then install, from the clone:
+
+```sh
+host/engines vllm install
+```
+
+`install` runs as on gb10-1 ([5. Install](#5-install)), with the `rocm` flavor, which it picks
+on a host with an AMD GPU: it pulls `vllm/vllm-openai-rocm:v0.32.0` and starts `vllm` with
+`--device /dev/kfd --device /dev/dri` in place of `--gpus all`, keeping `--ipc host` and every
+other option, on the flavor's default row, `gpt-oss-120b`. It prints
+
+```text
+vllm runs vllm/vllm-openai-rocm:v0.32.0 with row gpt-oss-120b (openai/gpt-oss-120b) on port 8000 of the tailnet address; docker logs -f vllm shows its start
+```
+
+The row's flags are in `host/vllm-rows` ([Models](models.md#the-rows)):
+
+| Flag | Value | Why |
+|---|---|---|
+| `--max-num-seqs` | `16` | 16 sequences decode at once, as llama.cpp's 16-slot gpt-oss-120b section. |
+| `--max-model-len` | `8192` | 8192 tokens a sequence, as each of llama.cpp's slots. |
+| `--gpu-memory-utilization` | `0.80` | vLLM reserves 0.80 of the GPU memory it finds, as on the GB10, and leaves the rest to the host. |
+| `--reasoning-parser` | `openai_gptoss` | The reply's reasoning comes back apart from its content. |
+| `--enable-auto-tool-choice`, `--tool-call-parser` | `openai` | Tool calls come back as OpenAI tool calls. |
+
+### 5. Watch the first start, up to 20 minutes
+
+The first start of gpt-oss-120b on the Framework loads its weights, compiles from the empty
+compile cache, and captures its graphs before it answers, and has up to 20 minutes, the one
+start allowed past 10. Poll `/health` every 5 s until it answers 200, for 20 minutes at most;
+the poll prints the time, in UTC, once it does, and prints nothing when the 20 minutes pass:
+
+```sh
+timeout 20m sh -c 'until [ "$(curl -s -o /dev/null -w "%{http_code}" "http://$(tailscale ip -4):8000/health")" = 200 ]; do sleep 5; done' && date -u
+```
+
+`docker logs -f vllm` follows the start meanwhile, in another terminal. Time the start as on the
+GB10 ([6. Watch the cold start](#6-watch-the-cold-start-and-record-it)), from the container's
+start to `Application startup complete.`, and record it as the first start, from an empty
+compile cache.
+
+A start that hasn't answered in 20 minutes, or a container that exits or restarts (`docker ps
+--filter name=vllm` shows `Restarting` or no `Up`), is a failure. Record it with its reason and
+its log, `docker logs vllm 2>&1 | tail -n 100`, and the session escalates at once, with no retry
+under `--enforce-eager` or any other setting.
+
+### 6. Read the memory it sized against
+
+The session's step, once `/health` answers. vLLM logs the memory it planned with during its
+start. Read the lines of this start only, then the host's own view, with no root:
+
+```sh
+docker logs --since "$(docker inspect --format '{{.State.StartedAt}}' vllm)" vllm 2>&1 | grep -E "Free memory on device|Model loading took|Available KV cache memory|KV cache size|Graph capturing finished"
+grep ^MemAvailable /proc/meminfo
+cat /sys/class/drm/card*/device/mem_info_gtt_used /sys/class/drm/card*/device/mem_info_vram_used
+```
+
+Read each and record it beside step 2's read-back and the GTT ceiling:
+
+- the total it sized against: `Free memory on device`, when the start logs it, names the
+  device's free and total memory at the start, of which `--gpu-memory-utilization` reserves 0.80;
+  when the start logs no line naming a total, record that it logged none;
+- the weights: `Model loading took` gives the memory the weights took on the device and the load
+  time. vLLM offloads no weight to the CPU unless asked, so every weight is on the GPU when the
+  model loaded;
+- the KV cache: `Available KV cache memory` gives its memory, and `KV cache size` its tokens;
+- the graphs: `Graph capturing finished` gives their time and memory, when the start captured any.
+
+`MemAvailable` is the host's memory left, and the last command prints the GTT and the VRAM
+carve-out in use, in bytes; GTT in use holds the weights and the KV cache.
+
+### 7. Warm anchor A from the laptop
+
+The session's step, in the architect's view, from the laptop's clone, with the bench environment
+installed ([vllm-gb10-container](../../findings/vllm-gb10-container.md#running-the-cells)). The
+network path, the release the server runs, then one warm-up request, the API page's chat
+completion without Gemma 4's `chat_template_kwargs`, its reasoning cut to its first 80
+characters:
+
+```sh
+tailscale ping -c 3 framework
+curl -s "http://framework:8000/version"; echo
+curl -s "http://framework:8000/v1/chat/completions" -H "Content-Type: application/json" -d '{"model": "openai/gpt-oss-120b", "messages": [{"role": "user", "content": "Say hello in one sentence."}]}' | jq -c '.choices[0].message | {content, reasoning: (.reasoning|tostring|.[0:80])}'
+```
+
+A request that times out while `/health` answers on the host is ufw dropping the routed port
+([llama.cpp's Setup](../llama.cpp/setup.md#4-route-the-ports-through-ufw)). Then anchor A,
+llama.cpp's scenario with vLLM's model named on the command line, between two `/metrics`
+snapshots:
+
+```sh
+export GUIDELLM__SPEC__BACKEND__TARGET="http://framework:8000"
+mkdir -p .state/vllm-strix
+curl -s "http://framework:8000/metrics" > .state/vllm-strix/anchor-a.before.metrics
+MISE_ENV=bench mise exec -- guidellm run -c bench/anchor-a.yaml --backend "kind=openai_http,model=openai/gpt-oss-120b" --output "kind=json,path=.state/vllm-strix/anchor-a.json"
+curl -s "http://framework:8000/metrics" > .state/vllm-strix/anchor-a.after.metrics
+```
+
+The scenario's tokenizer is already `openai/gpt-oss-120b`. Read the client figures with
+[vllm-gb10-container's read-out](../../findings/vllm-gb10-container.md#reading-the-figures), its
+`$cell.json` the file above, and the server's from the two snapshots as that finding does.
+
+### 8. Check that llama.cpp refuses
+
+While `vllm` runs, llama.cpp's install refuses at the Framework's flavor, naming `docker stop
+vllm`, and changes nothing:
+
+```sh
+LLAMA_FLAVOR=vulkan host/engines llama install
+```
+
+It prints
+
+```text
+vllm is running, and one engine serves per host at a time, since each reserves most of the host's GPU memory; docker stop vllm stops it
+```

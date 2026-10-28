@@ -1,22 +1,29 @@
 #!/usr/bin/env bash
-# engines:summary=Run vllm serve on the pinned row or VLLM_MODEL's, at the pinned or given release
-# Starts the vllm container (vllm.sh) from the pinned image, or from the release given, such as
-# v0.31.0, serving the pin's default row (vllm-rows), or the row VLLM_MODEL names for this run.
-# When the container already serves exactly that (image, model, and server flags) it changes
-# nothing, saying docker start starts it when it is stopped (it never starts it itself); when it
-# serves anything else it refuses, saying what it runs, and points at update. It refuses a
-# VLLM_MODEL with no row, listing the rows, and refuses while the llama container runs, or native
-# llama.cpp's llama-router unit or native vLLM's vllm-server unit is active, since one engine
-# serves per host at a time.
+# engines:summary=Run vllm serve on the default row or VLLM_MODEL's, at the pinned or given release
+# Starts the vllm container (vllm.sh) from the pinned release's image, or from the release given,
+# such as v0.31.0, serving the flavor's default row (vllm-rows), or the row VLLM_MODEL names for
+# this run. The image's flavor, its devices, and its default row are VLLM_FLAVOR's, cuda or rocm,
+# or with none given the host's GPU's: rocm on an AMD GPU, cuda otherwise (vllm_flavor). When the
+# container already serves exactly that (image, model, and server flags) it changes nothing,
+# saying docker start starts it when it is stopped (it never starts it itself); when it serves
+# anything else, another release's, another flavor's, or another row's, it refuses, saying what
+# it runs, and points at update. It refuses an unknown flavor before it reads Docker, a
+# VLLM_MODEL with no row, listing the rows, and refuses while the llama container runs, or any
+# llama-router unit (native llama.cpp's, or another project's of that name) or native vLLM's
+# vllm-server unit is active, since one engine serves per host at a time.
 set -euo pipefail
 # shellcheck source=host/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 
+# The flavor given, read before vllm_flavor resolves it, so the update install points at names it.
+given=${VLLM_FLAVOR:-}
+vllm_flavor
 engines_refuse_running llama
 engines_refuse_unit llama-router
 engines_refuse_unit vllm-server
 vllm_row
 serves=$(vllm_serves)
+update="${given:+VLLM_FLAVOR=$given }engines vllm update moves it to the row"
 
 image=$(vllm_image "${1:-$VLLM_RELEASE}")
 served=$(vllm_served "$image")
@@ -33,10 +40,10 @@ if [[ $running == "$served" ]]; then
 elif [[ -n $running ]]; then
   if [[ $(vllm_describe "$running") == "$(vllm_describe "$served")" ]]; then
     echo "vllm runs $(vllm_describe "$running") under server flags other than those of $serves;" \
-      "engines vllm update moves it to the row" >&2
+      "$update" >&2
   else
     echo "vllm runs $(vllm_describe "$running"), not $image with $serves;" \
-      "engines vllm update moves it to the row" >&2
+      "$update" >&2
   fi
   exit 1
 fi
