@@ -661,11 +661,11 @@ task's finding:
   ROCm image counted the whole ceiling as the GPU's memory
   ([llama.cpp's Setup](../llama.cpp/setup.md#9-prove-the-pinned-image-runs-on-the-gpu)).
 
-On the Framework, on 2026-10-28, `vllm --version` printed `0.32.0+rocm723`, and `rocminfo` named
-the agent `gfx1151`, with its `GLOBAL` coarse-grained and extended-fine-grained pools each
-117440512 KB, 112 GiB: the whole GTT ceiling, 120259084288 bytes, as llama.cpp's ROCm image
-counted it. vLLM's first start then logged `Free memory on device (112.0/112.0 GiB)`, and reserved
-0.80 of it ([the finding's Viability](../../findings/vllm-strix.md#viability)).
+On the Framework, v0.32.0's `vllm --version` prints `0.32.0+rocm723`, and `rocminfo` names the
+agent `gfx1151`, with its `GLOBAL` coarse-grained and extended-fine-grained pools each 117440512
+KB, 112 GiB: the whole GTT ceiling, 120259084288 bytes, as llama.cpp's ROCm image counts it.
+vLLM's first start logs `Free memory on device (112.0/112.0 GiB)` and reserves 0.80 of it
+([the finding's Viability](../../findings/vllm-strix.md#viability)).
 
 When `awk` prints nothing, no agent is gfx1151: the container didn't reach the GPU, or the
 image's ROCm doesn't know it. Run the `rocminfo` command without the `awk` to keep its whole

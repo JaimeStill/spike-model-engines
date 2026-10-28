@@ -80,7 +80,7 @@ Every model vLLM serves on the Framework was staged through hf
 models](../llama.cpp/uninstall.md#deleting-models)), such as `openai/gpt-oss-120b`'s repository,
 which llama.cpp's GGUF of the same model doesn't share.
 
-vLLM added no root step on the Framework ([Setup](setup.md#1-the-root-steps-already-in-place)). The
+vLLM adds no root step on the Framework ([Setup](setup.md#1-the-root-steps-already-in-place)). The
 root steps it uses, the `docker` group, the ufw rule for port 8000, the page-cache rule, the store,
 and the GTT ceiling, are llama.cpp's, and go with [Removing the Framework's root
 steps](../llama.cpp/uninstall.md#removing-the-frameworks-root-steps), once neither engine is

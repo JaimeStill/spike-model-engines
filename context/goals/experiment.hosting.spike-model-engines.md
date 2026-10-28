@@ -195,7 +195,7 @@ Door
 
 ## Progress
 
-slices 4/4: walkthrough done (anchor A vLLM 10.0, llama.cpp 39.5 by the method, 7/8) · standards done (a518d1e, 2bd87ef) · spec: gaps being closed · editor —
+slices 4/4 · standards done · spec done (two passes) · editor done
 
 ## Decisions
 
@@ -775,9 +775,30 @@ slices 4/4: walkthrough done (anchor A vLLM 10.0, llama.cpp 39.5 by the method, 
   before the end state, a probe: a Dockerfile under host/ FROM the official image by digest, adding
   the packages of vLLM's audio extra the image lacks, pinned at the versions uv resolved on
   2026-10-28, av 19.0.2, soundfile 0.14.0 and soxr 1.1.0, since the extra pins none, built on
-  framework without root, serving only E4B BF16's audio A and B, recorded beside the official image's result. The suite, the flavor and
-  the pin are unchanged; whether the suite carries it is the answer task's. Rejected the suite
-  carrying it now, a follow-on task, and no build.
+  framework without root, serving only E4B BF16's audio A and B, recorded beside the official
+  image's result. The suite, the flavor and the pin are unchanged; whether the suite carries it is
+  the answer task's. Rejected the suite carrying it now, a follow-on task, and no build.
+- vllm-strix: the audio probe served every request: the derived image's E4B BF16 audio A served
+  8 of 8 at 7.27 audio s/s and B 31 at 17.89, 64.2% and 88.4% of llama.cpp's Q8_0 cells (11.31
+  and 20.24). B's JSON holds 31 requests against the scenario's 32, while the server counted 32
+  finished; not looked into. The derived image is kept on the Framework.
+- vllm-strix: `host/engines vllm install`'s update hint names the row given in `VLLM_MODEL`, as it
+  names the flavor given (a518d1e, standards review): install refusing a row pointed at a plain
+  `update`, which serves the flavor's default row. Native's install hint keeps the same gap, left
+  for a later task.
+- vllm-strix: vLLM's granite cell ran twice. GuideLLM stalled at the change from 1 stream to 16,
+  wrote no JSON, and `timeout 10m` ended it (exit 124), while the server had served all 2,272
+  requests of the 1-stream level and gone idle; one rerun of the same block completed, and the
+  finding reads it and keeps the first run's files.
+- vllm-strix: the walkthrough's llama.cpp anchor A reads 39.5 output tok/s by the finding's
+  read-out, the successful mean over 7 of 8 requests: the client dropped the 8th request's stream
+  at 244 of 256 tokens. GuideLLM's total mean, 44.89, counts the dropped request's tokens and sits
+  0.2% below step 1's 44.98. vLLM's A read 10.0 (9.96), 1.0% below step 1's.
+- vllm-strix: both client faults, the granite stall and the dropped stream, are GuideLLM 0.8.1's,
+  since each server's log and `/metrics` showed no server error; with llama-gb10-container's B
+  parse error and bench-gb10-container's 7-of-8 A, they make a practice in the notes: rerun a cell
+  once when the server shows no error, keeping both runs. The walkthrough's dropped stream wasn't
+  rerun.
 
 ## Pending edits
 

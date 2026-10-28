@@ -97,7 +97,8 @@ The checks are llama.cpp's ([Checking that every download is
 complete](../llama.cpp/models.md#checking-that-every-download-is-complete)), read from the logs,
 since over SSH the `pgrep` check matches its own command line and never reads empty: every log
 ends with `exit 0`, no `*.incomplete` file is left, and each model's size, following its links,
-matches its row above, in GiB:
+matches the one `du -shL` printed in vllm-strix's
+[Staging](../../findings/vllm-strix.md#staging):
 
 ```sh
 tail -qn 1 ~/prestage/*.log
@@ -205,8 +206,9 @@ the row's flags, which `docker inspect` shows
 ### The rows on the Framework
 
 The `rocm` flavor serves the rows whose format ROCm runs, every one but the NVFP4 rows, which are
-CUDA's alone. Whether each serves on gfx1151 at v0.32.0 is the vllm-strix task's finding; a row
-that doesn't is marked unsupported there, with its reason.
+CUDA's alone. Every row serves on gfx1151 at v0.32.0, but the official image ships no audio
+decoder, so an audio request returns 500
+([vllm-strix](../../findings/vllm-strix.md#unsupported-cells)).
 
 | Row id | Shape |
 |---|---|

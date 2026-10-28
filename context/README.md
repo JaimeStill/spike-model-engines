@@ -74,18 +74,22 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
 ## Capabilities
 
 - **Engine guides:** setup, models, APIs, updates, and uninstall, per engine, under
-  `docs/engines/<engine>/`; llama.cpp's and vLLM's are written for the GB10s, and llama.cpp's has
+  `docs/engines/<engine>/`; llama.cpp's and vLLM's are written for the GB10s, and each has
   sections for the Framework.
 - **The `engines` suite:** the scripted install, update, and uninstall steps, under `host/`;
   llama.cpp's and vLLM's, each in a container (`llama`, `vllm`) and natively (`llama-native`,
-  `vllm-native`), are written. llama's container takes a flavor, `cuda13`, `rocm`, or `vulkan`,
-  which picks its image and the devices it gets.
+  `vllm-native`), are written. Each container takes a flavor, which picks its image and the
+  devices it gets: llama's is `cuda13`, `rocm`, or `vulkan`, and vllm's `cuda` or `rocm`, which
+  also picks its default row.
 - **Served-load findings:** GuideLLM runs under `docs/findings/`.
   `bench-gb10-container.md` compares both engines on gb10-1 in containers by shape, quantization,
   concurrency, vision, ASR, and embeddings (granite-embedding-english-r2 on both engines), with
   each method's commands. `llama-strix-rocm.md` compares llama.cpp in ggml's ROCm and Vulkan
   images on the Framework by shape, quantization, vision, ASR, and embeddings, with each flavor's
-  cold load and footprint. The anchor cells later
+  cold load and footprint. [`vllm-strix.md`](../docs/findings/vllm-strix.md) compares vLLM in its
+  official ROCm image with llama.cpp in ggml's Vulkan image on the Framework, cell for cell, by
+  shape, quantization, vision, ASR, and embeddings, with each row's cold start and footprint and
+  an audio probe on a derived image. The anchor cells later
   tasks rerun are first in `llama-gb10-container.md` for llama.cpp and `vllm-gb10-container.md`
   for vLLM.
 - **Raw backend findings:** llama-bench pp/tg per llama.cpp backend. `llama-gb10-native.md` has
@@ -121,8 +125,11 @@ The tasks, in the order they run; each cites the evidence it proves.
 6. `llama-strix-rocm`: llama.cpp in ggml's ROCm image against ggml's Vulkan image on the
    Framework, the `engines` suite's flavor, in `docs/findings/llama-strix-rocm.md` (evidence 1, 2,
    3).
-7. `vllm-strix`: vLLM's ROCm image on gfx1151, serving or a recorded failure, compared with
-   llama.cpp's Vulkan image, which led task 6 (evidence 1, 2).
+7. `vllm-strix`: vLLM's official ROCm image on gfx1151 against llama.cpp's Vulkan image, which
+   led task 6, cell for cell, in `docs/findings/vllm-strix.md` (evidence 1, 2). vLLM serves every
+   ROCm row. The official image can't decode audio, so its audio cells are unsupported; a probe
+   image that adds the missing packages serves them. llama.cpp's output tok/s is higher at every
+   text, vision, and audio cell, and vLLM's request rate at both embedding cells.
 8. `strix-native`: dropped. It ran only when task 6 showed ROCm leading or the GB10 native tasks
    showed bare metal winning; Vulkan led task 6, and bare metal measured level with the container
    on gb10-1 (evidence 6).
@@ -133,8 +140,8 @@ The tasks, in the order they run; each cites the evidence it proves.
 The practices every task follows, on the GB10s and the Framework, each with its reason:
 
 - **Pre-staging.** Every model a task serves is downloaded, and both engines' images pulled,
-  first, all in parallel, before any cell or timed load. A download loads the host's network,
-  disk, and CPU, so a cell or load beside one would measure that noise too
+  first, all in parallel, before any start, cell, or timed load. A download loads the host's
+  network, disk, and CPU, so a cell or load beside one would measure that noise too
   ([models](../docs/engines/llama.cpp/models.md#pre-staging-everything-at-once)).
 - **Cold loads.** A cold load is timed from a dropped page cache: a model read before loads from
   memory instead of disk, and vLLM counts the cache as free memory. The session drops it with the
@@ -152,6 +159,13 @@ The practices every task follows, on the GB10s and the Framework, each with its 
   on its engine's container's port. On the Framework that includes spike-model-hosting's router.
   Beside a second server, vLLM's memory reservation would fail and its container restart in a
   loop. Stop one before installing the other.
+- **vLLM's compile cache.** A row's first start compiles into the compile cache, and later starts
+  load it, so a timed start runs from a warm compile cache and the first start is recorded apart.
+  On the Framework, the generative rows' first starts took 163 to 189 s and their warm starts 70
+  to 161 s ([vllm-strix](../docs/findings/vllm-strix.md#cold-start-and-footprint)).
+- **A started router serves no model.** llama.cpp's router runs with `--no-models-autoload`, so
+  after `docker start llama`, as at a handover from vLLM, it serves nothing until a model is
+  loaded through `/models/load` ([models](../docs/engines/llama.cpp/models.md#loading-a-model)).
 - **A restarted container's log.** A container started again keeps the log of its earlier
   starts, so a ready line is read only since the container's start
   ([setup](../docs/engines/vllm/setup.md#6-watch-the-cold-start-and-record-it)).
@@ -193,6 +207,12 @@ The practices every task follows, on the GB10s and the Framework, each with its 
   ([API](../docs/engines/llama.cpp/api.md#vision)).
 - **GuideLLM's Python.** `mise.bench.toml` holds Python at 3.14, because torch publishes no 3.15
   wheels, so `mise run currency` reports Python behind until it does.
+- **GuideLLM's client faults.** GuideLLM 0.8.1 has failed on the client while the server served:
+  it stalled between an embedding cell's 1- and 16-stream levels, and it dropped a request's
+  stream before the request finished, which llama.cpp logged as the client's read error. When the
+  server's log and `/metrics` show no server error and the server idle, the fault is GuideLLM's:
+  the cell reruns once, and both runs are kept
+  ([vllm-strix](../docs/findings/vllm-strix.md#a-note-on-the-granite-stall)).
 - **GuideLLM's extras.** The bench environment installs GuideLLM with its `vision` and `audio`
   extras, for the image and audio requests. mise counts an install made before the extras were
   added as current, so that install gains them only when forced:
@@ -242,7 +262,17 @@ The practices every task on the Framework follows, each with its reason:
 - **Flavors.** `host/engines llama` picks the `rocm` flavor on the Framework's AMD GPU, and
   `LLAMA_FLAVOR=vulkan host/engines llama update` switches to `vulkan`. Update keeps the same
   build's other flavor, so switching back pulls nothing
-  ([update](../docs/engines/llama.cpp/update.md#switching-the-flavor)).
+  ([update](../docs/engines/llama.cpp/update.md#switching-the-flavor)). `host/engines vllm` picks
+  its `rocm` flavor the same way: `vllm/vllm-openai-rocm`, with gpt-oss-120b as its default row
+  ([update](../docs/engines/vllm/update.md#the-flavor)).
+- **vLLM's reservation.** vLLM counts the whole 112 GiB GTT ceiling as the GPU's memory and
+  reserves 0.80 of it, 89.6 GiB, at every generative row, so MemAvailable falls to about 21 to 24
+  GiB whatever the model; the KV cache takes what the weights leave. The embedding row logs no
+  reservation and leaves about 114 GiB ([vllm-strix](../docs/findings/vllm-strix.md#cold-start-and-footprint)).
+- **vLLM's audio.** vLLM's official ROCm image ships no audio decoder, so an audio request returns
+  500. The probe image that `host/vllm-rocm-audio/Dockerfile` builds adds the audio extra's
+  missing packages and serves audio; the `engines` suite doesn't build it
+  ([vllm-strix](../docs/findings/vllm-strix.md#the-audio-probe)).
 - **Sudoers files without an editor.** `sudo` drops an `EDITOR` set on its command line, so
   `visudo` opens vim, and vim inside another editor's terminal takes `visudo`'s `--` for a file
   name and saves nothing. The architect writes a rule with `tee`, checks it with `visudo -cf`, and

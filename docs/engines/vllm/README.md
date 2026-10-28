@@ -38,10 +38,11 @@ first ([Setup](setup.md#1-the-architects-root-steps)), and uv, this spike's tool
 vLLM's Python, installed from the host environment ([Setup](setup.md#2-uv)).
 
 Every start of the server, in the container or under the unit, is a cold start: the server loads the
-model, compiles it, and captures its CUDA graphs before it answers. Each page that starts it says
+model, compiles it, and captures its graphs before it answers. Each page that starts it says
 how to time the start, and each time is recorded in the task's finding. The container and native
 vLLM on gb10-1, compared for install, update, rollback, startup, speed, and memory, are in
-[vllm-gb10-native](../../findings/vllm-gb10-native.md).
+[vllm-gb10-native](../../findings/vllm-gb10-native.md). vLLM on the Framework, beside llama.cpp's
+Vulkan image, is in [vllm-strix](../../findings/vllm-strix.md).
 
 ## Pages
 
