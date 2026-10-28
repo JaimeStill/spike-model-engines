@@ -153,7 +153,7 @@ Door
 
 ## Progress
 
-slices 3/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A served 17:25; slice 2: e2f0146, 3686b6a, flavor switch shown and staging done 18:17; slice 3: ba21982, dc6332e, f05056b, measured 19:04–20:02) · standards — · spec — · editor —
+slices 4/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A served 17:25; slice 2: e2f0146, 3686b6a, flavor switch shown and staging done 18:17; slice 3: ba21982, dc6332e, f05056b, measured 19:04–20:02; slice 4: the architect's walkthrough 2026-10-28 09:30, matched) · standards — · spec — · editor —
 
 ## Decisions
 
@@ -671,6 +671,11 @@ slices 3/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A 
   inactive and disabled, port 8080 free; all four b11669 images, the native Vulkan prebuilt at
   ~/llama.cpp/b11669-vulkan, and every model in /srv/models kept; clone at
   ~/repos/spike-model-engines on llama-strix-rocm until the merge.
+- llama-strix-rocm: the architect's walkthrough (2026-10-28, from the guide at 6eee651): install
+  at rocm, `LLAMA_FLAVOR=vulkan ... update` (/dev/dri), llama-bench full-vulkan on 26B-A4B (pp512
+  2055.80 ± 5.61, tg256 71.38 ± 0.07, against the slice's 2040.48 and 71.37), anchor A on Vulkan
+  (8/8, 45.2 output tok/s, TTFT median 626.9 ms, ITL 19.7 ms, against 45.13), then back to rocm,
+  stopped, router disabled, port 8080 free. Every step matched the guide; nothing to correct.
 
 ## Pending edits
 
