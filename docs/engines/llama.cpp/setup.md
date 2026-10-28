@@ -550,12 +550,12 @@ Device 0: Radeon 8060S Graphics, gfx1151 (0x1151), VMM: no, Wave Size: 32, VRAM:
 
 An empty list means the container didn't reach the GPU.
 
-Then the server image. The task's first slice started it by hand, as the `llama` container, with
-the arguments `host/llama.sh` passes: the clone's preset read-only, the store mounted as
-llama.cpp's download cache (`LLAMA_CACHE`), port 8080 published on the host's tailnet address
-only, the router started with no model, and the device files in place of `--gpus all`. This hand
-start was the viability check, whether ggml's ROCm image serves on the Framework at all; a new
-host skips it, since [10. Install](#10-install) starts the same container. It names the preset by
+Then the server image, started by hand as the `llama` container, with the arguments
+`host/llama.sh` passes: the clone's preset read-only, the store mounted as llama.cpp's download
+cache (`LLAMA_CACHE`), port 8080 published on the host's tailnet address only, the router started
+with no model, and the device files in place of `--gpus all`. The hand start checks whether ggml's
+ROCm image serves on the host at all, before the `engines` commands run it; a host already known
+to serve skips it, since [10. Install](#10-install) starts the same container. It names the preset by
 the clone's full path, so it runs from any directory; a relative path, run from elsewhere, makes
 Docker create the missing directory, owned by root, and the router exits with `preset file does
 not exist`:
@@ -642,7 +642,9 @@ and anchor A as in [llama-gb10-container](../../findings/llama-gb10-container.md
 The architect's root step, as on the GB10
 ([7. Allow the page-cache drop](#7-allow-the-page-cache-drop)), which explains the drop: a sudoers
 rule naming that one command exactly. Arch keeps `sysctl` in `/usr/bin`; its `/usr/sbin` is a
-link to `/usr/bin`, so the rule names `/usr/bin/sysctl`. Write the rule into its own file without an editor. `sudo` drops an `EDITOR` set on its command
+link to `/usr/bin`, so the rule names `/usr/bin/sysctl`.
+
+Write the rule into its own file without an editor. `sudo` drops an `EDITOR` set on its command
 line, so `visudo` opens vim regardless, and inside another editor's terminal vim takes `visudo`'s
 `--` for a file name and saves nothing. Instead, write the rule under a name with a dot, which
 `sudo` skips in `/etc/sudoers.d`, check it with `visudo`, which prints `parsed OK`, and install it
@@ -705,11 +707,12 @@ llama-bench ships with every llama.cpp build, so the spike installs nothing for 
 
 `--list-devices` lists the GB10 as a CUDA device, as `llama-server`'s does.
 
-**In a container.** The server image the spike runs, `server-cuda13-<build>`, holds only
-`llama-server`. ggml's `full-cuda13-<build>` image holds every tool, llama-bench among them, for
+**In a container.** The server image the spike runs, `server-<flavor>-<build>`, holds only
+`llama-server`. ggml's `full-<flavor>-<build>` image holds every tool, llama-bench among them, for
 the same build. Its entrypoint, `/app/tools.sh`, picks the tool from its first argument;
-`--bench` (or `-b`) runs `./llama-bench` in `/app` with the rest. Pull it for the pin, v0.7.0
-(b11669), and list the devices it finds with the GPU attached:
+`--bench` (or `-b`) runs `./llama-bench` in `/app` with the rest. On the GB10, pull
+`full-cuda13` for the pin, v0.7.0 (b11669), and list the devices it finds with the GPU attached
+(the Framework's flavors are under [On the Framework](#on-the-framework)):
 
 ```sh
 docker pull ghcr.io/ggml-org/llama.cpp:full-cuda13-b11669

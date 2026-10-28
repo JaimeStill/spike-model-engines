@@ -3,10 +3,9 @@
 llama.cpp serves GGUF models through `llama-server`, an OpenAI-compatible HTTP server. This spike
 runs it on gb10-1 in ggml's CUDA 13 server image, and natively, from ggml's CUDA 13.4 arm64
 prebuilt of the same build under a system unit, `llama-router`, and on the Framework in ggml's ROCm
-or Vulkan server image. Either way, one `llama-server`
-runs in router mode: it holds no model itself, and loads each model named in its models preset,
-as a child process, when asked over its API. The router loads models on demand, so one server
-serves every model in the preset.
+or Vulkan server image. Each way, one `llama-server` runs in router mode: it holds no model
+itself, and loads each model named in its models preset, as a child process, when asked over its
+API. The router loads models on demand, so one server serves every model in the preset.
 
 The spike follows llama.cpp's semver releases and runs the b-build each one names. The pin lives
 in `host/llama.env`: v0.7.0 (b11669). Every flavor of server image runs that build, as

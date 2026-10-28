@@ -653,8 +653,8 @@ None: both flavors served every cell, and every guidellm exited 0.
 
 The switch printed `llama moved from ghcr.io/ggml-org/llama.cpp:server-rocm-b11669 to
 ghcr.io/ggml-org/llama.cpp:server-vulkan-b11669`. Every warm-up returned a greeting, ROCm's step 1
-`"Hello!"`, Vulkan's `"Hello, I hope you’re having a wonderful day!"`, and granite's an embedding of 8 prompt tokens. Step 1's warm-ups ran at 23:12:02Z on
-ROCm and 23:43:01Z on Vulkan.
+`"Hello!"`, Vulkan's `"Hello, I hope you’re having a wonderful day!"`, and granite's an embedding
+of 8 prompt tokens. Step 1's warm-ups ran at 23:12:02Z on ROCm and 23:43:01Z on Vulkan.
 
 ### framework's end state
 
