@@ -18,7 +18,7 @@ set -euo pipefail
 # shellcheck source=host/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
 
-# The flavor given, which the update it points at must be given too, before llama_flavor sets it.
+# The flavor given, read before llama_flavor resolves it, so the update install points at names it.
 given=${LLAMA_FLAVOR:-}
 llama_flavor
 build=$(llama_build "${1:-}")
