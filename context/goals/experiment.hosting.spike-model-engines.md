@@ -12,127 +12,144 @@
 4. [x] host-rename
 5. [x] llama-gb10-native
 6. [x] vllm-gb10-native
-7. [ ] llama-strix-rocm
+7. [x] llama-strix-rocm
 8. [ ] vllm-strix
-9. [ ] strix-native
+9. [ ] strix-native (dropped by llama-strix-rocm's verdict; leaves the manifest with the pending edit)
 10. [ ] answer
 
-## Task brief · vllm-gb10-native
+## Task brief · llama-strix-rocm
 
 Approved 2026-10-27.
 
 Problem
-  vLLM runs on gb10-1 only in its container, so the spike can't yet say
-  whether the GB10 should host it in a container or on bare metal
-  (evidence 6: install, update, rollback, startup, speed parity, GPU and
-  memory access per hosting method). This task runs the same vLLM
-  release natively from its aarch64 CUDA 13.0 wheel, installed with uv
-  (this task's one new tool), under systemd, and measures it against
-  the container in one session, through the served API (the anchors)
-  and at startup. It also takes up the one question bench-gb10-container
-  left open: vLLM's slow NVFP4 decode on SM121.
+  llama.cpp runs on the Framework only as spike-model-hosting's native
+  Vulkan router, at b11734, outside this spike's pin, suite and store. So
+  the spike can't yet say whether llama.cpp runs in a container on Strix
+  Halo, or which backend, ROCm or Vulkan, serves it better (evidence 1, 2,
+  3). This task applies the GB10 standards to the Framework, changed only
+  where AMD needs it. It proves first that ggml's ROCm image (this task's
+  one new tool) runs on gfx1151, then measures it against ggml's Vulkan
+  image in the same container, at the pin v0.7.0 (b11669), in one session.
+  strix-native's go/no-go and vllm-strix's comparison backend both wait on
+  the result. The session owns the Framework.
 
 Behaviors
-  1. Currency reports only held items, and the check passes. GuideLLM's
-     Python stays held, and native vLLM's Python pin is reported held,
-     so the task needs no upgrade slice.
-  2. Each native vLLM release is its own uv virtualenv under a
-     jaime-owned /opt/vllm. It runs on uv-managed CPython 3.12, the
-     image's Python, with vLLM at the exact release and torch from
-     PyTorch's cu130 index. After every install, update and rollback,
-     FlashInfer's precompiled kernels are downloaded into that
-     environment. uv is the host env's pinned version. torch reports
-     CUDA 13.0.
-  3. A `current` link names the release that serves, and only the
-     latest release is kept. uv's Python and cache, and vLLM's, Triton's
-     and FlashInfer's compile caches, all live under /opt/vllm, so
-     removing either hosting method leaves the other's caches alone.
-  4. A system unit, modeled on native llama.cpp's, runs `vllm serve` as
-     jaime through `current`. It requires and follows tailscaled, binds
-     the tailnet address at start on port 8000, restarts on failure,
-     and uses /srv/models as its Hugging Face cache. It reads the row's
-     model and server flags at start from a file under /opt/vllm that
-     install and update write from the rows, so switching rows or
-     changing a flag needs no root.
-  5. The architect's one-time root steps are in the setup guide, with
-     their removal: create and chown /opt/vllm, install the unit file
-     and daemon-reload, and a sudoers rule for exactly start, stop,
-     restart, enable and disable of the unit.
-  6. The engines suite gains idempotent native install, update and
-     uninstall steps. They take a release and VLLM_MODEL as the
-     container's steps do, and they refuse while the llama container,
-     the vllm container or llama-router serves. Both engines' container
-     steps, and native llama.cpp's, refuse while the native vLLM unit
-     is up. The unit is enabled only while native vLLM serves and
-     disabled on stop.
-  7. Native update compares the row file with the row, as the
-     container's update compares its command. Two servers can't share
-     the memory reservation, so update stops the old server before
-     starting the new one. It keeps the old release until the new one
-     answers /health, waiting up to 10 minutes. Native install waits the
-     same way. Uninstall keeps the model store and leaves the root
-     steps for the architect's removal procedure.
-  8. New tool, uv: the setup guide says what uv is, how it is set up
-     (pinned in the host env and installed there before first use), and
-     what each uv step of the native install does. It also gives the
-     read-back commands: uv's version, its Python list, and the package
-     list of `current`.
-  9. The install and rollback walk: native v0.31.0 installs and serves,
-     then updates to v0.32.0. Rolling back to v0.31.0 re-points
-     `current`, and an update moves it forward again. Each step shows
-     /version and torch's CUDA.
-  10. Container anchors A' (1 × 8) and B' (4 × 32), on Gemma 4 26B-A4B
-      NVFP4's pin row at 512/256, rerun warm at v0.32.0 before native A'
-      and B' at the same load. An anchor that moved beyond run noise is
-      a finding.
-  11. One timed cold start of the pin row per hosting method, from a
-      dropped page cache with that method's compile cache warm. Native's
-      first start, which compiles from scratch, is recorded beside them.
-      Each start records MemAvailable before and after, and vLLM's
-      logged weights, KV cache and CUDA graphs.
-  12. One diagnostic native A', on the pin row with the Marlin MoE
-      backend, after the native anchors. The native server then returns
-      to the pin. A rate that differs from native A' beyond run noise is
-      a finding about the NVFP4 MoE kernel on SM121.
-  13. Every result records the engine version, the Python and torch
-      versions, the host stack, the laptop's path (tailscale ping) and
-      the model state. No run exceeds 10 minutes.
-  14. At the end, native vLLM, the vllm container, native llama.cpp
-      and the llama container are all stopped and disabled on gb10-1.
-      The record's host line says so.
+  1. Currency reports only held items, and the check passes, so the task
+     needs no upgrade slice.
+  2. The Framework is brought current by the architect's `omarchy update`.
+     An installed kernel newer than the running one is recorded as a
+     pending reboot, unless the GTT step's reboot has already taken it.
+  3. The GTT ceiling is 112 GiB, close to the GB10's (changed from 125 GiB
+     during BUILD, see Decisions): ttm pages_limit 29360128 and amdgpu
+     gttsize 114688, built into the boot
+     image, then a reboot. It reads back from the ttm and amdgpu
+     parameters and from mem_info_gtt_total. The guide records the earlier
+     values (pages_limit 25165824, gttsize 98304), and notes that clearing
+     the options falls to the kernel's default of half of RAM.
+  4. Root steps, each in the guide's Framework section with its removal:
+     jaime joins the docker group, and docker is enabled and active, as on
+     gb10-1; a plain jaime-owned /srv/models on the root drive; a sudoers
+     rule for exactly /usr/bin/sysctl vm.drop_caches=3; spike-model-
+     hosting's llama-router stopped and disabled.
+  5. The store is seeded by a local copy of gpt-oss-120b MXFP4 (snapshot
+     7200b74b, gb10-1's) and gemma-4-E4B Q8_0 from the router's cache.
+     /mnt/models is left untouched.
+  6. Viability, the first walk of ggml's ROCm image: full-rocm-b11669 lists
+     gfx1151 as a ROCm device. server-rocm-b11669, run as jaime with
+     /dev/kfd and /dev/dri, the spike's preset and store, on port 8080 of
+     the tailnet address, loads gpt-oss-120b with every layer on the GPU,
+     and serves warm anchor A from the laptop. If any of these fails, the
+     failure is recorded with its reason and BUILD escalates.
+  7. The engines suite's llama group gains a flavor: cuda13 on the GB10s,
+     rocm or vulkan on the Framework. With none given, it follows the GPU
+     the host has, rocm on an AMD GPU and cuda13 otherwise. The flavor
+     picks the image (server-<flavor>-<build>) and the device flags (--gpus
+     all; /dev/kfd and /dev/dri; /dev/dri alone). `LLAMA_FLAVOR=vulkan
+     host/engines llama update` switches flavor as a build move does.
+     Install and update compare the whole image, so they refuse, replace
+     and report as they do now. Update removes the images of other builds
+     and keeps the same build's other flavor. A host with no AMD GPU
+     resolves to today's image and flags.
+  8. One engine per host holds on the Framework: llama's install and
+     update refuse while vllm runs or any llama-router or vllm-server unit
+     is active, the Framework's router included.
+  9. Before any cell or timed load, everything is staged in parallel:
+     every model the cells name, through the hf host env on the Framework;
+     the four images, server and full for rocm and vulkan at b11669; and
+     ggml's native Vulkan prebuilt b11669, sha256-checked, unpacked in
+     jaime's home.
+  10. llama-bench runs in full-rocm, in full-vulkan, and from the native
+      Vulkan prebuilt, with no engine holding a model: gpt-oss-120b MXFP4
+      and Gemma 4 26B-A4B QAT Q4_0, pp512 and tg256, depths 0 and 8192, 5
+      repetitions, -ngl 99, flash attention on.
+  11. One cold load of gpt-oss-120b per flavor, from a dropped page cache.
+      Each records MemAvailable and GTT in use (sysfs, no root), before and
+      after, beside the buffers the engine logs.
+  12. The GuideLLM cells run per flavor, each model warmed first, on the
+      same preset: anchors A (1 x 8) and B (4 x 32), then the shape set:
+      E4B Q8_0 and QAT Q4_0 at one stream; 12B QAT and 31B QAT at the
+      anchors' load, the 31B halved (1 x 4, 4 x 16); 26B-A4B QAT A, B and
+      vision; granite-embedding-english-r2 BF16 at 1 and 16 streams; and
+      E4B audio through chat. A cell a flavor can't serve is marked
+      unsupported, with its reason.
+  13. The verdict: ROCm leads only when both anchors' served output tok/s
+      beat Vulkan's by more than 3%. A split result, or one within 3%, is
+      no lead. The finding states the verdict and what follows: strix-
+      native runs or drops, and vllm-strix compares with the leading
+      backend, or with Vulkan when nothing leads.
+  14. Every result records the engine version (/props build_info), the
+      flavor and image, and the host stack: Omarchy, kernel, Mesa,
+      linux-firmware, Docker, and the GTT ceiling; also the laptop's path
+      (tailscale ping) and the model state. No run exceeds 10 minutes.
+  15. The llama.cpp guide gains Framework sections, not files: setup (root
+      steps, viability, flavors), models (the store and its seeding),
+      update and uninstall (the flavor switch), and llama-bench on AMD. The
+      README gains "Running on the Framework", and Path task 6 reads
+      "ggml's ROCm image against ggml's Vulkan image". The finding is
+      docs/findings/llama-strix-rocm.md.
+  16. At the end the llama container is stopped by hand, so it stays
+      stopped at boot, and the router stays stopped and disabled. Nothing
+      serves on the Framework, and the record's host line says so.
 
 Test seams
-  vllm serve's HTTP API on gb10-1, as GuideLLM and curl call it from
-  the laptop, and the native unit's journal and state on gb10-1.
+  llama-server's HTTP API on framework:8080, as GuideLLM and curl call it
+  from the laptop, and the engines llama commands' output and Docker's
+  state on the Framework.
 
 Slices
-  1. Native install (behaviors 1–9). The architect runs the root steps
-     and uv's first walk: native install at v0.31.0 from the guide, and
-     the uv read-back. The session first installs the host env's pinned
-     uv on gb10-1, then runs the update to v0.32.0, the rollback and the
-     forward update, recording each output. Demo: native v0.32.0
-     answers on 8000 over the tailnet, and torch reads CUDA 13.0.
-  2. The comparison (10–14). The session runs the cold starts and the
-     GuideLLM cells in the architect's view, printing each command
-     first: container anchors, then native anchors, then the Marlin
-     diagnostic, then everything stopped and disabled. Demo: the
-     finding, with its served-speed, startup and memory tables and the
-     diagnostic row.
-  3. Walkthrough: the architect installs, updates, rolls back and
-     uninstalls native vLLM from the guide, and runs one anchor cell
-     from the finding's method.
+  1. Framework ready, and ROCm viable (behaviors 1–6). The architect runs
+     the root steps (update, GTT ceiling and reboot, docker group, store,
+     sudoers rule, router stop and disable) and the ROCm image's first walk
+     from the guide: the device listing and the server start. The session
+     clones, seeds the store, reads each step back, then warms and runs
+     anchor A in the architect's view. Demo: ROCm anchor A served from the
+     laptop, or a recorded failure and an escalation.
+  2. The flavor and the staging (7–9). The session installs llama at
+     flavor rocm through the suite, switches to vulkan and back, checks the
+     refusals, and stages every model, image and the native prebuilt in
+     parallel. Demo: `host/engines llama update` moves between rocm and
+     vulkan, and /props reads b11669 on both.
+  3. The comparison (10–14, 16). The session runs llama-bench, then each
+     flavor's cold load and cells in the architect's view, printing each
+     command first, then stops everything. Demo: the finding, with its
+     raw-speed, cold-load, footprint and served tables, and the verdict.
+  4. Walkthrough (15): the architect installs at flavor rocm from the
+     guide, switches to vulkan, runs one llama-bench and one anchor cell
+     from the finding's method, and leaves the end state.
 
 Out of scope
-  gb10-2; `vllm bench` (a second new tool); gpt-oss-120b and the other
-  rows on native; FlashInfer b12x and other MoE backends beyond the one
-  diagnostic; an offline guard for model loads; tuning; Python 3.14 for
-  native; removing the container hosting method (the answer task's);
-  rewriting earlier findings.
+  Native serving on the Framework, and retiring the router (strix-
+  native's, or the answer task's if strix-native drops); ggml's native
+  ROCm prebuilt; ROCm or Vulkan tuning settings; the concurrency sweep and
+  the API probes on the Framework; gb10-1 and gb10-2; vLLM; personal-
+  agents' preparation doc and spike-model-hosting's runbook; rewriting
+  earlier findings.
 
 Door
-  Two-way. The unit, the sudoers rule and /opt/vllm are removed by the
-  setup guide's removal procedure, and the releases and caches by
-  native uninstall.
+  Two-way. The GTT ceiling goes back by restoring the recorded options and
+  rebooting. The docker group, sudoers rule and store are removed by the
+  guide's removal steps. The router comes back with enable and start. The
+  flavor switch goes back with an update. Nothing is released.
 
 ## Decisions
 
@@ -568,8 +585,133 @@ Door
   vllm/vllm-openai:v0.32.0 on its pin), stopped by hand so neither starts at boot; clone at
   ~/repos/spike-model-engines on the vllm-gb10-native branch until the merge. Supersedes
   llama-gb10-native's "gb10-1 left on 2026-10-27 with nothing serving".
+- llama-strix-rocm: the GB10 standards apply to the Framework, adapted only where AMD needs it;
+  containerized llama.cpp's viability comes first; the baseline is the semver pin v0.7.0
+  (b11669), movable by b-build; every strix session owns the Framework (architect, r1).
+- llama-strix-rocm: the GB10 conventions carry to the Framework as-is or adapted (AMD devices for
+  --gpus, an image flavor, the host stack record, "Running on the Framework"); llama-native, the
+  CDI spec and the vLLM-only practices don't apply here.
+- llama-strix-rocm: the page-cache drop is a sudoers rule for exactly /usr/bin/sysctl
+  vm.drop_caches=3, as on gb10-1.
+- llama-strix-rocm: the footprint adds GTT in use from sysfs (mem_info_gtt_used) to MemAvailable
+  and the engine's logged buffers.
+- llama-strix-rocm: the architect brings the Framework current with `omarchy update`; rejected
+  `pacman -Syu`.
+- llama-strix-rocm: jaime joins the docker group and docker is enabled at boot, as on gb10-1;
+  rejected socket activation alone and rootless Docker.
+- llama-strix-rocm: spike-model-hosting's llama-router is stopped and disabled for the session,
+  and left so after it; retiring it belongs to strix-native, or the answer task if strix-native
+  drops (r2 q3).
+- llama-strix-rocm: ggml's ROCm image is compared against ggml's Vulkan image b11669 in the same
+  llama container, plus llama-bench from ggml's native Vulkan prebuilt b11669 in jaime's home,
+  since Vulkan's driver ships in the image (Ubuntu's Mesa 26.0 against the host's 26.2.5); Path
+  task 6 reads "ggml's ROCm image against ggml's Vulkan image" (r2 q1).
+- llama-strix-rocm: one llama group with a flavor setting (cuda13 on the GB10s, rocm or vulkan on
+  the Framework, defaulting by the GPU found), switched by `LLAMA_FLAVOR=<flavor> host/engines
+  llama update`; device flags follow the flavor; rejected llama-rocm and llama-vulkan groups
+  (r2 q2). Update keeps the same build's other flavor, so a switch re-pulls nothing (decided at
+  the brief's approval).
+- llama-strix-rocm: if ggml's ROCm image doesn't run on gfx1151 (no device, gpt-oss-120b not fully
+  on the GPU, or anchor A won't serve), the failure is recorded and BUILD escalates at slice 1;
+  rejected measuring Vulkan alone (r2 q5).
+- llama-strix-rocm: llama-bench is gb10-1's matrix (gpt-oss-120b MXFP4, Gemma 4 26B-A4B QAT Q4_0,
+  pp512/tg256, 5 repetitions, flash attention on) plus depth 8192 (-d 0,8192) (r2 q6).
+- llama-strix-rocm: GuideLLM runs anchors A and B plus bench-gb10-container's shape set on both
+  flavors, about 28 cells (r2 q7).
+- llama-strix-rocm: "ROCm leads" means both anchors' served output tok/s ahead of Vulkan's by
+  more than 3%; a split or within 3% is no lead, strix-native drops, and vllm-strix compares with
+  Vulkan (r2 q8).
+- llama-strix-rocm: /srv/models is a plain jaime-owned directory on the Framework's root drive, as
+  on the GB10, seeded by a local copy of gpt-oss-120b and E4B Q8_0 from /mnt/models/hf-cache;
+  /mnt/models stays the router's, untouched; rejected a link to the router's cache and mounting
+  the models drive at /srv/models (r2 q4, r3 q1).
+- llama-strix-rocm: the GTT ceiling is all physical RAM, 125 GiB, as on the GB10 (amd-ttm --set
+  125, ttm pages_limit 32768000; amdgpu gttsize=128000; limine-mkinitcpio; reboot), the
+  architect's root step at BUILD's start; rejected 96 and 112 GiB, and clearing the options,
+  which falls to the kernel's half of RAM (~62.5 GiB); personal-agents' preparation doc is the
+  architect's to update (r3 q2, r4 q1).
+- llama-strix-rocm: the GTT ceiling is 112 GiB, not 125 (architect, slice 1): amd-ttm warned that
+  125 exceeds 90% of RAM (112.57 GB) and could destabilize the host, and the architect judged
+  112 the safer setting, keeping ~13 GiB for the host; pages_limit 29360128, gttsize 114688.
+  Supersedes the 125 GiB decision above.
+- llama-strix-rocm: the laptop reaches a container's port 8080 on the Framework through a ufw route
+  rule, `ufw route allow in on tailscale0 proto tcp to any port 8080`, since Omarchy's ufw with
+  ufw-docker drops routed traffic to published ports; it names no container, so it holds across
+  flavor switches; the architect also added the same rule for 8000, vLLM's container port, so
+  this task's guide documents both; rejected `ufw-docker allow llama` (bound to one
+  container) and `--network host` (changes the GB10's docker run) (architect, escalation, slice 1).
+- llama-strix-rocm: slice 1's viability: full-rocm-b11669 lists ROCm0, Radeon 8060S gfx1151, with
+  114688 MiB, the whole GTT ceiling; server-rocm-b11669 loaded gpt-oss-120b in 16 s with 37/37
+  layers offloaded (ROCm0 model buffer 59852 MiB; GTT used 64.6 GB) and served warm anchor A
+  (8/8 requests, 42.7 output tok/s, TTFT p95 679 ms, ITL median 20.9 ms; path direct 2 ms). The
+  cell's before-metrics snapshot came back empty, so its server figures include the warm-up;
+  slice 3 reruns the anchors on both flavors.
+- llama-strix-rocm: slice 2's demo (2026-10-27): `host/engines llama install` picked rocm by the
+  AMD vendor id and ran with /dev/kfd and /dev/dri; `LLAMA_FLAVOR=vulkan ... update` moved it to
+  server-vulkan-b11669 with /dev/dri alone, which loaded gpt-oss-120b 37/37 on Vulkan0 (RADV
+  STRIX_HALO, 115200 MiB, the GTT ceiling plus the 512 MiB carve-out), build b11669-620d2225c;
+  update moved it back; install refused a flavor switch and an unknown flavor; all four b11669
+  images kept. Staging 17:37–18:17: five models (~48 GB), the four images, and the native Vulkan
+  prebuilt (sha256 OK, `Vulkan0 ... 115200 MiB`), every log `exit 0`.
+- llama-strix-rocm: the session starts the Framework's background downloads with `setsid` and
+  `< /dev/null` beside the guide's `nohup`, since a job launched over a non-interactive SSH
+  command otherwise dies with it; and a `pgrep -f` run through `ssh host '...'` matches its own
+  command line, so a wait loop checks the logs' `exit` lines instead.
+- llama-strix-rocm: the verdict (2026-10-27): ROCm doesn't lead. Vulkan's container beat ROCm's on
+  both anchors' output tok/s (A 45.13 vs 42.42, +6.39%; B 77.67 vs 73.83, +5.21%), so strix-native
+  drops and vllm-strix compares with Vulkan, llama.cpp's leading Strix backend. ROCm led on every
+  cold load, both vision cells and granite at 1 stream; Vulkan on all llama-bench rows, every text
+  cell and granite at 16 streams (docs/findings/llama-strix-rocm.md).
+- llama-strix-rocm: the Framework left on 2026-10-27 20:02 with nothing serving: `llama` at
+  server-rocm-b11669, stopped by hand (unless-stopped, so it stays stopped at boot), llama-router
+  inactive and disabled, port 8080 free; all four b11669 images, the native Vulkan prebuilt at
+  ~/llama.cpp/b11669-vulkan, and every model in /srv/models kept; clone at
+  ~/repos/spike-model-engines on llama-strix-rocm until the merge.
+- llama-strix-rocm: the architect's walkthrough (2026-10-28, from the guide at 6eee651): install
+  at rocm, `LLAMA_FLAVOR=vulkan ... update` (/dev/dri), llama-bench full-vulkan on 26B-A4B (pp512
+  2055.80 ± 5.61, tg256 71.38 ± 0.07, against the slice's 2040.48 and 71.37), anchor A on Vulkan
+  (8/8, 45.2 output tok/s, TTFT median 626.9 ms, ITL 19.7 ms, against 45.13), then back to rocm,
+  stopped, router disabled, port 8080 free. Every step matched the guide; nothing to correct.
+- llama-strix-rocm: strix-native drops. Neither condition in its summary holds: ROCm didn't lead
+  on the Framework, and bare metal measured level with the container on gb10-1 for both engines
+  (llama-gb10-native, vllm-gb10-native). Retiring spike-model-hosting's router falls to the answer
+  task (r2 q3).
+- llama-strix-rocm: personal-agents' preparation doc and spike-model-hosting's runbook describe the
+  Framework's earlier settings (a 96 GiB GTT ceiling, the router serving); updating them is the
+  architect's, outside the spike.
+- llama-strix-rocm: for vllm-strix: `host/engines.sh` justifies one engine per host in GB10 terms
+  ("most of the GB10's memory"), and a unit's refusal hint, `sudo -n systemctl stop <unit> &&
+  sudo -n systemctl disable <unit>`, assumes gb10-1's NOPASSWD rules, which the Framework doesn't
+  have for spike-model-hosting's `llama-router`. llama.cpp v0.8.0 (b11960) was released
+  2026-10-28T12:47Z, after this task's measurements, so vllm-strix moves the pin and reruns one
+  anchor per engine first (Comparisons rule).
+- llama-strix-rocm: the editor split the notes' practices into "Running on every host", "Running
+  on the GB10s", and "Running on the Framework", so a practice both host classes follow is
+  written once.
+- llama-strix-rocm: at the session brief, the architect kept the task on llama.cpp v0.7.0 (b11669)
+  with no rerun, although v0.8.0 (b11960) was released 2026-10-28T12:47Z after the measurements;
+  the architect asked the session to update personal-agents' preparation/framework-desktop.md and
+  spike-model-hosting's runbook to the Framework's new settings, outside the spike's PR.
 
 ## Pending edits
 
 (PR #100, merged 2026-10-26, carried every edit tasks 1–3 owed until then. PR #104 carried the
 `engines/` rename's roadmap edit.)
+
+- coordinator · roadmap.toml: delete
+  `[goals.experiment.hosting.spike-model-engines.tasks.strix-native]`. llama-strix-rocm's verdict
+  is that ROCm doesn't lead, and the GB10 native tasks measured bare metal level with the
+  container, so neither condition in its summary holds; the manifest holds only what remains.
+- coordinator · roadmap.toml, `experiment.hosting.spike-model-engines.tasks.vllm-strix`'s summary:
+  replace "against llama.cpp's leading Strix backend" with "against llama.cpp in ggml's Vulkan
+  image, its leading Strix backend".
+- coordinator · roadmap.toml, `experiment.hosting.spike-model-engines.tasks.answer`'s summary: add
+  that it retires spike-model-hosting's `llama-router` on the Framework, which strix-native would
+  have.
+- coordinator · roadmap.toml, `experiment.hosting.spike-model-engines.tasks.llama-strix-rocm`'s
+  summary: replace "against the native Vulkan router" with "against ggml's Vulkan image".
+- coordinator · ai-hosting.md, "The existing setup: personal-agents", the Framework's
+  "Hardware": replace "about 96GB of it exposed to the GPU" with "112 GiB of it reachable by the
+  GPU as GTT (spike-model-engines, llama-strix-rocm)"; and "Serving": say the router is stopped
+  and disabled while the spike-model-engines sessions own the Framework, until its answer task
+  retires it. The "3.30 GiB of the 96GB GPU pool" line stays, as measured at that ceiling.

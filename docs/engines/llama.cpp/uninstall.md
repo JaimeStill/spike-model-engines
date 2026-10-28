@@ -8,9 +8,10 @@ On the host, from the clone:
 host/engines llama uninstall
 ```
 
-`uninstall` removes the `llama` container and every llama.cpp image, and keeps the model store,
-`/srv/models`, so a later install serves the same models without downloading them again. A
-second run changes nothing and says so.
+`uninstall` removes the `llama` container and every llama.cpp image, of every build and flavor:
+the server images, ggml's full images, which llama-bench runs ([Setup](setup.md#llama-bench)), and
+any untagged one. It keeps the model store, `/srv/models`, so a later install serves the same models
+without downloading them again. A second run changes nothing and says so.
 
 ## Deleting models
 
@@ -83,3 +84,77 @@ sudo rmdir /opt/llama.cpp
 `rmdir` fails when anything is left in `/opt/llama.cpp`, such as a build from before an uninstall;
 `host/engines llama-native uninstall` removes it while the rule is still in place. Then
 `systemctl status llama-router` says `Unit llama-router.service could not be found.`
+
+## The Framework
+
+On the Framework, `host/engines llama uninstall` removes the `llama` container, started by hand or
+by `install`, of either flavor, and every llama.cpp image, the ROCm and Vulkan server and full images
+([Removing llama.cpp](#removing-llamacpp)). It keeps `/srv/models`.
+
+The native Vulkan prebuilt that pre-staging fetched for llama-bench
+([Models](models.md#on-the-framework)) isn't an image, so it is the session's to remove:
+
+```sh
+rm -r ~/llama.cpp/b11669-vulkan
+```
+
+### Removing the Framework's root steps
+
+After `uninstall`, the architect undoes the root steps of
+[Setup](setup.md#framework-in-a-container), each with a root step. `jaime` leaves the `docker`
+group, which takes effect at the next login, and, when nothing else on the host uses Docker, Docker
+stops and no longer starts at boot:
+
+```sh
+sudo gpasswd -d jaime docker
+sudo systemctl disable --now docker
+```
+
+The ufw rules that route the tailnet's traffic to the containers' ports, llama.cpp's and vLLM's:
+
+```sh
+sudo ufw route delete allow in on tailscale0 proto tcp to any port 8080
+sudo ufw route delete allow in on tailscale0 proto tcp to any port 8000
+```
+
+Each deletes its IPv4 and IPv6 rule; `sudo ufw status verbose` then lists no `ALLOW FWD` rule on
+`tailscale0`.
+
+The page-cache rule:
+
+```sh
+sudo rm /etc/sudoers.d/drop-caches
+```
+
+The model store, with the models seeded into it. Their originals stay on the models drive, in
+`/mnt/models/hf-cache`, which seeding never changed:
+
+```sh
+sudo rm -rf /srv/models
+```
+
+The space comes back once the last Omarchy snapshot holding the models ages out
+([Setup](setup.md#framework-in-a-container), step 8).
+
+The GTT ceiling, back to its earlier 96 GiB: TTM's `pages_limit` to 25165824 and amdgpu's
+`gttsize` to 98304, rebuilt into the boot images, then a reboot. `amd-ttm` asks whether to reboot:
+answer `n`, and reboot last:
+
+```sh
+sudo amd-ttm --set 96
+echo 'options amdgpu gttsize=98304' | sudo tee /etc/modprobe.d/amdgpu.conf
+sudo limine-mkinitcpio
+sudo reboot
+```
+
+After the reboot, `cat /sys/module/ttm/parameters/pages_limit` prints `25165824`, and `cat
+/sys/class/drm/card*/device/mem_info_gtt_total` prints `103079215104`.
+
+Last, spike-model-hosting's router, stopped by the setup, starts again and at every boot. It
+holds port 8080, so the `llama` container must be gone first:
+
+```sh
+sudo systemctl enable --now llama-router
+```
+
+`systemctl is-active llama-router` prints `active`.

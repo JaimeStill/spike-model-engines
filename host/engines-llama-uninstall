@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # engines:summary=Remove the llama container and every llama.cpp image, keeping /srv/models
-# The model store stays; deleting models is a typed command (docs/engines/llama.cpp/uninstall.md).
+# Removes the container, whatever its flavor, and every llama.cpp image, server, full, and untagged,
+# of every build and flavor (llama_remove_images). The model store stays; deleting it is a typed
+# command (docs/engines/llama.cpp/uninstall.md).
 set -euo pipefail
 # shellcheck source=host/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
@@ -12,6 +14,7 @@ if [[ -n $running ]]; then
   echo "removed container $LLAMA_CONTAINER"
   changed=yes
 fi
-removed=$(llama_remove_images)
+# Keeping no build, so every llama.cpp image goes.
+removed=$(llama_remove_images "")
 [[ -n $removed ]] && echo "$removed"
 [[ -n $changed$removed ]] || echo "llama is not installed; nothing changed"

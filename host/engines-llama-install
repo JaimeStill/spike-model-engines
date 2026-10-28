@@ -1,25 +1,32 @@
 #!/usr/bin/env bash
 # engines:summary=Run llama-server in router mode, at the pinned build or the version given
-# Starts the llama container (llama.sh) from the pinned image, or from the image for the version
-# given: a semver release, such as v0.6.0, runs the b-build its notes name (llama-release.sh), and
-# a b-build, such as b11429, runs as given. When the container already runs that image, with the
-# clone's preset directory mounted, it changes nothing, saying docker start starts it when it is
-# stopped (it never starts it itself). When the container runs another image, or mounts the
-# preset from anywhere else (as after the clone's scripts move), it refuses, saying what it runs
-# or mounts, and points at update. It refuses while the vllm container runs, or native llama.cpp's
-# llama-router unit or native vLLM's vllm-server unit is active, since one engine serves per host
-# at a time. It refuses a version that is neither, or a release whose notes it can't read, before
-# it reads Docker.
+# Starts the llama container (llama.sh) from the pinned build's server image, or from that of the
+# version given: a semver release, such as v0.6.0, runs the b-build its notes name
+# (llama-release.sh), and a b-build, such as b11429, runs as given. The image's flavor, and the
+# devices the container gets, are LLAMA_FLAVOR's, cuda13, rocm, or vulkan, or with none given the
+# host's GPU's: rocm on an AMD GPU, cuda13 otherwise (llama_flavor). When the container already
+# runs that image, with the clone's preset directory mounted, it changes nothing, saying docker
+# start starts it when it is stopped (it never starts it itself); a container started by hand
+# from that image with that mount counts as installed. When the container runs another image,
+# another build's or another flavor's, or mounts the preset from anywhere else (as after the
+# clone's scripts move), it refuses, saying what it runs or mounts, and points at update. It
+# refuses while the vllm container runs, or native llama.cpp's llama-router unit or native vLLM's
+# vllm-server unit is active, since one engine serves per host at a time. It refuses an unknown
+# flavor, a version that is neither, or a release whose notes it can't read, before it reads
+# Docker.
 set -euo pipefail
 # shellcheck source=host/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
 
+# The flavor given, read before llama_flavor resolves it, so the update install points at names it.
+given=${LLAMA_FLAVOR:-}
+llama_flavor
 build=$(llama_build "${1:-}")
 engines_refuse_running vllm
 engines_refuse_unit llama-router
 engines_refuse_unit vllm-server
 # The update that moves it to what install was asked for: the pin, or the version given.
-update="engines llama update${1:+ $1} moves it to ${1:-the pin}"
+update="${given:+LLAMA_FLAVOR=$given }engines llama update${1:+ $1} moves it to ${1:-the pin}"
 
 image=$(llama_image "$build")
 running=$(llama_running_image)

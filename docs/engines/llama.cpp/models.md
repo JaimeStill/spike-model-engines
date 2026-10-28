@@ -90,8 +90,10 @@ The client keeps the large files in the store shared by every model it fetches,
 ### Setting up hf
 
 hf is pinned, with the uv that installs it, in the clone's host environment, `mise.host.toml`
-(huggingface_hub 2.3.0, uv 0.13.5), which `mise run currency` covers. It installs into your
-account's mise directory, with no root. On gb10-1, from the clone, after a `git pull`:
+(huggingface_hub 2.3.0, uv 0.13.6), which `mise run currency` covers. It installs into your
+account's mise directory, with no root. On gb10-1, from the clone, after a `git pull`, and on the
+Framework the same, the session's step, from `~/repos/spike-model-engines`, where mise is
+installed and hf isn't yet:
 
 ```sh
 MISE_ENV=host mise install
@@ -209,6 +211,142 @@ HF_HUB_DISABLE_XET=1 stage ggml-org/gemma-4-E4B-it-GGUF --include gemma-4-E4B-it
 
 When every check passes, `rm -r ~/prestage` removes the logs; a new shell starts without the
 exports and `stage`.
+
+#### On the Framework
+
+The session's step, from `~/repos/spike-model-engines`, once hf is set up there
+([Setting up hf](#setting-up-hf)). The Framework's comparison serves llama.cpp alone, ggml's ROCm
+image against its Vulkan image, so it stages llama.cpp's models, not vLLM's, and only those its
+cells name: the Gemma 4 shapes and gpt-oss-120b, for GuideLLM, and gpt-oss-120b and
+gemma-4-26B-A4B, for llama-bench. gpt-oss-120b and gemma-4-E4B Q8_0 are in the store already,
+seeded ([Seeding the Framework's store](#seeding-the-frameworks-store)), so five models are
+left, about 48 GB. It also fetches both flavors' images, the server image each `llama` runs and
+the full image llama-bench runs, and ggml's native Vulkan prebuilt of the same build, for
+llama-bench outside the container.
+
+Set the exports, define the Framework's `stage`, and start everything together.
+The session runs this step over SSH, and a plain `nohup … &` job started by a non-interactive
+`ssh framework '…'` command dies when that command returns, so `stage`, the image pulls, and the
+prebuilt's job each start with `setsid nohup … < /dev/null &`, in a session of its own with no
+terminal input, which outlives the command:
+
+```sh
+export MISE_ENV=host HF_HUB_CACHE=/srv/models HF_XET_HIGH_PERFORMANCE=1
+mkdir -p ~/prestage
+stage() { setsid nohup bash -c 'mise exec -- hf download "$@"; echo "exit $?"' stage "$@" > ~/prestage/"${1//\//--}".log 2>&1 < /dev/null & }
+stage google/gemma-4-E4B-it-qat-q4_0-gguf --include gemma-4-E4B_q4_0-it.gguf --include gemma-4-E4B-it-mmproj.gguf
+stage google/gemma-4-12B-it-qat-q4_0-gguf --include gemma-4-12b-it-qat-q4_0.gguf --include mmproj-gemma-4-12b-it-qat-q4_0.gguf
+stage google/gemma-4-31B-it-qat-q4_0-gguf --include gemma-4-31B_q4_0-it.gguf --include gemma-4-31B-it-mmproj.gguf
+stage google/gemma-4-26B-A4B-it-qat-q4_0-gguf --include gemma-4-26B_q4_0-it.gguf --include gemma-4-26B-it-mmproj.gguf
+stage mrutkows/granite-embedding-english-r2-GGUF --include granite-embedding-english-r2-bf16.gguf
+for image in server-rocm full-rocm server-vulkan full-vulkan; do setsid nohup bash -c 'docker pull "ghcr.io/ggml-org/llama.cpp:$0-b11669"; echo "exit $?"' "$image" > ~/prestage/"$image".log 2>&1 < /dev/null & done
+setsid nohup bash -c '(set -e; cd ~/prestage; curl -fsSLO https://github.com/ggml-org/llama.cpp/releases/download/b11669/llama-b11669-bin-ubuntu-vulkan-x64.tar.gz; echo "e8709e5ba6c1b093dea7f3de57f4aba842f9a188fba6b465782d65d6fcfa4d9f  llama-b11669-bin-ubuntu-vulkan-x64.tar.gz" | sha256sum -c; mkdir -p ~/llama.cpp/b11669-vulkan; tar -xzf llama-b11669-bin-ubuntu-vulkan-x64.tar.gz -C ~/llama.cpp/b11669-vulkan --strip-components=1); echo "exit $?"' > ~/prestage/llama-vulkan-x64.log 2>&1 < /dev/null &
+```
+
+A pull of an image already present, such as the ROCm ones from
+[Setup](setup.md#9-prove-the-pinned-image-runs-on-the-gpu), fetches nothing.
+
+The prebuilt is `llama-b11669-bin-ubuntu-vulkan-x64.tar.gz`, from the b11669 release's assets.
+`sha256sum -c` checks it against the digest GitHub's API gives for that asset, and prints
+`llama-b11669-bin-ubuntu-vulkan-x64.tar.gz: OK`; on a mismatch it stops before unpacking. It
+unpacks into `~/llama.cpp/b11669-vulkan`: in `jaime`'s home, so it needs no root step and nothing
+of it is the system's, outside the clone and the store, and laid out as native llama.cpp's
+`/opt/llama.cpp/<build>` is on the GB10, one build to a directory, named for its backend too.
+`--strip-components=1` drops the tarball's own top directory, `llama-b11669/`, so the tools sit
+beside their libraries, which they find through their `$ORIGIN` runpath. The Vulkan library,
+`libggml-vulkan.so`, loads the host's Vulkan loader, `libvulkan.so.1`, from `vulkan-icd-loader`,
+and through it the host's Mesa driver, `vulkan-radeon`.
+
+The checks are those of [Checking that every download is
+complete](#checking-that-every-download-is-complete), with the prebuilt's download among the
+processes, and every image of both flavors listed. The `pgrep` check works at a prompt on the
+host, but run as `ssh framework '…'` it matches its own command line and never reads empty; over
+SSH the check is the logs instead: `tail -qn 1 ~/prestage/*.log` shows `exit 0` for every job once
+all have finished.
+
+```sh
+pgrep -af "hf download|docker pull|vulkan-x64"
+tail -qn 1 ~/prestage/*.log
+find /srv/models -name "*.incomplete"
+du -shL /srv/models/models--*
+docker image ls --format "{{.Repository}}:{{.Tag}}" | grep llama.cpp
+```
+
+The images listed are `server-rocm-b11669`, `full-rocm-b11669`, `server-vulkan-b11669`, and
+`full-vulkan-b11669`. The prebuilt answers with its build, and lists the GPU as a Vulkan device:
+
+```sh
+~/llama.cpp/b11669-vulkan/llama-server --version
+~/llama.cpp/b11669-vulkan/llama-bench --list-devices
+```
+
+`--version` prints `version: 0.7.0-dev (build 11669, commit 620d2225c)`; `--list-devices` lists
+one device, `Vulkan0`, the Radeon 8060S. `rm -r ~/prestage` then removes the logs and the
+tarball; the unpacked build stays for llama-bench, and goes with
+[Uninstall](uninstall.md#the-framework).
+
+## Seeding the Framework's store
+
+The Framework already holds two of the models, in spike-model-hosting's Hugging Face cache on its
+models drive, `/mnt/models/hf-cache`: gpt-oss-120b MXFP4 and gemma-4-E4B Q8_0, each with the
+files the preset resolves. Seeding copies them into `/srv/models` instead of downloading them
+again, once the architect has created the store ([Setup](setup.md#framework-in-a-container),
+step 8). The models drive belongs to spike-model-hosting: the copy reads it and changes nothing
+on it.
+
+The two caches differ in one level: hosting's keeps each model under `hub/`, as
+`/mnt/models/hf-cache/hub/models--<org>--<repo>`, and the store keeps it at the top, as
+`/srv/models/models--<org>--<repo>`, as on gb10-1. Each model's directory is self-contained:
+`refs/main` names the snapshot, the snapshot's files are relative links into the model's own
+`blobs/`, and `blobs/` holds the files, each named by its content's sha256. Hosting's cache also
+keeps an older snapshot of each model beside the one `refs/main` names; the store takes only the
+one `refs/main` names, which is gb10-1's: `7200b74b` for gpt-oss-120b and `a69f018d` for
+gemma-4-E4B.
+
+On the Framework, the session copies each model's `refs/`, its `blobs/`, and the snapshot
+`refs/main` names. `cp -a` keeps the links as links, so the snapshot still points into the
+copied `blobs/`, and keeps `jaime` as the owner:
+
+```sh
+src=/mnt/models/hf-cache/hub
+for repo in models--ggml-org--gpt-oss-120b-GGUF models--ggml-org--gemma-4-E4B-it-GGUF; do
+  snap=$(cat "$src/$repo/refs/main")
+  mkdir -p "/srv/models/$repo/snapshots"
+  cp -a "$src/$repo/refs" "$src/$repo/blobs" "/srv/models/$repo/"
+  cp -a "$src/$repo/snapshots/$snap" "/srv/models/$repo/snapshots/"
+done
+```
+
+It copies about 72 GB from one drive to the other.
+
+### Checking that the copy is complete
+
+The checks of [Checking that every download is complete](#checking-that-every-download-is-complete)
+that apply to a copy. No partial file is in the store, and no link points at a missing file;
+both commands print nothing:
+
+```sh
+find /srv/models -name "*.incomplete"
+find /srv/models -xtype l
+```
+
+Each model's size, following its links, matches its row of
+[the models this spike stages](#the-models-this-spike-stages), in GiB (the table gives GB): about
+59 GiB for gpt-oss-120b and 8 GiB for gemma-4-E4B:
+
+```sh
+du -shL /srv/models/models--*
+```
+
+And every file holds what its name says: each blob's sha256 is its name, so `sha256sum` checks
+each copy against it and prints `OK` after each path:
+
+```sh
+for f in /srv/models/models--*/blobs/*; do echo "${f##*/}  $f"; done | sha256sum -c
+```
+
+It reads all 72 GB, so it takes some minutes. A blob that prints `FAILED` is copied again with
+its model's lines above.
 
 ## The host's address on the laptop
 
