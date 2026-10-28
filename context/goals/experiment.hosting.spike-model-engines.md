@@ -153,7 +153,7 @@ Door
 
 ## Progress
 
-slices 2/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A served 17:25; slice 2: e2f0146, 3686b6a, flavor switch shown and staging done 18:17) · standards — · spec — · editor —
+slices 3/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A served 17:25; slice 2: e2f0146, 3686b6a, flavor switch shown and staging done 18:17; slice 3: ba21982, dc6332e, f05056b, measured 19:04–20:02) · standards — · spec — · editor —
 
 ## Decisions
 
@@ -661,6 +661,16 @@ slices 2/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A 
   `< /dev/null` beside the guide's `nohup`, since a job launched over a non-interactive SSH
   command otherwise dies with it; and a `pgrep -f` run through `ssh host '...'` matches its own
   command line, so a wait loop checks the logs' `exit` lines instead.
+- llama-strix-rocm: the verdict (2026-10-27): ROCm doesn't lead. Vulkan's container beat ROCm's on
+  both anchors' output tok/s (A 45.13 vs 42.42, +6.39%; B 77.67 vs 73.83, +5.21%), so strix-native
+  drops and vllm-strix compares with Vulkan, llama.cpp's leading Strix backend. ROCm led on every
+  cold load, both vision cells and granite at 1 stream; Vulkan on all llama-bench rows, every text
+  cell and granite at 16 streams (docs/findings/llama-strix-rocm.md).
+- llama-strix-rocm: the Framework left on 2026-10-27 20:02 with nothing serving: `llama` at
+  server-rocm-b11669, stopped by hand (unless-stopped, so it stays stopped at boot), llama-router
+  inactive and disabled, port 8080 free; all four b11669 images, the native Vulkan prebuilt at
+  ~/llama.cpp/b11669-vulkan, and every model in /srv/models kept; clone at
+  ~/repos/spike-model-engines on llama-strix-rocm until the merge.
 
 ## Pending edits
 
