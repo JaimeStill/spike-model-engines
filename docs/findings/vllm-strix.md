@@ -488,7 +488,7 @@ done
 ```
 
 The figures are read as every vLLM cell's, with `p=.state/vllm-strix/vllm-audio/$cell`. Then, on
-framework, `vllm-audio` is removed and the derived image kept; `docker rmi
+framework, `vllm-audio` is removed with `docker rm -f vllm-audio`, and the derived image kept; `docker rmi
 spike-model-engines/vllm-openai-rocm-audio:v0.32.0` removes it. The suite, the flavor and the pin
 are unchanged: whether the suite carries the derived image is the answer task's.
 
@@ -789,8 +789,11 @@ step 7.
 - **The Dockerfile.** `host/vllm-rocm-audio/Dockerfile`, at 3118182: the official image at the pin
   by its digest, and `uv pip install --system av==19.0.2 soundfile==0.14.0 soxr==1.1.0`, the
   packages of vLLM's audio extra the image lacks, at the versions uv resolved on 2026-10-28.
-- **The dry run.** The same install, resolved against the official image before the build, added
-  only av 19.0.2, soundfile 0.14.0, and soxr 1.1.0, and changed nothing already in the image.
+- **The dry run.** The whole extra, resolved against the official image before the build, in a
+  throwaway container (`docker run --rm --entrypoint sh vllm/vllm-openai-rocm:v0.32.0 -c "uv pip
+  install --system --dry-run av scipy soundfile soxr \"mistral_common[audio]\""`), resolved 28
+  packages and would install only av 19.0.2, soundfile 0.14.0, and soxr 1.1.0, changing nothing
+  already in the image.
 - **The build.** On framework, without root: `sha256:4d63a2268f06…`, listed as
   `spike-model-engines/vllm-openai-rocm-audio:v0.32.0 4d63a2268f06 47GB`, and the import check
   printed `av 19.0.2 soundfile 0.14.0 soxr 1.1.0`.
@@ -822,7 +825,8 @@ The probe's cells beside llama.cpp's E4B Q8_0 audio cells, from the same session
   generation: its mean generation delay was 40% of the mean TTFT at the probe's A and 21% at its
   B, 81% and 14% at llama.cpp's, and its p95 root dispatch delay 1.05 to 1.17 s on all four.
   Both engines' audio figures carry that client delay, as in llama-strix-rocm.
-- **Afterwards.** `vllm-audio` was removed, and the derived image kept; `docker rmi
+- **Afterwards.** `vllm-audio` was removed (`docker rm -f vllm-audio` printed `vllm-audio`), and
+  the derived image kept; `docker rmi
   spike-model-engines/vllm-openai-rocm-audio:v0.32.0` removes it. The end state's container list,
   filtered on `vllm`, shows no `vllm-audio`.
 
