@@ -195,7 +195,7 @@ Door
 
 ## Progress
 
-slices 4/4: walkthrough done (anchor A vLLM 10.0, llama.cpp 44.9; end state on the default row) · standards running · spec — · editor —
+slices 4/4: walkthrough done (anchor A vLLM 10.0, llama.cpp 39.5 by the method, 7/8) · standards done (a518d1e, 2bd87ef) · spec: gaps being closed · editor —
 
 ## Decisions
 
