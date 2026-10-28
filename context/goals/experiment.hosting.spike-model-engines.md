@@ -1,8 +1,8 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** brief ready
-- **Task:** llama-strix-rocm
-- **Branch:** llama-strix-rocm
+- **State:** idle
+- **Task:** none
+- **Branch:** none
 
 ## Tasks
 
@@ -12,7 +12,7 @@
 4. [x] host-rename
 5. [x] llama-gb10-native
 6. [x] vllm-gb10-native
-7. [ ] llama-strix-rocm
+7. [x] llama-strix-rocm
 8. [ ] vllm-strix
 9. [ ] strix-native (dropped by llama-strix-rocm's verdict; leaves the manifest with the pending edit)
 10. [ ] answer
@@ -150,10 +150,6 @@ Door
   rebooting. The docker group, sudoers rule and store are removed by the
   guide's removal steps. The router comes back with enable and start. The
   flavor switch goes back with an update. Nothing is released.
-
-## Progress
-
-slices 4/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A served 17:25; slice 2: e2f0146, 3686b6a, flavor switch shown and staging done 18:17; slice 3: ba21982, dc6332e, f05056b, measured 19:04–20:02; slice 4: the architect's walkthrough 2026-10-28 09:30, matched) · standards ✓ (e2af95c, 7fa6eb5) · spec 1 round, gaps closed (fc1bc69, editor) · editor ✓
 
 ## Decisions
 
@@ -692,6 +688,10 @@ slices 4/4 committed (slice 1: b84066b, 18e45d8, 3ee8fc4, ROCm viable, anchor A 
 - llama-strix-rocm: the editor split the notes' practices into "Running on every host", "Running
   on the GB10s", and "Running on the Framework", so a practice both host classes follow is
   written once.
+- llama-strix-rocm: at the session brief, the architect kept the task on llama.cpp v0.7.0 (b11669)
+  with no rerun, although v0.8.0 (b11960) was released 2026-10-28T12:47Z after the measurements;
+  the architect asked the session to update personal-agents' preparation/framework-desktop.md and
+  spike-model-hosting's runbook to the Framework's new settings, outside the spike's PR.
 
 ## Pending edits
 
