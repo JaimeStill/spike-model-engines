@@ -1,8 +1,8 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** brief ready
-- **Task:** answer
-- **Branch:** answer
+- **State:** idle
+- **Task:** none
+- **Branch:** none
 
 ## Tasks
 
@@ -14,7 +14,7 @@
 6. [x] vllm-gb10-native
 7. [x] llama-strix-rocm
 8. [x] vllm-strix
-9. [ ] answer
+9. [x] answer
 
 ## Task brief · answer
 
@@ -303,10 +303,6 @@ Door
     of models download again, so it reverts at the cost of a re-download.
   - Each sync edit reverts by commit.
   Nothing is released.
-
-## Progress
-
-slices 4/4 committed (sweep: f0ffb9c, 25b59a1, 058f5a9, initial setting 4 streams, run over DERP(iad) by the architect's decision; set A: 810ac56, 3d83136, served on framework:8080, removals done; answer: f8e34a4; walkthrough: router retired 15:31Z, Pi on set A, 3d36ffe) · standards ✓ (2252adc, da015b2) · spec ✓ (2 rounds, 5bee540, 672ce04) · editor ✓ (04d9dff)
 
 ## Decisions
 
@@ -1020,6 +1016,8 @@ slices 4/4 committed (sweep: f0ffb9c, 25b59a1, 058f5a9, initial setting 4 stream
   as-run line on answer.
 - answer: removed the Framework's tailnet address from the finding (STANDARDS.md); it remains in
   the pushed branch's history.
+- answer: merged with --squash instead of the configured --merge, so the tailnet address commit
+  25b59a1 carried leaves main's history (architect, session brief); the private ranges stay.
 
 ## Pending edits
 
