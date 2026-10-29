@@ -472,6 +472,28 @@ After the read-outs, [step 6](#6-the-end-state) unloaded the 16-slot section. `l
 unloaded; `llama-router` is disabled and inactive; and port 8080 listens on 100.87.194.83, the
 tailnet address, held by the container.
 
+### Set A, served
+
+As run on 2026-10-29, on framework from about 15:12Z, with
+[step 12, Serve set A](../engines/llama.cpp/setup.md#12-serve-set-a), then the removals with
+[Uninstall's Framework blocks](../engines/llama.cpp/uninstall.md#the-framework), each block
+exactly as the guides give it:
+
+| Block | Printed |
+|---|---|
+| The clone, the update, the reload | the clone on `answer...origin/answer` at 810ac56; `llama already runs ghcr.io/ggml-org/llama.cpp:server-vulkan-b11960; nothing changed`; the image `server-vulkan-b11960` on `/dev/dri`; after the reload `/models` lists `gpt-oss-120b-MXFP4-set-a`, `unloaded`, beside the other eight sections |
+| The loads | before: `MemAvailable` 122814868 kB, `gtt_used` 274538496; `gpt-oss-120b-MXFP4-set-a` loaded after 9.3 s, `google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0` after 6.3 s, `ggml-org/gemma-4-E4B-it-GGUF:Q8_0` after 3.1 s, `mrutkows/granite-embedding-english-r2-GGUF:BF16` after 0.5 s; after: `MemAvailable` 25803672 kB, `gtt_used` 98896084992 |
+| The models and the containers | set A's four `loaded`, every other section `unloaded`; `vllm` (`vllm/vllm-openai-rocm:v0.32.0`) `Exited (0) 19 hours ago`, `llama` `Up 26 minutes (healthy)` |
+| `/health`, from the laptop | `{"status":"ok"}` from `http://framework:8080/health` |
+| The native Vulkan b11669 prebuilt | `rm` and `rmdir` succeeded; `command ls -d` printed `cannot access` for both `/home/jaime/llama.cpp` and `/home/jaime/prestage/llama-b11669-bin-ubuntu-vulkan-x64.tar.gz` and exited 2, the expected read-back that both are gone |
+| The vLLM audio probe's image | `Untagged: spike-model-engines/vllm-openai-rocm-audio:v0.32.0`, then `Deleted: sha256:4d63a2268f06…`; the images left, `server-vulkan-b11960` (c9aba1a67338, 1.21GB) and `vllm/vllm-openai-rocm:v0.32.0` (14f6a575e1fb, 46.7GB) |
+
+No load was cold: all four read their files from the page cache. Set A's four took 94737.5 MiB
+of `MemAvailable` (122814868 less 25803672 kB) and 94052.8 MiB of GTT (98896084992 less
+274538496 bytes), leaving 24.6 GiB available on the host and 92.1 GiB of the 112 GiB GTT ceiling
+in use. The Framework ends serving set A from `llama` at b11960 in ggml's Vulkan image, `vllm`
+installed and stopped.
+
 ## Past 16 slots
 
 The sampler's gauges by level, read every 5 s while GuideLLM ran:

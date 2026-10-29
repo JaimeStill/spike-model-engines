@@ -102,7 +102,8 @@ The Framework holds the build its llama-bench runs used,
 [llama-strix-rocm](../../findings/llama-strix-rocm.md#llama-bench)'s b11669, unpacked in
 `~/llama.cpp/b11669-vulkan`, with its tarball in `~/prestage`; the pin's was never fetched. The
 answer task removes both, then `~/llama.cpp`, which `rmdir` removes only when nothing else is
-left in it, and lists what remains, which prints `No such file or directory` for each:
+left in it, and lists what remains. Both are gone when `ls` prints `cannot access … No such file
+or directory` for each and exits 2: that exit is the expected read-back, not a failure:
 
 ```sh
 rm -r ~/llama.cpp/b11669-vulkan ~/prestage/llama-b11669-bin-ubuntu-vulkan-x64.tar.gz
