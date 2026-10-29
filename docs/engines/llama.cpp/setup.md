@@ -440,13 +440,12 @@ there: a flavor switch, an update, or vLLM's container. They go with
 
 ### 5. Retire the router
 
-The architect runs every step of the retirement; the session reads the state back before and
-after. spike-model-hosting's native router, `llama-router`, served on the Framework before this
-spike: it held port 8080 and, with its set A loaded, most of the GTT, and the `engines` commands
-refuse while any `llama-router` unit is active. The spike's answer task retired it on
-2026-10-29, and the Framework serves set A from the `llama` container instead
-([12. Serve set A](#12-serve-set-a)). The retirement removes everything only the router used,
-read on 2026-10-29 with the router disabled and inactive:
+The retirement removes spike-model-hosting's native router, `llama-router`, and everything only
+it used. The router served on the Framework before this spike: it held port 8080 and, with its
+set A loaded, most of the GTT, and the `engines` commands refuse while any `llama-router` unit
+is active. The Framework serves set A from the `llama` container instead
+([12. Serve set A](#12-serve-set-a)). The architect runs every step; the session reads the state
+back before and after. What the router used, read on 2026-10-29 with it disabled and inactive:
 
 | What | Where | Owner |
 |---|---|---|

@@ -483,7 +483,7 @@ exactly as the guides give it but the first line, which ran on the task's branch
 cd ~/repos/spike-model-engines && git switch -q answer && git pull -q --ff-only && git status -sb | head -1 && git log --oneline -1
 ```
 
-The guide's block names `main` in its place, since `answer` merged.
+The guide's block names `main` in its place, since the `answer` branch is deleted once it merges.
 
 | Block | Printed |
 |---|---|

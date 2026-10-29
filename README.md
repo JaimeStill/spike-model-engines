@@ -156,7 +156,7 @@ The Framework serves set A from the `llama` container in ggml's Vulkan image, at
 gpt-oss-120b on 4 slots, Gemma 4 26B-A4B QAT Q4_0 and E4B Q8_0 with their projectors, and
 granite-embedding-english-r2, on `framework:8080`
 ([setup](docs/engines/llama.cpp/setup.md#12-serve-set-a)). The `vllm` container is installed and
-stopped. spike-model-hosting's router, `llama-router`, is retired, on 2026-10-29: its unit,
+stopped. spike-model-hosting's router, `llama-router`, was retired on 2026-10-29: its unit,
 presets, builds, and 82G of models are gone, and the models drive stays mounted, empty
 ([setup](docs/engines/llama.cpp/setup.md#5-retire-the-router);
 [answer's Walkthrough](docs/findings/answer.md#walkthrough), where Pi ran against set A from the

@@ -10,7 +10,7 @@ spike decides nothing itself.
 The spike is the sub-goal `experiment.hosting.spike-model-engines` in the coordinator's roadmap,
 `standards-lab/context/roadmap.toml`, where its tasks live. Its question is framed in
 `standards-lab/context/ai-hosting.md`, under "Experiment: experiment.hosting", which holds the
-experiment's rules and spike-model-hosting's answer. IL6 is out of this spike's scope.
+experiment's rules and its spikes' answers. IL6 is out of this spike's scope.
 
 ## The question
 
@@ -89,9 +89,10 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
   cold load and footprint. [`vllm-strix.md`](../docs/findings/vllm-strix.md) compares vLLM in its
   official ROCm image with llama.cpp in ggml's Vulkan image on the Framework, cell for cell, by
   shape, quantization, vision, ASR, and embeddings, with each row's cold start and footprint and
-  an audio probe on a derived image. The anchor cells later
-  tasks rerun are first in `llama-gb10-container.md` for llama.cpp and `vllm-gb10-container.md`
-  for vLLM.
+  an audio probe on a derived image. `answer.md` runs gb10-1's concurrency sweep on the Framework,
+  llama.cpp in ggml's Vulkan image, and reads gpt-oss-120b's initial setting from it. The anchor
+  cells later tasks rerun are first in `llama-gb10-container.md` for llama.cpp and
+  `vllm-gb10-container.md` for vLLM.
 - **Raw backend findings:** llama-bench pp/tg per llama.cpp backend. `llama-gb10-native.md` has
   gb10-1's CUDA build, natively and in ggml's full-cuda13 image, on gpt-oss-120b and
   gemma-4-26B-A4B. `llama-strix-rocm.md` has the Framework's ROCm and Vulkan images and ggml's
@@ -105,7 +106,9 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
   start, footprint, the anchor cells, and the Marlin MoE diagnostic.
 - **Quantization rule:** the floor every cell keeps, applied in `bench-gb10-container.md`'s
   formats ([Rules](#rules)).
-- **The answer.**
+- **The answer:** llama.cpp in a container on both host classes, in ggml's CUDA image on the
+  GB10s and its Vulkan image on the Framework. vLLM's leads and the measured concurrency curves
+  are kept as evidence, and the answer sets no slot limit ([README](../README.md#the-answer)).
 
 ## Path
 
@@ -133,7 +136,10 @@ The tasks, in the order they run; each cites the evidence it proves.
 8. `strix-native`: dropped. It ran only when task 6 showed ROCm leading or the GB10 native tasks
    showed bare metal winning; Vulkan led task 6, and bare metal measured level with the container
    on gb10-1 (evidence 6).
-9. `answer`: the evidence, README "The answer", and the answer section.
+9. `answer`: llama.cpp in a container on both host classes, ggml's CUDA image on the GB10s and
+   its Vulkan image on the Framework, in README "The answer" (evidence 1 to 6). The Framework's
+   concurrency sweep, in `docs/findings/answer.md`, gives gpt-oss-120b an initial setting of 4
+   streams. spike-model-hosting's router is retired, and the Framework serves set A.
 
 ## Running on every host
 
@@ -156,16 +162,16 @@ The practices every task follows, on the GB10s and the Framework, each with its 
   ([models](../docs/engines/vllm/models.md#the-first-download)).
 - **One engine per host.** Each engine's install and update refuse while another engine serves:
   the other engine's container, or any `llama-router` or `vllm-server` unit, each of which serves
-  on its engine's container's port. On the Framework that includes spike-model-hosting's router.
-  Beside a second server, vLLM's memory reservation would fail and its container restart in a
-  loop. Stop one before installing the other.
+  on its engine's container's port. Beside a second server, vLLM's memory reservation would fail
+  and its container restart in a loop. Stop one before installing the other.
 - **vLLM's compile cache.** A row's first start compiles into the compile cache, and later starts
   load it, so a timed start runs from a warm compile cache and the first start is recorded apart.
   On the Framework, the generative rows' first starts took 163 to 189 s and their warm starts 70
   to 161 s ([vllm-strix](../docs/findings/vllm-strix.md#cold-start-and-footprint)).
 - **A started router serves no model.** llama.cpp's router runs with `--no-models-autoload`, so
-  after `docker start llama`, as at a handover from vLLM, it serves nothing until a model is
-  loaded through `/models/load` ([models](../docs/engines/llama.cpp/models.md#loading-a-model)).
+  after `docker start llama` or a reboot, as at a handover from vLLM, it serves nothing until a
+  model is loaded through `/models/load`
+  ([models](../docs/engines/llama.cpp/models.md#loading-a-model)).
 - **A restarted container's log.** A container started again keeps the log of its earlier
   starts, so a ready line is read only since the container's start
   ([setup](../docs/engines/vllm/setup.md#6-watch-the-cold-start-and-record-it)).
@@ -237,8 +243,12 @@ The practices every task on the GB10s follows, each with its reason:
 
 The practices every task on the Framework follows, each with its reason:
 
-- **The session owns the Framework.** Nothing else serves on it while a task's session runs, so no
-  other server holds port 8080 or the GTT while the task measures.
+- **A measuring session owns the Framework.** Nothing else serves on it while a session measures,
+  so no other server holds port 8080 or the GTT during a measurement.
+- **Set A between tasks.** The Framework serves set A from the `llama` container between tasks
+  ([setup](../docs/engines/llama.cpp/setup.md#12-serve-set-a)). vLLM's install and update refuse
+  while `llama` runs, so a task stops it (`docker stop llama`) before installing vLLM, and the
+  setup's step serves set A again.
 - **The GTT ceiling.** The GPU reaches up to 112 GiB of RAM as GTT, set by TTM's `pages_limit`
   and amdgpu's `gttsize`, built into the boot image. Above 90% of RAM, `amd-ttm` warns that a GPU
   filling memory can starve the host; clearing the options drops the ceiling to the kernel's
@@ -255,10 +265,6 @@ The practices every task on the Framework follows, each with its reason:
   published port, so the laptop reaches ports 8080 and 8000 only through `ufw route allow` rules
   on `tailscale0`. A laptop request that times out while `/health` answers on the host means a
   rule is missing ([setup](../docs/engines/llama.cpp/setup.md#4-route-the-ports-through-ufw)).
-- **spike-model-hosting's router.** Its `llama-router` holds port 8080 and most of the GTT, so it
-  stays stopped and disabled, and the `engines` commands refuse while it is active
-  ([setup](../docs/engines/llama.cpp/setup.md#5-retire-the-router)). Retiring it is the answer
-  task's.
 - **Flavors.** `host/engines llama` picks the `rocm` flavor on the Framework's AMD GPU, and
   `LLAMA_FLAVOR=vulkan host/engines llama update` switches to `vulkan`. Update keeps the same
   build's other flavor, so switching back pulls nothing

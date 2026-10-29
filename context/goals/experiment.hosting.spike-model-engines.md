@@ -1004,6 +1004,22 @@ slices 4/4 committed (sweep: f0ffb9c, 25b59a1, 058f5a9, initial setting 4 stream
 - answer: held spike-model-hosting's openai at v3.31.0: the same reason; latest v3.41.0.
 - answer: held spike-model-hosting's pillow at v12.3.0: the same reason (its CVE fixes reach only
   the laptop's evaluation suites, which don't run again); latest v13.0.0, a new major.
+- answer: ran anchor A and the Framework sweep over a DERP(iad) relay at about 55 ms, the laptop on
+  another network with hard NAT; the architect chose to run rather than wait for a direct path
+  (escalation, slice 1); anchor A read −1.41% against vllm-strix, the cause the path.
+- answer: pushed the answer branch before SHIP so the Framework's clone ran from it (escalation,
+  slice 1); block 2 ran on main at bde06a4, host/ identical.
+- answer: held pipx:huggingface_hub at 2.3.0 (mise.host.toml): 2.4.0 was released during BUILD,
+  this task downloads nothing, and spike-hosting-upgrades owns upgrades; latest 2.4.0.
+- answer: set A's section keeps checkpoint-min-step = 4096 and kv-unified from spike-ai-pipeline's
+  set A preset, where its [*] block sets them, so set A matches its definition; not a tuning
+  change; rejected changing [*].
+- answer: Pi's /llama list wasn't captured in the walkthrough; selecting gpt-oss-120b-MXFP4-set-a
+  and slice 2's /models read-back stand for it.
+- answer: setup.md step 12 names main, since answer is deleted at merge; the finding keeps the
+  as-run line on answer.
+- answer: removed the Framework's tailnet address from the finding (STANDARDS.md); it remains in
+  the pushed branch's history.
 
 ## Pending edits
 
@@ -1011,3 +1027,146 @@ slices 4/4 committed (sweep: f0ffb9c, 25b59a1, 058f5a9, initial setting 4 stream
 `engines/` rename's roadmap edit. PR #106, merged 2026-10-29, carried llama-strix-rocm's and
 vllm-strix's: strix-native's delete, three task summaries, and ai-hosting.md's Framework and vLLM
 image lines.)
+
+- coordinator · `context/ai-hosting.md`, "Answers · experiment.hosting": add this section after
+  "Answer · experiment.hosting.spike-model-hosting", before "## Assumptions":
+
+  ```markdown
+  ### Answer · experiment.hosting.spike-model-engines
+
+  **Question:** Which engine, llama.cpp or vLLM, serves each workstation (the GB10s, then the
+  Framework's Strix Halo), and is it hosted in a container or on bare metal?
+
+  **Answer:** llama.cpp in a container on both host classes, in ggml's CUDA image on the GB10s and
+  in ggml's Vulkan image on the Framework; vLLM's leads are kept as evidence, and slots are a
+  per-scenario tuning setting, not a limit.
+
+  The answer is drawn from two host classes, so it is stated as rules keyed by a host's traits,
+  with the GB10s and the Framework as worked instances. No figure is compared across sessions or
+  versions.
+
+  1. On NVIDIA, llama.cpp on CUDA. On gb10-1 llama.cpp led gpt-oss-120b at 1 stream (50.0
+     against 34.0 output tok/s) and the Gemma 4 shapes at 4 streams; vLLM led gpt-oss-120b from
+     4 streams (168 against 129 at 16), kept as evidence, since one engine serves a host and a
+     split host wasn't measured. Proven by measured runs: `docs/findings/bench-gb10-container.md`
+     (llama.cpp b11669, vLLM v0.32.0, 2026-10-26).
+  2. On AMD, llama.cpp on Vulkan. On the Framework ggml's Vulkan image led its ROCm image at both
+     anchors (by 6.39% and 5.21%) and on every llama-bench row; ROCm's sooner cold loads and its
+     vision leads are kept as evidence (`docs/findings/llama-strix-rocm.md`, b11669,
+     2026-10-27). vLLM's ROCm image served 22.4% and 20.6% of llama.cpp's output at anchors A and
+     B (`docs/findings/vllm-strix.md`, vLLM v0.32.0, llama.cpp b11960, 2026-10-28). Proven by
+     measured runs.
+  3. Unified memory: llama.cpp takes the model's buffers, and vLLM reserves 0.80 of the pool
+     whatever the model, so one llama.cpp router holds several models; set A's four hold 92.1 of
+     the Framework's 112 GiB GTT ceiling. Proven by measured runs:
+     `docs/findings/bench-gb10-container.md` (2026-10-26), `docs/findings/vllm-strix.md`
+     (2026-10-28), and `docs/findings/answer.md` (b11960, 2026-10-29).
+  4. Streams: the measured curves are the evidence, and the answer sets no slot limit.
+     gpt-oss-120b on 16 slots served 48.5, 77.1, 129.0, and 126.2 output tok/s at 1, 4, 16, and
+     32 streams on gb10-1 (b11669, 2026-10-26), and 43.6, 69.5, 81.6, and 80.1 on the Framework
+     over a DERP relay (b11960, 2026-10-29). The Framework sweep gives gpt-oss-120b an initial
+     setting of 4 streams, where set A starts. Proven by measured runs:
+     `docs/findings/bench-gb10-container.md` and `docs/findings/answer.md`.
+  5. Embeddings at concurrency: vLLM's lead is kept as evidence. On granite-embedding-english-r2
+     at 16 streams vLLM served 295.1 requests/s against llama.cpp's 55.5 on gb10-1 (2026-10-26)
+     and 215.3 against 40.5 on the Framework (2026-10-28). Proven by measured runs:
+     `docs/findings/bench-gb10-container.md` and `docs/findings/vllm-strix.md`.
+  6. Models on demand: llama.cpp's router loads and unloads models through its API in seconds,
+     and vLLM serves one model a start, in minutes; on gb10-1 gpt-oss-120b loaded in 48 s against
+     vLLM's 577 s cold start. Proven by measured runs: `docs/findings/bench-gb10-container.md`
+     (2026-10-26) and `docs/findings/vllm-strix.md` (2026-10-28).
+  7. A container on both host classes. On gb10-1 llama.cpp ran at the same speed, startup, and
+     memory in ggml's container and natively, and vLLM at parity, its container starting 137 s
+     sooner. Proven by measured runs: `docs/findings/llama-gb10-native.md` (b11669) and
+     `docs/findings/vllm-gb10-native.md` (v0.32.0), 2026-10-27. The Framework's bare metal is
+     unproven: ggml's native Vulkan build led the image at prompt processing by 4.49 to 9.49%,
+     likely from the host's newer Mesa, untested (`docs/findings/llama-strix-rocm.md`,
+     b11669, 2026-10-27).
+  8. The Framework serves set A from the `llama` container in ggml's Vulkan image at b11960, and
+     spike-model-hosting's router is retired. Proven by a running demo: the walkthrough's
+     retirement and Pi's tool calls on set A (`docs/findings/answer.md`, 2026-10-29).
+
+  Gaps in the answer: the Framework's API probes, not measured; the Framework's bare metal, not
+  measured as a server; and vLLM's slow NVFP4 decode on SM121, cause open.
+
+  Requirements for the intake to route:
+
+  - Workload-based tuning: slots and context tuned per model, workload, and host, owned by the
+    backlog goal model-evaluation and by spike-model-layout; not measured.
+  - Request priority: llama-server queues past its slots first come, first served, with no
+    limit, priority, or 429, while vLLM has a priority scheduler; not measured.
+  - Model management separated from inference and held by an admin: llama-server's router
+    exposes load, unload, download, and delete to any client that reaches it, `?autoload=true`
+    overrides `--no-models-autoload`, and every API key has the same access, by the source,
+    untested. Today the tailnet, ufw, and `tag:inference` bound it.
+
+  [The answer](https://github.com/JaimeStill/spike-model-engines#the-answer) ·
+  [spike-model-engines](https://github.com/JaimeStill/spike-model-engines)
+  ```
+- coordinator · `context/ai-hosting.md`, "The existing setup: personal-agents": rewrite three
+  bullets.
+  - **Serving**: llama.cpp's router in ggml's Vulkan image, run as spike-model-engines' `llama`
+    container at b11960 ([setup, "12. Serve set A"](https://github.com/JaimeStill/spike-model-engines/blob/main/docs/engines/llama.cpp/setup.md#12-serve-set-a)).
+    It binds only to the tailnet, and Tailscale's device authentication is the access boundary
+    on the dev workstations; production has no tailnet ("Experiment: experiment.hosting",
+    "Production"). spike-model-hosting's systemd router, `llama-router`, was retired on
+    2026-10-29. This replaces the bullet's b11734 build, its minimum build, and its "stopped and
+    disabled" sentence.
+  - **Models**: set A, on the 112 GiB pool: gpt-oss-120b MXFP4, on four slots sharing a unified
+    KV cache at 131072 context; Google's Gemma 4 26B-A4B QAT Q4_0, with vision; gemma-4-E4B Q8_0,
+    with audio; and granite-embedding-english-r2 BF16, for embeddings. Loaded, the four hold
+    92.1 GiB of GTT. Google's QAT Q4_0 and granite replace ggml-org's 26B-A4B Q4_0 and
+    EmbeddingGemma 2, and the 96 GB pool's 3.30 GiB free figure goes.
+  - **Client**: Pi reaches the router directly through `LLAMA_BASE_URL`, unchanged.
+- coordinator · `context/ai-hosting.md`, "spike-model-engines": replace the closing "Decides the
+  engine and hosting method per host class." with "The spike has answered: "Answer ·
+  experiment.hosting.spike-model-engines", under "Answers · experiment.hosting" below."
+- coordinator · `context/roadmap.toml`: in the header comment, "experiment.hosting.
+  spike-model-hosting has answered (ai-hosting.md, "Answers · experiment.hosting"), and
+  spike-model-engines is active; hosting-upgrades, layout, gateway, and host-admin follow one at
+  a time" becomes "experiment.hosting's spike-model-hosting and spike-model-engines have answered
+  (ai-hosting.md, "Answers · experiment.hosting"), and spike-hosting-upgrades is active; layout,
+  gateway, and host-admin follow one at a time". Remove
+  `experiment.hosting.spike-model-engines` from `active` and delete
+  `[goals.experiment.hosting.spike-model-engines]` and its nine
+  `[goals.experiment.hosting.spike-model-engines.tasks.*]` tables. Move
+  `experiment.hosting.spike-hosting-upgrades` from `planned` to `active`; it has no repository
+  yet, and its first session is a plan that sets it up.
+- coordinator · `references.md` (the repository root), "Experiments — archived spikes",
+  "spike-model-engines": "Asks which engine … bare metal." becomes "Asked which engine, llama.cpp
+  or vLLM, serves each workstation, in a container or on bare metal. Answered llama.cpp in a
+  container on both host classes, in ggml's CUDA image on the GB10s and its Vulkan image on the
+  Framework." The rest of the entry stays. `references.toml` is unchanged: the spike stays listed
+  unarchived until the intake.
+- spike-model-hosting · `devices/strix-halo/README.md`, "The host", the OS bullet: replace "and
+  spike-model-engines' Strix sessions own the host: the router is stopped and disabled (`sudo
+  systemctl enable --now llama-router` brings it back), so set A doesn't serve until it is started
+  again" with a statement that spike-model-engines retired the router on 2026-10-29. Removed: the
+  `llama-router` unit; `/etc/llama-router` and its 8 files; `/opt/llama.cpp` (b11715, b11734,
+  and `current`); the Hugging Face cache on the models drive (set A's four repositories, 82G);
+  the `~/models` link and `/mnt/models/gguf`; the render copies in the home directory; and
+  outpost's links in `~/.local/bin`. Kept: the models drive, mounted and holding no model; the
+  ufw route rules; the `docker` group; and `/srv/models`. The Framework serves set A from
+  spike-model-engines' `llama` container (ggml's Vulkan image, b11960). The profile would rebuild
+  the router: its tasks re-render the unit and presets from `profile.toml`, the architect
+  installs them by this runbook, and the builds and the 82G of models download again.
+- spike-model-hosting · `devices/strix-halo/README.md`, "The llama.cpp install": the
+  current-build line, "The Framework runs b11734 (`b11734-f3fb2fcdb`), since 2026-10-19; b11715
+  stays in `/opt/llama.cpp/b11715`", becomes "The Framework ran b11734 (`b11734-f3fb2fcdb`) from
+  2026-10-19 until the router's retirement on 2026-10-29, which removed `/opt/llama.cpp`", with a
+  link to "The host". `devices/strix-halo/llama-cpp-builds.md`: its opening says the router ran
+  one build at a time until its retirement on 2026-10-29, and a closing section, "The router
+  retired, 2026-10-29", states what was removed and kept and how the profile would rebuild it,
+  as above.
+- personal-agents · `README.md`: the host serves set A from spike-model-engines' `llama`
+  container in ggml's Vulkan image, by its
+  [llama.cpp guide](https://github.com/JaimeStill/spike-model-engines/tree/main/docs/engines/llama.cpp),
+  in place of the `llama-router` service; the repository is archived once ai-hosting's runbook
+  lands. `preparation/framework-desktop.md` says the same, with the same link; its GTT steps
+  stay.
+- personal-agents · `setup/hosting-setup.md`, `setup/remote-admin.md`, `profiles/`
+  (`unified-96gb.ini`), and `admin/` (outpost, its `README.md`): each opens with a line marking
+  it superseded by spike-model-engines' llama.cpp guide, with the same link. `setup/pi-harness.md`
+  is unchanged.
+- personal-agents · `context/roadmap.toml`: drop `tuning.slot-persistence`, its `next` entry and
+  its task table, and delete the `tuning` goal itself, which then holds no task.
