@@ -306,7 +306,7 @@ Door
 
 ## Progress
 
-slices 1/4 committed (sweep: f0ffb9c, 25b59a1, initial setting 4 streams, run over DERP(iad) by the architect's decision) · standards — · spec — · editor —
+slices 2/4 committed (sweep: f0ffb9c, 25b59a1, 058f5a9, initial setting 4 streams, run over DERP(iad) by the architect's decision; set A: 810ac56, 3d83136, served on framework:8080, removals done) by the architect's decision) · standards — · spec — · editor —
 
 ## Decisions
 
