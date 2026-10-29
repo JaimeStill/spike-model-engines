@@ -469,8 +469,8 @@ Server figures over the whole sweep: computed 49,987 prompt tokens at 919.0 tok/
 
 After the read-outs, [step 6](#6-the-end-state) unloaded the 16-slot section. `llama` runs at
 `server-vulkan-b11960`, up and healthy, and `vllm` stays exited; every model in the preset reads
-unloaded; `llama-router` is disabled and inactive; and port 8080 listens on 100.87.194.83, the
-tailnet address, held by the container.
+unloaded; `llama-router` is disabled and inactive; and port 8080 listens on the tailnet address,
+held by the container.
 
 ### Set A, served
 
@@ -568,7 +568,7 @@ In order:
    | `du` | `models--ggml-org--embeddinggemma-2-GGUF` 296M, `models--ggml-org--gemma-4-26B-A4B-it-GGUF` 15G, `models--ggml-org--gemma-4-E4B-it-GGUF` 8.1G, `models--ggml-org--gpt-oss-120b-GGUF` 60G |
    | Home and the models directory | `~/llama-router.service.83b0a95c`, the link `~/models -> /mnt/models/gguf`, `~/models.ini.039c5fa7`, `.96732ef9`, `.9c983739`, and `.9eeb9f04`; `/mnt/models/gguf` empty |
    | `find ~/.local/bin` | `outpost*`, `outpost`, `outpost-preset-install`, `outpost-service-restart`, `outpost-service-status` |
-   | Port 8080 | `ss`: `LISTEN` on `100.87.194.83:8080`; `docker port llama`: `8080/tcp -> 100.87.194.83:8080` |
+   | Port 8080 | `ss`: `LISTEN` on `<tailnet address>:8080`; `docker port llama`: `8080/tcp -> <tailnet address>:8080` |
 
 2. **The architect's steps**, at the Framework's own prompt, exactly as the guide gives them: the
    four root commands (`systemctl disable --now`, the unit file's `rm`, `daemon-reload`, and the
@@ -587,7 +587,7 @@ In order:
    | `du` | `16K /mnt/models/lost+found`, with `du: cannot read directory '/mnt/models/lost+found': Permission denied` |
    | Home | `cannot access` for `/home/jaime/models`, `/home/jaime/models.ini.*`, and `/home/jaime/llama-router.service.*` |
    | `find ~/.local/bin` | nothing |
-   | Port 8080 | `ss`: `LISTEN` on `100.87.194.83:8080`; `docker port llama`: `8080/tcp -> 100.87.194.83:8080` |
+   | Port 8080 | `ss`: `LISTEN` on `<tailnet address>:8080`; `docker port llama`: `8080/tcp -> <tailnet address>:8080` |
 
 No `llama-router` unit is left; `/etc/llama-router` and `/opt/llama.cpp` are gone; the models
 drive stays mounted, holding only `lost+found`, with 82G freed; and port 8080 is still the `llama`
