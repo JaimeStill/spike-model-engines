@@ -2,7 +2,7 @@
 # What every engine shares, in one place: sourced by llama.sh and vllm.sh, and through them by
 # llama-native.sh and vllm-native.sh. The model store (/srv/models) is one Hugging Face cache that
 # every engine reads and writes, and one engine serves per host at a time, since each reserves
-# most of the GB10's memory.
+# most of the host's GPU memory, whatever the host.
 
 ENGINES_STORE=/srv/models
 
@@ -14,7 +14,8 @@ engines_refuse_running() {
   id=$(docker container ls --quiet --filter "name=^$1\$" \
     --filter status=running --filter status=restarting) || return
   if [[ -n $id ]]; then
-    echo "$1 is running, and one engine serves per host at a time; docker stop $1 stops it" >&2
+    echo "$1 is running, and one engine serves per host at a time, since each reserves most of" \
+      "the host's GPU memory; docker stop $1 stops it" >&2
     return 1
   fi
 }
@@ -29,11 +30,14 @@ engines_unit_up() {
 
 # Refuses, naming the commands that stop it, while the system unit named is up (engines_unit_up):
 # native llama.cpp's llama-router (llama-native.sh) and native vLLM's vllm-server
-# (vllm-native.sh) each serve on the same port and memory as their engine's container would.
+# (vllm-native.sh) each serve on the same port and memory as their engine's container would. The
+# unit is read by name alone, so another project's unit of the same name, such as
+# spike-model-hosting's llama-router on the Framework, refuses too. The commands it names use
+# plain sudo, not sudo -n, since such a unit has no NOPASSWD rule and sudo asks for the password.
 engines_refuse_unit() {
   if engines_unit_up "$1"; then
-    echo "$1 is active, and one engine serves per host at a time;" \
-      "sudo -n systemctl stop $1 && sudo -n systemctl disable $1 stops it" >&2
+    echo "$1 is active, and one engine serves per host at a time, since each reserves most of" \
+      "the host's GPU memory; sudo systemctl stop $1 && sudo systemctl disable $1 stops it" >&2
     return 1
   fi
 }

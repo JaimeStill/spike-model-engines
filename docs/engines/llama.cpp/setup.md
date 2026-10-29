@@ -49,16 +49,16 @@ needs.
 
 ### 3. Prove the pinned image runs on the GPU
 
-Pull the pinned image (`host/llama.env`), v0.7.0 (b11669), ask its `llama-server` for its
+Pull the pinned image (`host/llama.env`), v0.8.0 (b11960), ask its `llama-server` for its
 build, then list the devices it finds with the GPU attached:
 
 ```sh
-docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669
-docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669 --version
-docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669 --list-devices
+docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b11960
+docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b11960 --version
+docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b11960 --list-devices
 ```
 
-`--version` prints `version: 0.7.0-dev (build 11669, commit 620d2225c)`. `--list-devices` lists
+`--version` prints `version: 0.8.0-dev (build 11960, commit 8642541b2)`. `--list-devices` lists
 the GB10 as a CUDA device; an empty list means the container didn't reach the GPU.
 
 ### 4. Get the clone onto the host
@@ -241,7 +241,7 @@ host/engines llama-native install v0.6.0
 GitHub lists for it, and unpacks both into `/opt/llama.cpp/b11429`, about 870 MB. It points
 `current` and `preset`, enables and starts `llama-router`, and waits for `/health` to answer, for
 at most a minute. It prints each file's digest, then `llama-router serves b11429 on port 8080 of
-the tailnet address`. With no version, it installs the pin, v0.7.0 (b11669); the version is read
+the tailnet address`. With no version, it installs the pin, v0.8.0 (b11960); the version is read
 as the container's install reads it ([Update](update.md#moving-to-another-version)).
 
 A second run changes nothing and says `llama-router already serves b11429; nothing changed`; when
@@ -296,8 +296,8 @@ pin, or `host/engines llama-native install v0.6.0` at b11429.
 ## Framework, in a container
 
 Run these steps on the Framework, `framework`: Omarchy, which is Arch Linux, on an AMD Strix Halo
-whose GPU is gfx1151, with 125 GiB of RAM. ggml's ROCm image runs the pinned build, v0.7.0
-(b11669), as on the GB10. The image brings its own ROCm runtime; the host gives it only the
+whose GPU is gfx1151, with 125 GiB of RAM. ggml's ROCm image runs the pinned build, v0.8.0
+(b11960), as on the GB10. The image brings its own ROCm runtime; the host gives it only the
 kernel's GPU driver, through two device files, `/dev/kfd` and `/dev/dri`, in place of the NVIDIA
 Container Toolkit's `--gpus all`. The `engines` commands pick that image, the `rocm` flavor, on
 any host with an AMD GPU; ggml's Vulkan image, the `vulkan` flavor, runs the same build with
@@ -519,7 +519,7 @@ The session then seeds the store from the models drive, with no download
 ### 9. Prove the pinned image runs on the GPU
 
 The architect's first walk of ggml's ROCm image; the session walks them through it. The pin
-(`host/llama.env`) is v0.7.0 (b11669), and the ROCm image of that build carries gfx1151 among
+(`host/llama.env`) is v0.8.0 (b11960), and the ROCm image of that build carries gfx1151 among
 its targets.
 
 First, the full image, which holds every tool of the build, llama-bench among them. Its
@@ -528,12 +528,12 @@ entrypoint picks the tool from its first argument ([llama-bench](#llama-bench)):
 list the devices llama-bench finds with the GPU attached, running as `jaime`:
 
 ```sh
-docker pull ghcr.io/ggml-org/llama.cpp:full-rocm-b11669
-docker run --rm --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-rocm-b11669 --server --version
-docker run --rm --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-rocm-b11669 --bench --list-devices
+docker pull ghcr.io/ggml-org/llama.cpp:full-rocm-b11960
+docker run --rm --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-rocm-b11960 --server --version
+docker run --rm --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-rocm-b11960 --bench --list-devices
 ```
 
-`--version` prints `version: 0.7.0-dev (build 11669, commit 620d2225c)`, as on the GB10.
+`--version` prints `version: 0.8.0-dev (build 11960, commit 8642541b2)`, as on the GB10.
 `--list-devices` lists one ROCm device:
 
 ```text
@@ -560,7 +560,7 @@ Docker create the missing directory, owned by root, and the router exits with `p
 not exist`:
 
 ```sh
-docker run --detach --name llama --restart unless-stopped --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" --publish "$(tailscale ip -4):8080:8080" --volume /srv/models:/srv/models --env LLAMA_CACHE=/srv/models --volume "$HOME/repos/spike-model-engines/host/llama-preset:/etc/llama-preset:ro" ghcr.io/ggml-org/llama.cpp:server-rocm-b11669 --models-preset /etc/llama-preset/models.ini --no-models-autoload --host 0.0.0.0 --port 8080
+docker run --detach --name llama --restart unless-stopped --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" --publish "$(tailscale ip -4):8080:8080" --volume /srv/models:/srv/models --env LLAMA_CACHE=/srv/models --volume "$HOME/repos/spike-model-engines/host/llama-preset:/etc/llama-preset:ro" ghcr.io/ggml-org/llama.cpp:server-rocm-b11960 --models-preset /etc/llama-preset/models.ini --no-models-autoload --host 0.0.0.0 --port 8080
 ```
 
 ### 10. Install
@@ -572,11 +572,11 @@ host/engines llama install
 ```
 
 `install` runs as on gb10-1 ([6. Install](#6-install)), with the `rocm` flavor, which it picks
-on a host with an AMD GPU: it pulls `ghcr.io/ggml-org/llama.cpp:server-rocm-b11669` and starts
+on a host with an AMD GPU: it pulls `ghcr.io/ggml-org/llama.cpp:server-rocm-b11960` and starts
 `llama` with `--device /dev/kfd --device /dev/dri` in place of `--gpus all`. It prints
 
 ```text
-llama runs ghcr.io/ggml-org/llama.cpp:server-rocm-b11669 on port 8080 of the tailnet address
+llama runs ghcr.io/ggml-org/llama.cpp:server-rocm-b11960 on port 8080 of the tailnet address
 ```
 
 It refuses while spike-model-hosting's `llama-router` is active ([5. Stop the
@@ -584,7 +584,7 @@ router](#5-stop-the-router)), or vLLM's `vllm` container runs or its `vllm-serve
 
 A `llama` started by hand, as in step 9, stays in place. When it runs the same image with the
 clone's preset, `install` counts it as installed and says `llama already runs
-ghcr.io/ggml-org/llama.cpp:server-rocm-b11669; nothing changed`; on another image or preset
+ghcr.io/ggml-org/llama.cpp:server-rocm-b11960; nothing changed`; on another image or preset
 mount, it refuses. To have `install` start its own, remove the hand-started one first, which
 unloads its models:
 
@@ -625,7 +625,7 @@ It shows `offloaded 37/37 layers to GPU`, every layer on the GPU, and `ROCm0 mod
 `CPU` model buffer beyond a small one for the token embeddings would mean layers stayed on the
 CPU.
 
-The build the model runs, from the laptop, prints `b11669-620d2225c` ([API](api.md#build)):
+The build the model runs, from the laptop, prints `b11960-8642541b2` ([API](api.md#build)):
 
 ```sh
 curl -sG "http://framework:8080/props" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false | jq -r .build_info
@@ -710,12 +710,12 @@ llama-bench ships with every llama.cpp build, so the spike installs nothing for 
 `llama-server`. ggml's `full-<flavor>-<build>` image holds every tool, llama-bench among them, for
 the same build. Its entrypoint, `/app/tools.sh`, picks the tool from its first argument;
 `--bench` (or `-b`) runs `./llama-bench` in `/app` with the rest. On the GB10, pull
-`full-cuda13` for the pin, v0.7.0 (b11669), and list the devices it finds with the GPU attached
+`full-cuda13` for the pin, v0.8.0 (b11960), and list the devices it finds with the GPU attached
 (the Framework's flavors are under [On the Framework](#on-the-framework)):
 
 ```sh
-docker pull ghcr.io/ggml-org/llama.cpp:full-cuda13-b11669
-docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:full-cuda13-b11669 --bench --list-devices
+docker pull ghcr.io/ggml-org/llama.cpp:full-cuda13-b11960
+docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:full-cuda13-b11960 --bench --list-devices
 ```
 
 For arm64 the image downloads about 3.4 GB, against the server image's 2.5 GB, since it carries
@@ -744,7 +744,7 @@ LLAMA_CACHE=/srv/models /opt/llama.cpp/current/llama-bench -m <model.gguf> -p <p
 and in the container, as the invoking user, with the store mounted where it is on the host:
 
 ```sh
-docker run --rm --gpus all --user "$(id -u):$(id -g)" --volume /srv/models:/srv/models --env LLAMA_CACHE=/srv/models ghcr.io/ggml-org/llama.cpp:full-cuda13-b11669 --bench -m <model.gguf> -p <prompt tokens> -n <generated tokens> -r <repetitions> -o md 2>~/bench/<name>.err | tee ~/bench/<name>.md
+docker run --rm --gpus all --user "$(id -u):$(id -g)" --volume /srv/models:/srv/models --env LLAMA_CACHE=/srv/models ghcr.io/ggml-org/llama.cpp:full-cuda13-b11960 --bench -m <model.gguf> -p <prompt tokens> -n <generated tokens> -r <repetitions> -o md 2>~/bench/<name>.err | tee ~/bench/<name>.md
 ```
 
 When the table has only its header, llama-bench couldn't load the model, and the `.err` file says
@@ -762,15 +762,15 @@ runs are in its finding's method, as gb10-1's native and container runs are in
 The Framework runs llama-bench from three builds of the same b-build, to compare the backends
 with the server taken out: ggml's `full-rocm-<build>` image, with the ROCm flavor's devices,
 `/dev/kfd` and `/dev/dri`, in place of `--gpus all`; `full-vulkan-<build>`, with `/dev/dri` alone;
-and ggml's native Vulkan prebuilt, unpacked in `~/llama.cpp/b11669-vulkan`
+and ggml's native Vulkan prebuilt, unpacked in `~/llama.cpp/b11960-vulkan`
 ([Models](models.md#on-the-framework)), which runs on the host's Mesa where the Vulkan image runs
 its own. The full images are about 34 GB (ROCm) and 3.6 GB (Vulkan), uncompressed. Each lists the
 GPU it finds:
 
 ```sh
-docker run --rm --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-rocm-b11669 --bench --list-devices
-docker run --rm --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-vulkan-b11669 --bench --list-devices
-~/llama.cpp/b11669-vulkan/llama-bench --list-devices
+docker run --rm --device /dev/kfd --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-rocm-b11960 --bench --list-devices
+docker run --rm --device /dev/dri --user "$(id -u):$(id -g)" ghcr.io/ggml-org/llama.cpp:full-vulkan-b11960 --bench --list-devices
+~/llama.cpp/b11960-vulkan/llama-bench --list-devices
 ```
 
 ROCm lists `ROCm0: Radeon 8060S Graphics` with the GTT ceiling, 114688 MiB; both Vulkan builds
@@ -787,6 +787,6 @@ held to the 10-minute cap, are in
 By default, a Markdown table with one row per test: the model, its size and parameters, the
 backend, the options that differ from the defaults (such as `ngl`), the test (`pp512`, `tg256`),
 and `t/s`, the mean ± the standard deviation over the repetitions. The last line names the build,
-as `build: 620d2225c (11669)` at v0.7.0 (b11669), so every result carries its version.
+as `build: 8642541b2 (11960)` at v0.8.0 (b11960), so every result carries its version.
 `-o json` (or `jsonl`, `csv`) prints the same with every repetition's own sample, for a finding
 that keeps the raw numbers.

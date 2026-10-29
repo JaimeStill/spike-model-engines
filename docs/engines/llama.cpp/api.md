@@ -40,7 +40,7 @@ send in `"model"`, each with its status.
 curl -sG "http://gb10-1:8080/props" --data-urlencode "model=ggml-org/gpt-oss-120b-GGUF:MXFP4" --data-urlencode autoload=false | jq -r .build_info
 ```
 
-The build a loaded model runs, as `b<build>-<commit>`, such as `b11669-620d2225c` at v0.7.0. In
+The build a loaded model runs, as `b<build>-<commit>`, such as `b11960-8642541b2` at v0.8.0. In
 router mode `/props` names its model in the `model` query parameter, and `autoload=false` keeps
 the request from loading a model that isn't loaded.
 
@@ -111,7 +111,7 @@ untracked `.state/`, and sent inline as base64:
 
 ```sh
 mkdir -p .state/probe
-curl -sL -o .state/probe/test-1.jpeg "https://raw.githubusercontent.com/ggml-org/llama.cpp/b11669/tools/mtmd/test-1.jpeg"
+curl -sL -o .state/probe/test-1.jpeg "https://raw.githubusercontent.com/ggml-org/llama.cpp/b11960/tools/mtmd/test-1.jpeg"
 base64 -w 0 .state/probe/test-1.jpeg > .state/probe/test-1.b64; jq -n --rawfile img .state/probe/test-1.b64 '{"model": "google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0", "messages": [{"role": "user", "content": [{"type": "text", "text": "Describe this image in one sentence."}, {"type": "image_url", "image_url": {"url": ("data:image/jpeg;base64," + $img)}}]}]}' | curl -s "http://gb10-1:8080/v1/chat/completions" -H "Content-Type: application/json" -d @- | jq '{content: .choices[0].message.content, usage}'
 ```
 

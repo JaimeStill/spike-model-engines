@@ -95,7 +95,7 @@ The native Vulkan prebuilt that pre-staging fetched for llama-bench
 ([Models](models.md#on-the-framework)) isn't an image, so it is the session's to remove:
 
 ```sh
-rm -r ~/llama.cpp/b11669-vulkan
+rm -r ~/llama.cpp/b11960-vulkan
 ```
 
 ### Removing the Framework's root steps

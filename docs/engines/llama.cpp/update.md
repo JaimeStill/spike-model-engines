@@ -31,7 +31,7 @@ docker image ls ghcr.io/ggml-org/llama.cpp
 
 The first prints the pinned image; the second lists it, and no image of another build. Once
 the model is loaded, the laptop confirms the build the model itself runs ([API](api.md#build)),
-which reads `b11669-620d2225c` at the pin, v0.7.0 (b11669).
+which reads `b11960-8642541b2` at the pin, v0.8.0 (b11960).
 
 `update` also replaces a `llama` container whose preset mount isn't the clone's preset
 directory, `host/llama-preset`, such as one installed before the scripts moved from `engines/` to
@@ -80,14 +80,14 @@ LLAMA_FLAVOR=vulkan host/engines llama update
 ```
 
 A flavor switch is a move to another image, as a build move is: `update` pulls
-`ghcr.io/ggml-org/llama.cpp:server-vulkan-b11669` before it replaces anything, replaces `llama`
+`ghcr.io/ggml-org/llama.cpp:server-vulkan-b11960` before it replaces anything, replaces `llama`
 with one running it on `/dev/dri` alone, and says
 
 ```text
-llama moved from ghcr.io/ggml-org/llama.cpp:server-rocm-b11669 to ghcr.io/ggml-org/llama.cpp:server-vulkan-b11669
+llama moved from ghcr.io/ggml-org/llama.cpp:server-rocm-b11960 to ghcr.io/ggml-org/llama.cpp:server-vulkan-b11960
 ```
 
-It keeps `server-rocm-b11669`, the same build in the other flavor, so switching back pulls
+It keeps `server-rocm-b11960`, the same build in the other flavor, so switching back pulls
 nothing. The new container starts with no model loaded; load the model again
 ([Models](models.md)). Switch back with the Framework's own flavor, named or not:
 
@@ -101,7 +101,7 @@ next move to the pin, moves a Vulkan `llama` back to ROCm, so give it again to s
 that moves it:
 
 ```text
-llama runs ghcr.io/ggml-org/llama.cpp:server-rocm-b11669, not ghcr.io/ggml-org/llama.cpp:server-vulkan-b11669; LLAMA_FLAVOR=vulkan engines llama update moves it to the pin
+llama runs ghcr.io/ggml-org/llama.cpp:server-rocm-b11960, not ghcr.io/ggml-org/llama.cpp:server-vulkan-b11960; LLAMA_FLAVOR=vulkan engines llama update moves it to the pin
 ```
 
 A flavor and a version combine, as in `LLAMA_FLAVOR=vulkan host/engines llama update b11429`. A
@@ -135,7 +135,7 @@ host/engines llama update
 A version that is neither fails before anything is read from Docker, such as
 
 ```text
-0.6.0 is neither a semver release, such as v0.7.0, nor a b-build, such as b11669
+0.6.0 is neither a semver release, such as v0.8.0, nor a b-build, such as b11960
 ```
 
 and so does a release GitHub doesn't have, after curl's own error, or one whose notes name no
@@ -180,7 +180,7 @@ Commit and push; then, on each host, `git pull` and `host/engines llama update`,
 ## Native
 
 Native llama.cpp ([Setup](setup.md#gb10-native)) updates with its own command, from the clone,
-after `git pull`; with no version it moves to the pin, v0.7.0 (b11669):
+after `git pull`; with no version it moves to the pin, v0.8.0 (b11960):
 
 ```sh
 git pull
@@ -188,12 +188,12 @@ host/engines llama-native update
 ```
 
 `update` downloads the build's two tarballs and checks their digests, as `install` does, into
-`/opt/llama.cpp/b11669`, points `current` at it, restarts `llama-router`, and waits for `/health`
+`/opt/llama.cpp/b11960`, points `current` at it, restarts `llama-router`, and waits for `/health`
 to answer. Only once the new build serves does it remove every other build, so only the serving
 build is kept. It prints the digests, then
 
 ```text
-llama-router moved from b11429 to b11669
+llama-router moved from b11429 to b11960
 removed /opt/llama.cpp/b11429
 ```
 
@@ -208,11 +208,11 @@ readlink /opt/llama.cpp/current
 command ls /opt/llama.cpp
 ```
 
-`readlink` prints `b11669`; `--version` prints `build 11669, commit 620d2225c`; `ls` lists
-`b11669`, `current`, and `preset`. Once a model is loaded, the laptop reads the build it runs
-([API](api.md#build)), `b11669-620d2225c`.
+`readlink` prints `b11960`; `--version` prints `build 11960, commit 8642541b2`; `ls` lists
+`b11960`, `current`, and `preset`. Once a model is loaded, the laptop reads the build it runs
+([API](api.md#build)), `b11960-8642541b2`.
 
-Run a second time, `update` changes nothing and says `llama-router already serves b11669;
+Run a second time, `update` changes nothing and says `llama-router already serves b11960;
 nothing changed`; when `llama-router` is stopped, it enables and starts it. It also re-points
 `preset` when it names another directory than the clone's `host/llama-preset`, as after the clone
 moves, and restarts `llama-router` on it. It fails, changing nothing, when native llama.cpp isn't
@@ -229,7 +229,7 @@ serving build is kept, re-points `current` at it, and removes the newer one:
 host/engines llama-native update v0.6.0
 ```
 
-It says `llama-router moved from b11669 to b11429` and `removed /opt/llama.cpp/b11669`. Forward
+It says `llama-router moved from b11960 to b11429` and `removed /opt/llama.cpp/b11960`. Forward
 again is an update with no version, or the pin's:
 
 ```sh

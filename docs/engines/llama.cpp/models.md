@@ -163,7 +163,7 @@ stage google/gemma-4-12B-it-qat-w4a16-ct
 stage nvidia/Gemma-4-31B-IT-NVFP4
 stage ibm-granite/granite-embedding-english-r2 --exclude "*.bin"
 stage openai/gpt-oss-120b --exclude "original/*.safetensors" --exclude "metal/*"
-nohup bash -c 'docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b11669; echo "exit $?"' > ~/prestage/llama-image.log 2>&1 &
+nohup bash -c 'docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b11960; echo "exit $?"' > ~/prestage/llama-image.log 2>&1 &
 nohup bash -c 'docker pull vllm/vllm-openai:v0.32.0; echo "exit $?"' > ~/prestage/vllm-image.log 2>&1 &
 ```
 
@@ -239,20 +239,20 @@ stage google/gemma-4-12B-it-qat-q4_0-gguf --include gemma-4-12b-it-qat-q4_0.gguf
 stage google/gemma-4-31B-it-qat-q4_0-gguf --include gemma-4-31B_q4_0-it.gguf --include gemma-4-31B-it-mmproj.gguf
 stage google/gemma-4-26B-A4B-it-qat-q4_0-gguf --include gemma-4-26B_q4_0-it.gguf --include gemma-4-26B-it-mmproj.gguf
 stage mrutkows/granite-embedding-english-r2-GGUF --include granite-embedding-english-r2-bf16.gguf
-for image in server-rocm full-rocm server-vulkan full-vulkan; do setsid nohup bash -c 'docker pull "ghcr.io/ggml-org/llama.cpp:$0-b11669"; echo "exit $?"' "$image" > ~/prestage/"$image".log 2>&1 < /dev/null & done
-setsid nohup bash -c '(set -e; cd ~/prestage; curl -fsSLO https://github.com/ggml-org/llama.cpp/releases/download/b11669/llama-b11669-bin-ubuntu-vulkan-x64.tar.gz; echo "e8709e5ba6c1b093dea7f3de57f4aba842f9a188fba6b465782d65d6fcfa4d9f  llama-b11669-bin-ubuntu-vulkan-x64.tar.gz" | sha256sum -c; mkdir -p ~/llama.cpp/b11669-vulkan; tar -xzf llama-b11669-bin-ubuntu-vulkan-x64.tar.gz -C ~/llama.cpp/b11669-vulkan --strip-components=1); echo "exit $?"' > ~/prestage/llama-vulkan-x64.log 2>&1 < /dev/null &
+for image in server-rocm full-rocm server-vulkan full-vulkan; do setsid nohup bash -c 'docker pull "ghcr.io/ggml-org/llama.cpp:$0-b11960"; echo "exit $?"' "$image" > ~/prestage/"$image".log 2>&1 < /dev/null & done
+setsid nohup bash -c '(set -e; cd ~/prestage; curl -fsSLO https://github.com/ggml-org/llama.cpp/releases/download/b11960/llama-b11960-bin-ubuntu-vulkan-x64.tar.gz; echo "164199e978304bb32a8a6c24b8efa015528ddf286821596eab676c90b375feac  llama-b11960-bin-ubuntu-vulkan-x64.tar.gz" | sha256sum -c; mkdir -p ~/llama.cpp/b11960-vulkan; tar -xzf llama-b11960-bin-ubuntu-vulkan-x64.tar.gz -C ~/llama.cpp/b11960-vulkan --strip-components=1); echo "exit $?"' > ~/prestage/llama-vulkan-x64.log 2>&1 < /dev/null &
 ```
 
 A pull of an image already present, such as the ROCm ones from
 [Setup](setup.md#9-prove-the-pinned-image-runs-on-the-gpu), fetches nothing.
 
-The prebuilt is `llama-b11669-bin-ubuntu-vulkan-x64.tar.gz`, from the b11669 release's assets.
+The prebuilt is `llama-b11960-bin-ubuntu-vulkan-x64.tar.gz`, from the b11960 release's assets.
 `sha256sum -c` checks it against the digest GitHub's API gives for that asset, and prints
-`llama-b11669-bin-ubuntu-vulkan-x64.tar.gz: OK`; on a mismatch it stops before unpacking. It
-unpacks into `~/llama.cpp/b11669-vulkan`: in `jaime`'s home, so it needs no root step and nothing
+`llama-b11960-bin-ubuntu-vulkan-x64.tar.gz: OK`; on a mismatch it stops before unpacking. It
+unpacks into `~/llama.cpp/b11960-vulkan`: in `jaime`'s home, so it needs no root step and nothing
 of it is the system's, outside the clone and the store, and laid out as native llama.cpp's
 `/opt/llama.cpp/<build>` is on the GB10, one build to a directory, named for its backend too.
-`--strip-components=1` drops the tarball's own top directory, `llama-b11669/`, so the tools sit
+`--strip-components=1` drops the tarball's own top directory, `llama-b11960/`, so the tools sit
 beside their libraries, which they find through their `$ORIGIN` runpath. The Vulkan library,
 `libggml-vulkan.so`, loads the host's Vulkan loader, `libvulkan.so.1`, from `vulkan-icd-loader`,
 and through it the host's Mesa driver, `vulkan-radeon`.
@@ -272,15 +272,15 @@ du -shL /srv/models/models--*
 docker image ls --format "{{.Repository}}:{{.Tag}}" | grep llama.cpp
 ```
 
-The images listed are `server-rocm-b11669`, `full-rocm-b11669`, `server-vulkan-b11669`, and
-`full-vulkan-b11669`. The prebuilt answers with its build, and lists the GPU as a Vulkan device:
+The images listed are `server-rocm-b11960`, `full-rocm-b11960`, `server-vulkan-b11960`, and
+`full-vulkan-b11960`. The prebuilt answers with its build, and lists the GPU as a Vulkan device:
 
 ```sh
-~/llama.cpp/b11669-vulkan/llama-server --version
-~/llama.cpp/b11669-vulkan/llama-bench --list-devices
+~/llama.cpp/b11960-vulkan/llama-server --version
+~/llama.cpp/b11960-vulkan/llama-bench --list-devices
 ```
 
-`--version` prints `version: 0.7.0-dev (build 11669, commit 620d2225c)`; `--list-devices` lists
+`--version` prints `version: 0.8.0-dev (build 11960, commit 8642541b2)`; `--list-devices` lists
 one device, `Vulkan0`, the Radeon 8060S. `rm -r ~/prestage` then removes the logs and the
 tarball; the unpacked build stays for llama-bench, and goes with
 [Uninstall](uninstall.md#the-framework).

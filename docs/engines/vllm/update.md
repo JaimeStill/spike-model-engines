@@ -9,19 +9,19 @@ git pull
 host/engines vllm update
 ```
 
-`update` pulls the pinned image, replaces the `vllm` container with one running it on the pin's
-default row, and removes every other vLLM image, so only the pinned image remains. With
-`VLLM_MODEL=<row id>` before it, it serves that row instead, for one run
-([Models](models.md#serving-another-row-for-one-run)); without, it returns to the default. It
-compares the container's whole command with the row's, so it replaces the container when its image,
-its model, or any server flag differs; when the image is already the pin's, as when only the row
-changes, it replaces the container without pulling. It pulls before it removes anything, so a failed
-pull leaves the old release serving. When `vllm` already runs the pinned release and the row's model
-and flags, and no other vLLM image is left, it changes nothing and says so; when that `vllm` is
-stopped, it says `docker start vllm` starts it, and leaves it stopped. It fails, changing nothing,
-when vLLM isn't installed, when `VLLM_MODEL` names no row, or while llama.cpp's `llama` container or
-`llama-router` unit runs, or native vLLM's `vllm-server` does, and, before it pulls, when
-`/srv/models` is missing or the host has no tailnet IPv4 address.
+`update` pulls the pinned image of the host's flavor ([The flavor](#the-flavor)), replaces the
+`vllm` container with one running it on the flavor's default row, and removes every other vLLM
+image, of either flavor, so only the pinned image remains. With `VLLM_MODEL=<row id>` before it, it
+serves that row instead, for one run ([Models](models.md#serving-another-row-for-one-run)); without,
+it returns to the default. It compares the container's whole command with the row's, so it replaces
+the container when its image, its model, or any server flag differs; when the image is already the
+pin's, as when only the row changes, it replaces the container without pulling. It pulls before it
+removes anything, so a failed pull leaves the old release serving. When `vllm` already runs the
+pinned release and the row's model and flags, and no other vLLM image is left, it changes nothing
+and says so; when that `vllm` is stopped, it says `docker start vllm` starts it, and leaves it
+stopped. It fails, changing nothing, when vLLM isn't installed, when `VLLM_MODEL` names no row, or
+while llama.cpp's `llama` container or `llama-router` unit runs, or native vLLM's `vllm-server`
+does, and, before it pulls, when `/srv/models` is missing or the host has no tailnet IPv4 address.
 
 The new container starts cold. Follow its log until `Application startup complete.`, then time
 and record the cold start as [Setup](setup.md#6-watch-the-cold-start-and-record-it) shows:
@@ -37,11 +37,71 @@ Then check the release it runs:
 ```sh
 docker inspect --format '{{.Config.Image}} {{join .Config.Cmd " "}}' vllm
 docker image ls vllm/vllm-openai
+docker image ls vllm/vllm-openai-rocm
 ```
 
 The first prints the pinned image, then the row's model and server flags the container serves;
-the second lists the pinned image alone. The laptop confirms the version the server itself runs
+the other two, one a flavor's repository, list the pinned image alone, and nothing for the other
+flavor. The laptop confirms the version the server itself runs
 ([API](api.md#version)), which reads `0.32.0` at the pin.
+
+## The flavor
+
+The image's flavor is the GPU platform vLLM built it for. `install` and `update` pick it from the
+GPU the host has, or from `VLLM_FLAVOR` when it is set, as llama.cpp's commands pick theirs
+([llama.cpp's Update](../llama.cpp/update.md#switching-the-flavor)), and with it the container's
+devices and the default row:
+
+| Flavor | Image | Devices | Default row | Picked on |
+|---|---|---|---|---|
+| `cuda` | `vllm/vllm-openai:<release>` | `--gpus all` | `gemma-4-26B-A4B-NVFP4` | a host without an AMD GPU: the GB10s |
+| `rocm` | `vllm/vllm-openai-rocm:<release>` | `--device /dev/kfd --device /dev/dri` | `gpt-oss-120b` | a host with an AMD GPU: the Framework |
+
+A host has an AMD GPU when a card under `/sys/class/drm` reports AMD's PCI vendor ID, `0x1002`,
+which any account can read; on gb10-1 it reads NVIDIA's `0x10de`, so gb10-1 serves as it did
+before the flavor:
+
+```sh
+cat /sys/class/drm/card*/device/vendor
+```
+
+Both flavors run the same release, the pin's or the one given, keep `--ipc host` and every other
+option of the container, and serve the same rows ([Models](models.md#the-rows)); `VLLM_MODEL`
+names another row on either. `rocm` adds no `--group-add`, seccomp, or ptrace option.
+
+`update` compares the container's whole image and command with the flavor's, so a container of
+the other flavor is another image, which it pulls, replaces, and reports as a move, as it does a
+release move. `install` refuses it, as it refuses another release, and names the update that
+moves it, with the flavor given:
+
+```text
+vllm runs vllm/vllm-openai-rocm:v0.32.0 with openai/gpt-oss-120b, not vllm/vllm-openai:v0.32.0 with row gemma-4-26B-A4B-NVFP4 (nvidia/Gemma-4-26B-A4B-NVFP4); VLLM_FLAVOR=cuda engines vllm update moves it to the row
+```
+
+Each host serves its own flavor, so `VLLM_FLAVOR` is only for a host that runs both, which none
+in this spike does. A flavor that is neither fails before anything is read from Docker:
+
+```text
+VLLM_FLAVOR is rocn, which is neither cuda nor rocm
+```
+
+### The release on each flavor
+
+One release, `VLLM_RELEASE`, serves both flavors, so a release move is one edit, and each host moves
+with its own `update`: gb10-1 to `vllm/vllm-openai:<release>`, the Framework to
+`vllm/vllm-openai-rocm:<release>`. On the Framework, from the clone:
+
+```sh
+git pull
+host/engines vllm update
+```
+
+It pulls the ROCm image of the pinned release before it replaces anything, so a failed pull
+leaves the old release serving, then removes every other vLLM image. A release named for one run,
+`host/engines vllm install v0.31.0`, installs that release's image of the host's flavor. A release
+whose image of the host's flavor isn't published fails at the pull, changing nothing. Every start
+on the Framework is a cold start to record ([Setup](setup.md#5-watch-the-first-start-up-to-20-minutes)),
+and the first under a new release may compile again.
 
 ## Rehearsing an update
 
@@ -58,9 +118,11 @@ record; the second may compile again, under the new release.
 
 ## How the pin moves
 
-The pin is `host/vllm.env`: `VLLM_RELEASE`, the latest GitHub release, from which
-`VLLM_IMAGE` follows, and `VLLM_MODEL`, the row of `host/vllm-rows` the server serves by
-default. On the laptop, `mise run currency` reports when a newer release is out:
+The pin is `host/vllm.env`: `VLLM_RELEASE`, the latest GitHub release, from which each flavor's
+image follows, in its repository, `VLLM_REPOSITORY_CUDA` or `VLLM_REPOSITORY_ROCM`; and
+`VLLM_MODEL_CUDA` and `VLLM_MODEL_ROCM`, the row of `host/vllm-rows` each flavor serves by default.
+Currency tracks the release alone, not either repository. On the laptop, `mise run currency` reports
+when a newer release is out:
 
 ```sh
 mise run currency
@@ -70,7 +132,7 @@ A line beginning `host/vllm.env: vLLM` means the pin is behind, and names the ne
 Edit `VLLM_RELEASE` in `host/vllm.env` to it, and the pin this guide quotes to match: the
 [README](README.md), the image and its `--version` output in
 [Setup](setup.md#2-prove-the-pinned-image-runs-on-the-gpu), and the version in
-[API](api.md#version). A new default row edits `VLLM_MODEL` instead
+[API](api.md#version). A new default row edits `VLLM_MODEL_CUDA` or `VLLM_MODEL_ROCM` instead
 ([Models](models.md#adding-a-row-or-moving-the-default)). Commit and push; then, on the host,
 `git pull` and `host/engines vllm update`, or `host/engines vllm-native update` where native vLLM
 serves ([Native](#native)).
@@ -78,7 +140,8 @@ serves ([Native](#native)).
 ## Native
 
 Native vLLM ([Setup](setup.md#gb10-native)) updates with its own command, from the clone, after
-`git pull`; with no release it moves to the pin, v0.32.0, on the pin's default row:
+`git pull`; with no release it moves to the pin, v0.32.0, on the `cuda` flavor's default row, since
+native vLLM is CUDA's alone:
 
 ```sh
 git pull

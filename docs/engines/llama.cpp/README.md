@@ -8,8 +8,8 @@ itself, and loads each model named in its models preset, as a child process, whe
 API. The router loads models on demand, so one server serves every model in the preset.
 
 The spike follows llama.cpp's semver releases and runs the b-build each one names. The pin lives
-in `host/llama.env`: v0.7.0 (b11669). Every flavor of server image runs that build, as
-`ghcr.io/ggml-org/llama.cpp:server-<flavor>-b11669`: `cuda13` on gb10-1, and `rocm` or `vulkan` on
+in `host/llama.env`: v0.8.0 (b11960). Every flavor of server image runs that build, as
+`ghcr.io/ggml-org/llama.cpp:server-<flavor>-b11960`: `cuda13` on gb10-1, and `rocm` or `vulkan` on
 the Framework. With none named, the `engines` commands pick `rocm` on a host with an AMD GPU and
 `cuda13` otherwise; `LLAMA_FLAVOR` names the flavor ([Update](update.md#switching-the-flavor)).
 `mise run currency` reports the build when a newer semver release names a newer one.

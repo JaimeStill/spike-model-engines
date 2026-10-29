@@ -24,6 +24,10 @@
 # shellcheck source=host/vllm.sh
 source "$(dirname "${BASH_SOURCE[0]}")/vllm.sh"
 
+# Native vLLM is CUDA's alone, its torch from PyTorch's cu130 index, so it resolves no flavor
+# (vllm_flavor) and serves the cuda flavor's default row unless VLLM_MODEL names another.
+VLLM_MODEL=${VLLM_MODEL:-$VLLM_MODEL_CUDA}
+
 VLLM_NATIVE_DIR=/opt/vllm
 VLLM_NATIVE_ROW=$VLLM_NATIVE_DIR/row
 VLLM_NATIVE_PYTHON_DIR=$VLLM_NATIVE_DIR/python
