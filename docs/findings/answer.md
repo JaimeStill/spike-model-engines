@@ -542,3 +542,77 @@ class, run on 2026-10-26 directly over the LAN at 0 to 2 ms
 
 The two sit side by side as evidence of each host's curve. They ran in different sessions, at
 different builds, over different paths, so no figure here is compared with one there.
+
+## Walkthrough
+
+After set A was served, on 2026-10-29 from about 15:25 to 15:33Z, the architect walked slice 4:
+spike-model-hosting's router retired with every step from
+[5. Retire the router](../engines/llama.cpp/setup.md#5-retire-the-router), at f8e34a4, the session
+reading the state back before and after, then Pi against set A from the laptop. Nothing here is a
+measurement; the walkthrough shows the guide's retirement runs in the architect's hands and that
+Pi works against set A unchanged.
+
+### The router's retirement
+
+In order:
+
+1. **The read-back before**, the session's, the guide's first block exactly, at about 15:25Z. It
+   matched the guide's table on every row:
+
+   | Read | Printed |
+   |---|---|
+   | `systemctl show llama-router` | `LoadState=loaded`, `ActiveState=inactive`, `FragmentPath=/etc/systemd/system/llama-router.service`, `DropInPaths` empty, `UnitFileState=disabled` |
+   | `/etc/llama-router` | 8 files: `llama-router.service.b11669`, `llama-router.service.b11715`, `models.ini`, `models.ini.a65fd306` (`jaime`'s), `models.ini.b11669`, `models.ini.b11715`, `models.ini.f98d9faf`, `models.ini.pre-sets`; the directory `root:jaime`, `0775` |
+   | `/opt/llama.cpp` | `b11715`, `b11734`, and `current -> b11734`, all root's |
+   | `findmnt`, `df` | `/mnt/models` on `/dev/nvme1n1p1`, ext4, `rw,noatime`; 916G size, 82G used, 788G available, 10% |
+   | `du` | `models--ggml-org--embeddinggemma-2-GGUF` 296M, `models--ggml-org--gemma-4-26B-A4B-it-GGUF` 15G, `models--ggml-org--gemma-4-E4B-it-GGUF` 8.1G, `models--ggml-org--gpt-oss-120b-GGUF` 60G |
+   | Home and the models directory | `~/llama-router.service.83b0a95c`, the link `~/models -> /mnt/models/gguf`, `~/models.ini.039c5fa7`, `.96732ef9`, `.9c983739`, and `.9eeb9f04`; `/mnt/models/gguf` empty |
+   | `find ~/.local/bin` | `outpost*`, `outpost`, `outpost-preset-install`, `outpost-service-restart`, `outpost-service-status` |
+   | Port 8080 | `ss`: `LISTEN` on `100.87.194.83:8080`; `docker port llama`: `8080/tcp -> 100.87.194.83:8080` |
+
+2. **The architect's steps**, at the Framework's own prompt, exactly as the guide gives them: the
+   four root commands (`systemctl disable --now`, the unit file's `rm`, `daemon-reload`, and the
+   `rm -r` of `/etc/llama-router` and `/opt/llama.cpp`), then the four as `jaime` (the cache's
+   `rm -r`, the `rmdir` of `/mnt/models/gguf`, the link and render copies' `rm`, and outpost's
+   links' `rm`). Each printed nothing.
+
+3. **The read-back after**, the session's, the guide's second block exactly, ending at
+   15:31:46Z:
+
+   | Read | Printed |
+   |---|---|
+   | `systemctl show llama-router -p LoadState` | `LoadState=not-found` |
+   | `command ls -d` | `cannot access '/etc/llama-router'` and `cannot access '/opt/llama.cpp'`: `No such file or directory` |
+   | `df` | 916G size, 36K used, 870G available, 1% |
+   | `du` | `16K /mnt/models/lost+found`, with `du: cannot read directory '/mnt/models/lost+found': Permission denied` |
+   | Home | `cannot access` for `/home/jaime/models`, `/home/jaime/models.ini.*`, and `/home/jaime/llama-router.service.*` |
+   | `find ~/.local/bin` | nothing |
+   | Port 8080 | `ss`: `LISTEN` on `100.87.194.83:8080`; `docker port llama`: `8080/tcp -> 100.87.194.83:8080` |
+
+No `llama-router` unit is left; `/etc/llama-router` and `/opt/llama.cpp` are gone; the models
+drive stays mounted, holding only `lost+found`, with 82G freed; and port 8080 is still the `llama`
+container's. No step touches what the retirement keeps: the ufw route rules, the `docker` group,
+and `/srv/models`. The router is retired as of 2026-10-29.
+
+### Pi against set A
+
+From the laptop at about 15:33Z (its clock read 11:33 local), with `LLAMA_BASE_URL` unchanged at
+`http://framework:8080`, the architect ran Pi from the laptop's clone of this repository on
+`answer`:
+
+1. **The model.** The architect selected `gpt-oss-120b-MXFP4-set-a`, which Pi showed as the model
+   in its header and status bar. Its context read 20.7%/131k, the section's `c = 131072`, which
+   its 4 slots share through the unified KV cache
+   ([12. Serve set A](../engines/llama.cpp/setup.md#12-serve-set-a)).
+2. **The prompt**, one that needs tools: "List the files in this directory and tell me which is
+   largest".
+3. **The tool calls.** Pi showed the model's reasoning, then three bash tool calls:
+   `ls -lR --block-size=K . | sort -k5 -h | tail -n 10`, `find . -type f -printf "%p %s\n" | sort
+   -k2 -n`, and `ls -lA`.
+4. **The answer.** A listing of the clone's top level, and its largest file,
+   `.state/bench/vllm-granite-embed.json`, at 63,874,534 bytes (about 63.9 MiB).
+5. **The status bar** read `↑29k ↓870`, `R28k`, and `CH98.3%`, Pi's cache hit.
+
+**`/llama`'s list wasn't captured.** The architect's screenshots don't show Pi's `/llama` list of
+set A's four models as loaded. Selecting the new section's id, `gpt-oss-120b-MXFP4-set-a`, and
+the `/models` read-back with all four `loaded` ([Set A, served](#set-a-served)) stand for it.

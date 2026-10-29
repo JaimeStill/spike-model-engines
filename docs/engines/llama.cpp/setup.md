@@ -443,8 +443,9 @@ there: a flavor switch, an update, or vLLM's container. They go with
 The architect runs every step of the retirement; the session reads the state back before and
 after. spike-model-hosting's native router, `llama-router`, served on the Framework before this
 spike: it held port 8080 and, with its set A loaded, most of the GTT, and the `engines` commands
-refuse while any `llama-router` unit is active. The spike's answer task retires it, and the
-Framework serves set A from the `llama` container instead ([12. Serve set A](#12-serve-set-a)).
+refuse while any `llama-router` unit is active. The spike's answer task retired it on
+2026-10-29, and the Framework serves set A from the `llama` container instead
+([12. Serve set A](#12-serve-set-a)).
 The retirement removes everything only the router used, read on 2026-10-29 with the router
 disabled and inactive:
 
@@ -516,6 +517,10 @@ ss -ltn 'sport = :8080'; docker port llama
 On a host where `llama` doesn't run yet, as in a setup from scratch, which retires the router
 before [10. Install](#10-install), the last line prints only `ss`'s header and `docker port`'s
 error.
+
+As run on 2026-10-29, from about 15:25 to 15:31Z, the architect's steps at the Framework's own
+prompt and the session's read-backs, each block exactly as given: both read-backs matched what
+this step says, the drive went from 82G used to 36K, and port 8080 stayed the `llama` container's ([the answer finding's Walkthrough](../../findings/answer.md#the-routers-retirement)).
 
 The `engines` commands still refuse beside any active `llama-router` unit, by its name alone:
 native llama.cpp's on gb10-1 ([GB10, native](#gb10-native)), or one a host rebuilds. Nothing here
