@@ -375,6 +375,17 @@ earlier cell on the Framework ran directly over the LAN, at about 1 ms
 ([vllm-strix](vllm-strix.md), [llama-strix-rocm](llama-strix-rocm.md)). The relay adds its round
 trip to each request's TTFT and latency; ITL and the server's figures don't depend on the path.
 
+The session read the path with these two blocks, on the laptop, before putting it to the
+architect:
+
+```sh
+tailscale ping -c 10 framework; tailscale status | grep -i framework; tailscale netcheck 2>&1 | head -12
+```
+
+```sh
+ip -4 addr show | grep -E 'inet ' | grep -v 127.0.0.1; ssh framework 'ip -4 addr show | grep "inet " | grep -v 127.0.0.1'
+```
+
 **The loads.** Neither is a cold load: the 4-slot load read the file from the page cache, and the
 16-slot load the same file after it. Each footprint, MemAvailable before less after and GTT in use
 after less before, matches the buffers the engine logged, in MiB:
