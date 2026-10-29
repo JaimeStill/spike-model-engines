@@ -1,42 +1,54 @@
 # llama.cpp's concurrency sweep on the Framework, in ggml's Vulkan image
 
-To be recorded on the Framework, from the steps and cells the task's brief agreed (context/goals,
-`answer`). llama.cpp v0.8.0 (b11960) serves gpt-oss-120b MXFP4 in ggml's Vulkan image, the
-backend the Framework's answer names ([vllm-strix](vllm-strix.md)), and this finding measures how
-its served output scales with concurrent streams: anchor A on the 4-slot section first, then
-gb10-1's concurrency sweep exactly ([bench-gb10-container](bench-gb10-container.md#concurrency-sweep))
-on the 16-slot section, 512 in, 256 out, at 1, 4, 16, and 32 streams, 60 s a level. Its result is
-an initial setting for how many streams to serve the model at, a starting point tuned as the
-stack is used; it is never a limit. The curve sits beside gb10-1's (b11669) as evidence, and no
-figure is compared across the two sessions ([Comparisons](../../context/README.md#rules)).
+Recorded on 2026-10-29, on the Framework, from the steps and cells the task's brief agreed
+(context/goals, `answer`). llama.cpp v0.8.0 (b11960) serves gpt-oss-120b MXFP4 in ggml's Vulkan
+image, the backend the Framework's answer names ([vllm-strix](vllm-strix.md)), and this finding
+measures how its served output scales with concurrent streams: anchor A on the 4-slot section
+first, then gb10-1's concurrency sweep exactly
+([bench-gb10-container](bench-gb10-container.md#concurrency-sweep)) on the 16-slot section, 512
+in, 256 out, at 1, 4, 16, and 32 streams, 60 s a level. Its result is an initial setting for how
+many streams to serve the model at, a starting point tuned as the stack is used. The curve sits
+beside gb10-1's (b11669) as evidence, and no figure is compared across the two sessions
+([Comparisons](../../context/README.md#rules)).
 
-The session runs each step on framework over Tailscale SSH, and each GuideLLM cell from the
-laptop, in the architect's view, from the clone at TBD on `answer` on both machines, printing each
-block before it runs.
+**Every cell ran over Tailscale's DERP relay (iad), at about 51 to 66 ms**, not directly: the
+laptop was on another network, behind a NAT that kept Tailscale from a direct connection, and the
+architect chose to run over the relay ([Network path and model state](#network-path-and-model-state)).
+Every earlier cell on the Framework ran directly over the LAN, at about 1 ms. TTFT and latency
+include the path's round trip; ITL and the server's figures don't.
+
+The session ran each step on framework over Tailscale SSH, and each GuideLLM cell from the laptop,
+in the architect's view, printing each block before it ran. The laptop's clone was at f0ffb9c on
+`answer`. Framework's clone was at bde06a4 on `main` for steps 1 to 3, since `answer` wasn't
+pushed yet, and `host/` is the same on both; once the architect had it pushed, the clone moved to
+`answer` at f0ffb9c at the start of step 4 ([The 16-slot section: the load](#4-the-16-slot-section-the-load)).
 
 ## Host stack
 
-To be recorded after the architect's `omarchy update` ([Host stack](#1-the-host-stack)).
+The architect brought the Framework current with `omarchy update` on 2026-10-29. It updated only
+mise tools and installed no kernel, so no reboot is pending. The stack was then read with
+[step 1](#1-the-host-stack).
 
 | Item | framework |
 |---|---|
-| Recorded at | TBD |
-| OS | Omarchy TBD (Arch Linux) |
-| Kernel, running | TBD (`uname -r`) |
-| Kernel, installed | `linux-omarchy` TBD; Arch's `linux` TBD, which the host doesn't boot |
-| Reboot pending | TBD: yes when the installed `linux-omarchy` isn't the running kernel |
-| Mesa, `vulkan-radeon` | TBD, TBD |
-| linux-firmware | TBD |
-| Docker | TBD (package), TBD (server) |
-| GTT ceiling | TBD: ttm `pages_limit` TBD, `mem_info_gtt_total` TBD |
-| RAM | TBD (`MemTotal`) |
-| Other engines | `vllm` TBD; `llama-router` TBD |
+| Recorded at | 2026-10-29T14:46:40Z |
+| OS | Omarchy 4.0.6-1 (Arch Linux) |
+| Kernel, running | 7.2.8-9-omarchy (`uname -r`) |
+| Kernel, installed | `linux-omarchy` 7.2.8-9; Arch's `linux` 7.2.11.arch1-1, which the host doesn't boot |
+| Reboot pending | no: the installed `linux-omarchy` is the running kernel |
+| Mesa, `vulkan-radeon` | 1:26.2.5-1, 1:26.2.5-1 |
+| linux-firmware | 20260916-1 |
+| Docker | 1:29.9.2-1 (package), 29.9.2 (server) |
+| GTT ceiling | 112 GiB: ttm `pages_limit` 29360128, `mem_info_gtt_total` 120259084288 |
+| RAM | 131149568 kB (`MemTotal`), 125.1 GiB; `MemAvailable` 122459820 kB |
+| Other engines | `vllm` (`vllm/vllm-openai-rocm:v0.32.0`) and `llama` (`server-vulkan-b11960`) both `Exited (0) 19 hours ago`; `llama-router` disabled and inactive |
+| Laptop's path | **Tailscale's DERP relay (iad), 51 to 66 ms**, "direct connection not established"; the laptop on 10.150.43.182/19, framework on 192.168.1.0/24 |
 
 ## Engine versions
 
 | Engine | Release | Build | Image | Devices |
 |---|---|---|---|---|
-| llama.cpp, Vulkan container | v0.8.0 | b11960; `/props` build_info TBD | `ghcr.io/ggml-org/llama.cpp:server-vulkan-b11960` (`host/llama.env`, flavor `vulkan`) | TBD (`/dev/dri` expected) |
+| llama.cpp, Vulkan container | v0.8.0 | b11960; `/props` build_info `b11960-8642541b2` | `ghcr.io/ggml-org/llama.cpp:server-vulkan-b11960` (`host/llama.env`, flavor `vulkan`) | `/dev/dri` |
 
 The router serves the preset (`host/llama-preset/models.ini`) from the store, `/srv/models`, on
 port 8080 of the tailnet address. Two of its sections are measured, both the same gpt-oss-120b
@@ -93,8 +105,10 @@ The host boots `linux-omarchy`, so a pending reboot is its installed version dif
 
 ### 2. The container at flavor vulkan
 
-On framework. The branch is pushed to origin first, so the host's clone can switch to it. The
-clone moves to `answer` and prints the commit it is at; then `host/engines llama update` with the
+On framework. The clone fetches and prints its branch and the commit it is at. `answer` wasn't
+pushed yet, so the clone stayed on `main` at bde06a4, whose `host/` is the same as `answer`'s;
+the switch to `answer` ran at the start of step 4's load, once the architect had it pushed. Then
+`host/engines llama update` with the
 flavor given as `LLAMA_FLAVOR=vulkan`, since the suite picks `rocm` on an AMD GPU when none is
 given ([Update](../engines/llama.cpp/update.md#switching-the-flavor)). At b11960 already, the
 update pulls nothing and, finding `llama` stopped, says so without starting it, so the block starts
@@ -102,7 +116,7 @@ it and waits for the router; the router runs with `--no-models-autoload`, so it 
 Then its image and devices, which read `server-vulkan-b11960` and `/dev/dri`:
 
 ```sh
-cd ~/repos/spike-model-engines && git fetch -q origin && git switch -q answer && git pull -q --ff-only && git log --oneline -1
+cd ~/repos/spike-model-engines && git fetch -q origin && git status -sb | head -1 && git log --oneline -1
 LLAMA_FLAVOR=vulkan host/engines llama update 2>&1 | tail -3
 docker start llama >/dev/null && until curl -fs "http://$(tailscale ip -4):8080/health" >/dev/null; do sleep 1; done
 docker ps --filter name=llama --format "{{.Names}} {{.Image}} {{.Status}}"
@@ -176,10 +190,12 @@ router's (`docker logs --tail 50 llama` on framework).
 
 ### 4. The 16-slot section: the load
 
-On framework. Step 3's load block, with the 16-slot section in `model` and the 4-slot section in
-`prev`, which it unloads first, so one copy of the model's weights is in memory:
+On framework. First the clone's switch to `answer`, now pushed, which prints f0ffb9c (step 2 ran
+on `main`). Then step 3's load block, with the 16-slot section in `model` and the 4-slot section
+in `prev`, which it unloads first, so one copy of the model's weights is in memory:
 
 ```sh
+cd ~/repos/spike-model-engines && git fetch -q origin && git switch -q answer && git pull -q --ff-only && git log --oneline -1
 cd ~/repos/spike-model-engines
 model=gpt-oss-120b-MXFP4-16-slots
 prev=ggml-org/gpt-oss-120b-GGUF:MXFP4
@@ -332,74 +348,164 @@ bench-gb10-container's sweep:
 
 | Run | Estimate | Actual |
 |---|---|---|
-| Each load | under 20 s (vllm-strix's Vulkan loads, 0.6 to 18.2 s, from a dropped cache) | TBD |
-| Anchor A | under 1 min (8 requests of about 5.7 s) | TBD |
-| The sweep | 4.5 min (four 60 s levels and setup) | TBD |
+| Each load | under 20 s (vllm-strix's Vulkan loads, 0.6 to 18.2 s, from a dropped cache) | 9.3 s (4 slots), 9.8 s (16 slots) |
+| Anchor A | under 1 min (8 requests of about 5.7 s) | 46.18 s benchmarked; 14:56:53 to 14:57:55Z |
+| The sweep | 4.5 min (four 60 s levels and setup) | four 60.0 s levels; 14:58:58 to 15:03:30Z, 4 min 32 s |
 
 ## Results
 
-To be run on framework and the laptop, times UTC, from the files each step wrote. The client
-figures are GuideLLM's, read with [the read-outs](#5-the-read-outs); the server figures are its
-`awk`.
+Run on framework and the laptop on 2026-10-29, times UTC, from the files each step wrote, **over
+Tailscale's DERP relay (iad)**. The client figures are GuideLLM's, read with
+[the read-outs](#5-the-read-outs); the server figures are its `awk`.
 
 ### Network path and model state
 
 | Section | Load | Warm-up at | `tailscale ping` | `/props` build_info | Warm-up reply | `requests_processing` before |
 |---|---|---|---|---|---|---|
-| `ggml-org/gpt-oss-120b-GGUF:MXFP4`, 4 slots | TBD s; MemAvailable TBD, GTT in use TBD after | TBD | TBD | TBD | TBD | TBD |
-| `gpt-oss-120b-MXFP4-16-slots`, 16 slots | TBD s; MemAvailable TBD, GTT in use TBD after | TBD | TBD | TBD | TBD | TBD |
+| `ggml-org/gpt-oss-120b-GGUF:MXFP4`, 4 slots | loaded after 9.3 s; MemAvailable 59338352 kB, GTT in use 65111457792 after | 14:47:17Z | via DERP(iad), 52 to 57 ms, "direct connection not established" | `b11960-8642541b2` | answered | 0 |
+| `gpt-oss-120b-MXFP4-16-slots`, 16 slots | loaded after 9.8 s; MemAvailable 55668900 kB, GTT in use 69084729344 after | 14:58:46Z | via DERP(iad), 51 to 66 ms | `b11960-8642541b2` | answered | 0, and `requests_deferred` 0 |
+
+**The relay.** At step 3's warm-up the laptop was on 10.150.43.182/19, a network other than
+framework's 192.168.1.0/24, and `tailscale netcheck` read `MappingVariesByDestIP: true`, a NAT
+that maps each destination to its own port, which can keep Tailscale from a direct connection. Ten
+more pings stayed on DERP(iad) at 54 to 64 ms, one at 302 ms. The session stopped and put it to
+the architect, who chose to run over the relay: "it will be interesting to see how / if the
+latency impacts the results". Anchor A's pings, before it ran, read 60 to 61 ms via DERP. Every
+earlier cell on the Framework ran directly over the LAN, at about 1 ms
+([vllm-strix](vllm-strix.md), [llama-strix-rocm](llama-strix-rocm.md)). The relay adds its round
+trip to each request's TTFT and latency; ITL and the server's figures don't depend on the path.
+
+**The loads.** Neither is a cold load: the 4-slot load read the file from the page cache, and the
+16-slot load the same file after it. Each footprint, MemAvailable before less after and GTT in use
+after less before, matches the buffers the engine logged, in MiB:
+
+| Section | MemAvailable before, kB | MemAvailable drop, MiB | GTT in use, after less before, MiB | VRAM in use, after less before, MiB | Logged buffers, MiB | Slots |
+|---|---|---|---|---|---|---|
+| 4 slots, `c = 32768` | 122432308 | 61615.2 | 61833.3 | 2.2 | 61797.23: model 59851.64 (Vulkan0), Vulkan_Host 586.82, KV 1152.00 + 108.00, compute 98.77 | `n_slots` 4, `n_ctx_slot` 8192, `kv_unified` false |
+| 16 slots, `c = 131072` | 122834572 | 65591.5 | 65622.5 | 5.1 | 65589.50: model 59851.64 (Vulkan0), Vulkan_Host 586.82, KV 4608.00 + 432.00, output 12.27, compute 98.77 | `n_slots` 16, `n_ctx_slot` 8192, `kv_unified` false |
+
+Both logged `offloaded 37/37 layers to GPU`. GTT in use before each load was 274538496 bytes, and
+VRAM in use 446160896.
 
 ### Anchor A
 
-gpt-oss-120b on the 4-slot section, 1 stream, 8 requests, 512 in, 256 out.
+gpt-oss-120b on the 4-slot section, 1 stream, 8 requests, 512 in, 256 out, from 14:56:53 to
+14:57:55Z, over the relay; guidellm exited 0.
 
-| Completed | Errored | Output tok/s (successful mean) | Output tok/s (total mean) | TTFT median ms | TTFT p95 ms | ITL median ms | Latency median s |
-|---|---|---|---|---|---|---|---|
-| TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| Completed | Errored | Duration s | Output tok/s (successful mean) | Output tok/s (total mean) | TTFT median ms | TTFT p95 ms | ITL median ms | Latency median s | Latency p95 s |
+|---|---|---|---|---|---|---|---|---|---|
+| 8 | 0 | 46.18 | 44.344396 | 44.344396 | 716 | 734 | 19.54 | 5.69 | 5.73 |
 
-Beside vllm-strix's 44.97903 tok/s at b11960 on the same host: TBD%. vllm-strix read up to 0.7%
-on this host, and 1.0 to 1.4% on gb10-1, as run noise ([Anchors](vllm-strix.md#anchors)); a move
-beyond it is a finding. Server: TBD.
+Server: computed 4,138 prompt tokens at 930.5 tok/s and generated 2,048 at 50.7 tok/s.
+
+Beside vllm-strix's 44.97903 tok/s at b11960 on the same host: −1.41%. vllm-strix read up to 0.7%
+on this host, and 1.0 to 1.4% on gb10-1, as run noise, and its own reruns of A and B at b11960
+against b11669 moved −0.33% and −1.13% ([Anchors](vllm-strix.md#anchors)). The move is beyond what
+this host recorded, so it is a finding, and its cause reads as the path, not the engine:
+
+- The output rate is the run's output tokens over its duration, and the run took 46.18 s against
+  vllm-strix's 45.53 s, 0.65 s more for the same 2,048 tokens.
+- The requests themselves took 45.60 s in all against 45.50 s, 0.10 s more. TTFT median was 716
+  against 637 ms, 79 ms higher, about one relay round trip; ITL median was 19.54 against 19.78
+  ms, so decode held.
+- The other 0.55 s, about 70 ms a request, fell between one request's end and the next one's
+  start, which also crosses the path: 0.58 s in all here, against 0.03 s in vllm-strix's run.
+- The server's figures, which don't depend on the path, held: the same 4,138 prompt tokens
+  computed, and generation at 50.7 against 50.1 tok/s
+  ([vllm-strix's Results](vllm-strix.md#results)).
+
+The durations and the requests' summed latency are read from the two JSONs, vllm-strix's from its
+Vulkan cells' files:
+
+```sh
+for f in .state/vllm-strix/vulkan/anchor-a.json .state/answer/anchor-a.json; do echo "$f"; jq -c '.benchmarks[0] | {d: .duration, lat: .metrics.request_latency.successful | {total_sum, mean}, o: .metrics.output_tokens_per_second.successful.mean}' "$f"; done
+```
+
+That reading rests on one run over the relay; no run directly over the LAN was taken in this
+session to set beside it.
 
 ### Concurrency sweep
 
-gpt-oss-120b MXFP4 on 16 slots, 512 in, 256 out, 60 s a level. Requests in flight when a level's
-60 s end are cancelled and counted incomplete. Output tok/s and TTFT are GuideLLM's `total`, over
-every request, completed or not; ITL and latency are the successful requests'
-([bench-gb10-container](bench-gb10-container.md#concurrency-sweep)).
+gpt-oss-120b MXFP4 on 16 slots, 512 in, 256 out, 60 s a level, from 14:58:58 to 15:03:30Z, over
+the relay; guidellm exited 0. Requests in flight when a level's 60 s end are cancelled and counted
+incomplete. Output tok/s and TTFT are GuideLLM's `total`, over every request, completed or not; ITL
+and latency are the successful requests' ([bench-gb10-container](bench-gb10-container.md#concurrency-sweep)).
 
 | Streams | Completed | Incomplete | Errored | Output tok/s (total) | Per stream, aggregate / N | Per stream, 1000 / ITL median | Gain on the level before | TTFT median ms (total) | TTFT p95 ms (total) | ITL median ms | Latency median s | Latency p95 s |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD | TBD | — | TBD | TBD | TBD | TBD | TBD |
-| 4 | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| 16 | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| 32 | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 1 | 10 | 1 | 0 | 43.6 | 43.6 | 51.0 | — | 726 | 761 | 19.61 | 5.73 | 5.80 |
+| 4 | 16 | 4 | 0 | 69.5 | 17.4 | 22.0 | +59.4% | 2288 | 2894 | 45.55 | 14.15 | 14.46 |
+| 16 | 16 | 16 | 0 | 81.6 | 5.1 | 7.1 | +17.4% | 8540 | 10210 | 140.28 | 45.91 | 47.82 |
+| 32 | 16 | 32 | 0 | 80.1 | 2.5 | 6.8 | −1.8% | 9442 | 54683 | 147.71 | 46.96 | 49.43 |
 
-Past the 16 slots, the sampler's gauges by level:
+At 16 and 32 streams a request takes about 46 to 47 s, so each 60 s level completes only its
+first wave, 16 requests. GuideLLM's successful-only output rate is then those requests' tokens
+over the level's 60 s, 16 × 256 / 60 = 68.3 tok/s at 4, 16, and 32 streams alike, and leaves out
+every token the incomplete requests produced; the total figures are the ones to read, as
+bench-gb10-container read its sweep.
+
+The 1-stream level reads with anchor A, the same section's model in the same session: 43.6 against
+44.3 tok/s, TTFT median 726 against 716 ms, ITL median 19.61 against 19.54 ms.
+
+The relay's round trip is in every request's TTFT and latency, and in the gap before each next
+request. At 1 stream it moved anchor A's rate by 1.41%, above; from 4 streams it is small beside
+TTFT medians of 2.3 to 9.4 s.
+
+Server figures over the whole sweep: computed 49,987 prompt tokens at 919.0 tok/s and generated
+16,717 at 9.4 tok/s a slot.
+
+### End state
+
+After the read-outs, [step 6](#6-the-end-state) unloaded the 16-slot section. `llama` runs at
+`server-vulkan-b11960`, up and healthy, and `vllm` stays exited; every model in the preset reads
+unloaded; `llama-router` is disabled and inactive; and port 8080 listens on 100.87.194.83, the
+tailnet address, held by the container.
+
+## Past 16 slots
+
+The sampler's gauges by level, read every 5 s while GuideLLM ran:
 
 | Streams | Samples | `requests_processing`, most at once | `requests_deferred`, most at once | `requests_deferred`, mean |
 |---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD |
-| 4 | TBD | TBD | TBD | TBD |
-| 16 | TBD | TBD | TBD | TBD |
-| 32 | TBD | TBD | TBD | TBD |
+| 1 | 11 | 1 | 0 | 0.0 |
+| 4 | 12 | 4 | 0 | 0.0 |
+| 16 | 12 | 16 | 0 | 0.0 |
+| 32 | 12 | 16 | 16 | 15.7 |
 
-Server figures over the whole sweep: TBD.
+At 32 streams llama.cpp served 16 requests at once, one a slot, and deferred the other 16: it
+accepted them, queued them until a slot freed, and refused or errored none. A deferred request
+started only when the first wave finished, about 46 s in, so its TTFT includes that wait, and
+TTFT's p95 over every request reads 54.7 s, against a median of 9.4 s. The aggregate held, 80.1
+against 16 streams' 81.6 tok/s, and the successful requests' ITL median, 147.71 against 140.28 ms,
+moved little. Past its slots, llama.cpp gives no more output; each request beyond them waits in
+the queue, first come, first served, with no bound on its length.
 
 ## Initial setting
 
 The initial setting is the smaller of two readings of the curve above:
 
 - **10 tok/s a stream:** the most streams at which each stream decodes at 10 tok/s or more, by both
-  per-stream figures, the aggregate over N and 1000 over the ITL median. TBD.
+  per-stream figures, the aggregate over N and 1000 over the ITL median. 4 streams: 17.4 and 22.0
+  tok/s; at 16 streams they read 5.1 and 7.1.
 - **The knee:** the level after which the aggregate gains under 10% a step; with no such step, the
-  sweep's top level. TBD.
+  sweep's top level. 16 streams: 4 to 16 gained 17.4%, and 16 to 32 −1.8%.
 
 Initial setting for gpt-oss-120b MXFP4 on llama.cpp b11960 in ggml's Vulkan image on the
-Framework, at 512 in and 256 out: TBD streams. It is where tuning starts for this model, workload,
-and host, and moves as the stack is used.
+Framework, read off this sweep's synthetic prompts, 512 in and 256 out: **4 streams**. It is where
+tuning starts for this model, workload, and host, and moves as the stack is used. Set A's
+gpt-oss-120b section starts at 4 slots whatever this reads (the brief's behavior 5), and here the
+two agree.
 
 gb10-1's curve, llama.cpp b11669 in ggml's CUDA 13 image, is the same sweep on the other host
-class ([bench-gb10-container](bench-gb10-container.md#concurrency-sweep)), 2026-10-26. The two sit
-side by side as evidence of each host's curve; they ran in different sessions, at different builds,
-so no figure here is compared with one there.
+class, run on 2026-10-26 directly over the LAN at 0 to 2 ms
+([bench-gb10-container](bench-gb10-container.md#concurrency-sweep)):
+
+| Streams | Completed | Incomplete | Errored | Output tok/s (total) | TTFT median ms (total) | TTFT p95 ms (total) | ITL median ms | Latency median s | Latency p95 s |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 11 | 1 | 0 | 48.5 | 418 | 476 | 18.89 | 5.24 | 5.30 |
+| 4 | 16 | 4 | 0 | 77.1 | 1318 | 1651 | 46.19 | 13.17 | 13.43 |
+| 16 | 16 | 16 | 0 | 129.0 | 5440 | 5976 | 104.70 | 32.59 | 34.17 |
+| 32 | 16 | 32 | 0 | 126.2 | 5791 | 37926 | 108.22 | 33.22 | 34.79 |
+
+The two sit side by side as evidence of each host's curve. They ran in different sessions, at
+different builds, over different paths, so no figure here is compared with one there.
