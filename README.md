@@ -27,9 +27,9 @@ finding's session; no figure is compared across sessions or versions.
 
 1. **On NVIDIA, llama.cpp on CUDA; vLLM's lead from 4 streams on gpt-oss-120b is evidence.** On
    gb10-1, llama.cpp led gpt-oss-120b at 1 stream (50.0 against 34.0 output tok/s) and the
-   Gemma 4 shapes at 4 streams, the 12B level; vLLM led gpt-oss-120b from 4 streams (86.7 against 80.9 at B, 168
-   against 129 at 16 streams). One engine serves a host at a time, and a host split between them
-   wasn't measured
+   Gemma 4 shapes at 4 streams, the 12B level; vLLM led gpt-oss-120b from 4 streams (86.7
+   against 80.9 at B, 168 against 129 at 16 streams). One engine serves a host at a time, and a
+   host split between them wasn't measured
    ([bench-gb10-container](docs/findings/bench-gb10-container.md#findings): llama.cpp b11669,
    vLLM v0.32.0, 2026-10-26).
 2. **vLLM's NVFP4 decodes slowly on SM121.** Its NVFP4 rows decode at about half llama.cpp's QAT

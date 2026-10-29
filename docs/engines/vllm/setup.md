@@ -684,9 +684,9 @@ from the models drive, but not the Hugging Face repository vLLM serves, `openai/
 ### 4. Install
 
 On the first walk the architect's step; later the session's. `install` refuses while
-llama.cpp's `llama` container runs or any `llama-router` unit is active, spike-model-hosting's
-included, or native vLLM's `vllm-server` is, since one engine serves per host at a time. See
-whether `llama` runs, and stop it when it does:
+llama.cpp's `llama` container runs or any `llama-router` unit is active, or native vLLM's
+`vllm-server` is, since one engine serves per host at a time. See whether `llama` runs, and stop
+it when it does:
 
 ```sh
 docker ps --filter name=llama

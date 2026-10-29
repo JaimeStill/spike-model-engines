@@ -295,7 +295,7 @@ tarball; the unpacked build stays for llama-bench, and goes with
 
 ## Seeding the Framework's store
 
-The Framework already holds two of the models, in spike-model-hosting's Hugging Face cache on its
+The Framework held two of the models, in spike-model-hosting's Hugging Face cache on its
 models drive, `/mnt/models/hf-cache`: gpt-oss-120b MXFP4 and gemma-4-E4B Q8_0, each with the
 files the preset resolves. Seeding copies them into `/srv/models` instead of downloading them
 again, once the architect has created the store ([Setup](setup.md#framework-in-a-container),
