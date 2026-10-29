@@ -1,8 +1,8 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** idle
-- **Task:** none
-- **Branch:** none
+- **State:** building
+- **Task:** answer
+- **Branch:** answer
 
 ## Tasks
 
@@ -16,181 +16,297 @@
 8. [x] vllm-strix
 9. [ ] answer
 
-## Task brief · vllm-strix
+## Task brief · answer
 
-Approved 2026-10-28.
+Approved 2026-10-29.
 
 Problem
-  vLLM has run only on gb10-1, in vLLM's CUDA image and natively. So the
-  spike can't yet say whether vLLM serves the Framework's Strix Halo at
-  all, or how it compares there with llama.cpp in ggml's Vulkan image,
-  which led llama-strix-rocm (evidence 1, 2). This task applies the GB10
-  vLLM standards to the Framework, changed only where AMD needs it. It
-  proves first that vLLM's official ROCm image (this task's one new tool)
-  serves gpt-oss-120b on gfx1151. It then measures vLLM there against
-  llama.cpp's Vulkan image, cell for cell, in one session, with llama.cpp
-  moved to its current pin, v0.8.0 (b11960). strix-native has dropped,
-  and the answer task reads this task's finding. The session owns the
-  Framework.
+  The spike has measured both engines on both host classes, but its
+  README still reads "Not answered yet". experiment.hosting's intake has
+  no answer section to read, and the Framework sits idle with
+  spike-model-hosting's router stopped, waiting to be retired. This task
+  states the spike's answer as a general strategy for self-hosted model
+  engines, from the findings and the goal record:
+  - llama.cpp on both host classes, in a container, ggml's Vulkan image
+    on the Framework;
+  - vLLM's leads kept as evidence;
+  - concurrency as measured curves, with slots a per-scenario tuning
+    setting.
+  It takes one new measurement, a llama.cpp Vulkan concurrency sweep on
+  the Framework, which gives an initial setting, not a limit. It retires
+  the router, and the Framework ends serving set A from the engines
+  suite's llama container. At SHIP the goal syncs into the coordinator,
+  spike-model-hosting and personal-agents, and spike-hosting-upgrades is
+  staged. New tool: none.
 
 Behaviors
-  1. llama.cpp's pin moves to v0.8.0 (b11960). The llama.cpp guide names
-     it, currency then reports only held items, and the check passes. On
-     the Framework, `host/engines llama update` at flavor vulkan serves
-     the new build, and /props reads b11960.
-  2. The Framework is brought current by the architect's `omarchy
-     update`. An installed kernel newer than the running one is recorded
-     as a pending reboot.
-  3. The engines suite's vllm group gains a flavor: cuda on the GB10s,
-     rocm on the Framework. With none given, it follows the GPU the host
-     has: rocm on an AMD GPU, cuda otherwise.
-     - The flavor picks three things: the image, vllm/vllm-openai:<release>
-       or vllm/vllm-openai-rocm:<release>; the device flags, --gpus all,
-       or /dev/kfd and /dev/dri with no group, seccomp or ptrace flags;
-       and the default row.
-     - Both flavors keep --ipc host. An unknown flavor is refused.
-     - Install and update compare the whole image and command, so they
-       refuse, replace and report as they do now.
-     - A host with no AMD GPU resolves to today's image, flags and
-       default row, so gb10-1 is unchanged.
-  4. The Framework's default row is gpt-oss-120b. gb10-1's stays Gemma 4
-     26B-A4B NVFP4. Every row keeps --gpu-memory-utilization 0.80 on both
-     host classes, so the rows stay one set.
-  5. The rows gain the shape set's ROCm-servable formats: Gemma 4
-     26B-A4B BF16 with its vision encoder, and Gemma 4 31B QAT w4a16
-     (Google's). E4B BF16, E4B QAT w4a16, 12B QAT w4a16, granite BF16 and
-     gpt-oss-120b are already rows.
-  6. The suite's shared messages name no host class. The one-engine-per-
-     host reason reads in terms of any host's GPU memory. A unit's
-     refusal hint names `sudo systemctl stop <unit> && sudo systemctl
-     disable <unit>` without -n, which also holds where no NOPASSWD rule
-     exists, as for spike-model-hosting's llama-router.
-  7. Viability is the architect's first walk of vLLM's ROCm image.
-     - A one-off run of vllm/vllm-openai-rocm:v0.32.0 with /dev/kfd and
-       /dev/dri runs the image's `rocminfo`, which reads back the device
-       as gfx1151 and its memory pool's size. vLLM's first start then
-       logs the total it sizes against. Both are recorded beside the GTT
-       ceiling. No Python is authored for the read-back.
-     - `host/engines vllm install` then starts the gpt-oss-120b row on
-       port 8000 of the tailnet address. Its first start, from an empty
-       compile cache, reaches ready within 20 minutes with every weight
-       on the GPU. It then serves warm anchor A from the laptop.
-     - If any of these fails, the failure is recorded with its reason
-       and log, and BUILD escalates at once, with no retry under
-       --enforce-eager or any other setting.
-  8. One engine per host holds on the Framework. vllm's install and
-     update refuse while llama runs or any llama-router or vllm-server
-     unit is active, and llama's refuse while vllm runs.
-  9. Before any comparison cell or timed start, everything is staged in
-     parallel through the hf host env on the Framework: every model the
-     vLLM rows name, gpt-oss-120b staged so its start reads only the
-     store; and the images, vllm/vllm-openai-rocm:v0.32.0 and ggml's
-     b11960 Vulkan server image.
-  10. vLLM's cold start is measured per row.
-      - Each row's first start fills its compile cache and is recorded.
-        Then one timed start runs from a dropped page cache with the
-        compile cache warm.
-      - Each start records MemAvailable, GTT and VRAM in use (sysfs, no
-        root), before and after, beside the memory vLLM logs: weights,
-        KV cache, and the total it sized against.
-  11. vLLM's GuideLLM cells run per row, each model warmed first, at
-      llama-strix-rocm's loads:
-      - anchors A (1 x 8) and B (4 x 32) on gpt-oss-120b;
-      - E4B BF16 and E4B QAT w4a16 at one stream, the quantization pair;
-      - 12B QAT w4a16 at A and B;
-      - 31B QAT w4a16 halved (1 x 4, 4 x 16);
-      - 26B-A4B BF16 at A, B and vision;
-      - granite BF16 at 1 and 16 streams;
-      - E4B audio through chat.
-      A cell vLLM can't serve on gfx1151 is marked unsupported, with its
-      reason.
-  12. llama.cpp's whole Vulkan set from llama-strix-rocm, each model's
-      load and footprint and then its cells, reruns at b11960 in the
-      same session from that finding's method. Its anchors A and B are
-      set beside v0.7.0's 45.13 and 77.67 tok/s, and a move beyond run
-      noise is a finding.
-  13. The finding sets every vLLM cell beside its same-session llama.cpp
-      Vulkan cell: output tok/s, TTFT, ITL, cold start or load, and
-      footprint. It states no verdict, since the answer task decides.
-  14. Every result records the engine version (vLLM's /version,
-      llama.cpp's /props build_info), the flavor and image, and the host
-      stack: Omarchy, kernel, Mesa, linux-firmware, Docker, the GTT
-      ceiling, and each image's ROCm. It also records the laptop's path
-      (tailscale ping) and the model state. No run exceeds 10 minutes,
-      except vLLM's first start on gpt-oss-120b on the Framework, which
-      has 20. Any other start past 10 minutes is an escalation.
-  15. The vLLM guide gains Framework sections, not files:
-      - setup: the root steps already in place, the first walk's
-        read-back, and the flavor;
-      - models: the ROCm rows and staging through hf on the Framework;
-      - update and uninstall: the release, on each flavor.
-      The README's "Running on the Framework" gains vLLM's practices, and
-      the Path's task 7 states its result. The finding is vllm-strix's,
-      under the findings.
-  16. At the end, the vllm container and the llama container (at flavor
-      vulkan, b11960) are stopped by hand, so neither starts at boot. The
-      router stays stopped and disabled, nothing serves on 8000 or 8080,
-      and the record's host line says so.
-  17. At SHIP, one coordinator PR carries the goal's pending edits (the
-      strix-native delete and the summary and ai-hosting.md edits) and
-      vllm-strix's own, emptying Pending edits.
+  1. Currency. The root's currency reports only held items (the bench
+     Python 3.14.10, native vLLM's Python 3.12; llama.cpp v0.8.0
+     (b11960) and vLLM v0.32.0 current), and the check passes.
+     spike-model-hosting's 11 trailing items are each held by a Decision
+     in this goal's record, so its currency reports only held items, and
+     the task has no upgrade slice.
+  2. The architect brings the Framework current with `omarchy update`.
+     An installed kernel newer than the running one is recorded as a
+     pending reboot. gb10-1 gets no host step and isn't brought current.
+  3. The Framework sweep. The llama container at flavor vulkan reads
+     b11960 from /props, and gpt-oss-120b is staged. In the architect's
+     view, printing each command first, the session:
+     - warms the 4-slot section and reruns anchor A, set beside
+       vllm-strix's 44.98 tok/s at b11960; a move beyond run noise is a
+       finding;
+     - runs gb10-1's sweep exactly on the 16-slot section: GuideLLM
+       0.8.1, the sweep scenario (512 in, 256 out), 1, 4, 16 and 32
+       streams, 60 s a level, from a warm model.
+     Each run takes at most 10 minutes. Each records the engine version,
+     the host stack (Omarchy, kernel, Mesa, linux-firmware, Docker, the
+     GTT ceiling), the laptop's path (tailscale ping) and the model
+     state. The sweep is read as bench-gb10-container read its own: total
+     output tok/s and TTFT over every request, and ITL and latency over
+     the successful ones.
+  4. The sweep's finding is this task's own, under the findings.
+     - Per level it gives aggregate output tok/s, per-stream tok/s
+       (aggregate / N, and 1000 / ITL median), TTFT median and p95, and
+       ITL median, plus what llama.cpp does past its 16 slots.
+     - It states one initial setting: the smaller of two readings, the
+       most streams that each decode at 10 tok/s or more, and the knee
+       where the aggregate gains under 10% a step.
+     - It is worded "initial setting" throughout, never "limit". It sits
+       beside gb10-1's curve (b11669) as evidence, with no figure
+       compared across the two sessions.
+  5. Set A in the suite's preset.
+     - The preset gains one section: gpt-oss-120b MXFP4 at c 131072,
+       its 4 slots sharing a unified KV cache, named like the 16-slot
+       variant.
+     - Set A is that section plus the existing sections for Google's
+       Gemma 4 26B-A4B QAT Q4_0 and gemma-4-E4B Q8_0 (each with its
+       projector) and granite-embedding-english-r2 BF16.
+     - Set A starts at 4 slots whatever the sweep's initial setting
+       reads.
+     - No section sets load-on-startup, the anchor and benchmark
+       sections are unchanged, and the check passes.
+     - Nothing is downloaded: all four are already in the Framework's
+       store, each within the quantization floor.
+  6. The Framework ends serving set A.
+     - `host/engines llama update` at flavor vulkan serves b11960. The
+       session loads set A's four models through the router's load API.
+     - GET /models lists them loaded, and from the laptop /health
+       answers on framework:8080.
+     - MemAvailable and GTT in use are recorded after the loads.
+     - The guide states that after a start or a reboot the router serves
+       nothing until a model is loaded through the API or Pi's /llama.
+       --no-models-autoload and --models-max stay as they are.
+     - The vllm container stays installed and stopped, and gb10-1 is
+       unchanged.
+     - The derived vLLM audio image and ggml's native Vulkan b11669
+       build in jaime's home are removed from the Framework. The audio
+       Dockerfile stays.
+  7. Retiring the router. The llama.cpp guide's Framework setup turns
+     its "stop the router" step into the router's retirement. The
+     architect runs every step from the guide, and the session reads the
+     state back before and after.
+     - Removed: the llama-router unit (with daemon-reload);
+       /etc/llama-router and its 8 files; /opt/llama.cpp's b11715,
+       b11734 and current link; the router's cache on the models drive
+       (its four repositories, 82G); the ~/models link; the render copies
+       in jaime's home; outpost's links in ~/.local/bin.
+     - Kept: the models drive, mounted and holding no model; the ufw
+       route rules; the docker group; /srv/models.
+     - Read back afterwards: no llama-router unit; /opt/llama.cpp and
+       /etc/llama-router gone; the drive's use; and port 8080 held by the
+       llama container.
+     - The suite still refuses beside any llama-router unit (native
+       llama.cpp's on gb10-1). The guide drops "comes back with enable
+       --now" and says how spike-model-hosting's profile would rebuild
+       the router.
+  8. Every command the session or the architect runs appears in a guide
+     or the finding's method exactly as run.
+  9. Pi. From the laptop, with LLAMA_BASE_URL unchanged at
+     http://<host>:8080, Pi's /llama lists set A's four models as loaded.
+     /model selects set A's gpt-oss-120b section. A prompt that needs
+     tools shows Pi's tool calls.
+  10. The README's "The answer".
+      - It gives the spike's question and a one-line answer. Numbered
+        evidence follows, grouped by host trait (GPU vendor and its
+        backend, unified memory, workload: streams, embeddings, models
+        on demand), with the GB10s and the Framework as worked instances.
+        Each item names where it is proven (a finding, a walkthrough) and
+        the build and date.
+      - GB10s: llama.cpp, in a container. vLLM's leads are kept as
+        evidence: gpt-oss-120b from 4 streams, and embeddings at
+        concurrency.
+      - Framework: llama.cpp in ggml's Vulkan image, in a container.
+        ROCm's leads (cold load, vision) and vLLM's embedding lead are
+        kept as evidence.
+      - Hosting method: a container on both host classes. The Framework's
+        bare metal is unproven: ggml's native Vulkan build leads the
+        image at prompt processing, likely from Mesa, untested.
+      - The strategy is stated as drawn from two host classes. No figure
+        is compared across sessions or versions.
+  11. Concurrency. The measured curves (gb10-1's sweep, the Framework's
+      sweep, the 1- and 4-stream shape cells) are evidence, and the
+      answer sets no slot limit. Slots are a per-scenario tuning setting
+      that depends on model, workload and host, tuned as the stack is
+      used. Tuning is an open item owned by the backlog goal
+      model-evaluation and by spike-model-layout.
+  12. The notes. context/README.md's Capabilities "The answer" and Path
+      task 9 state the result. Its practices:
+      - lose the "spike-model-hosting's router" practice;
+      - say the Framework serves set A between tasks, so a task stops
+        the llama container before installing vLLM;
+      - keep "The session owns the Framework" for sessions that measure.
+      The llama.cpp guide's Framework sections gain set A and its loading,
+      and the retirement.
+  13. Open items, each marked "not measured", "cause open", or "by the
+      source, untested".
+      - The answer section carries three gaps: the Framework's API
+        probes, the Framework's bare metal, and the cause of vLLM's slow
+        NVFP4 decode on SM121.
+      - It also carries three requirements for the intake to route:
+        workload-based tuning (model-evaluation, spike-model-layout);
+        request priority, since llama-server queues past its slots
+        first-come, first-served with no limit, priority or 429, while
+        vLLM has a priority scheduler; and model management separated
+        from inference and held by an admin. llama-server's router
+        exposes load, unload, download and delete to any client that
+        reaches it, ?autoload=true overrides --no-models-autoload, and
+        every API key has the same access. Today the tailnet, ufw and
+        tag:inference bound it.
+      - The README carries all of these, plus: native vLLM re-tuning
+        FlashInfer every start; EmbeddingGemma 2 unserved on vLLM SM121;
+        vLLM's Gemma 4 transcription on paper; vLLM ROCm audio "probe
+        only, the suite doesn't build it"; and the Framework sweep,
+        measured as an initial setting.
+  14. The goal record's Pending edits carry:
+      - the coordinator:
+        - ai-hosting.md: the answer section under "Answers ·
+          experiment.hosting", in marathon's Answer section form, linking
+          the README's "The answer" and the remote.
+        - ai-hosting.md, personal-agents paragraph: Serving reads the
+          router retired (dated), with the Framework serving set A from
+          spike-model-engines' llama container (Vulkan, b11960); Models
+          read Google's 26B-A4B QAT Q4_0 and granite in place of ggml-org's
+          Q4_0 and EmbeddingGemma 2, on the 112 GiB pool; Client reads
+          Pi's LLAMA_BASE_URL unchanged.
+        - ai-hosting.md, spike-model-engines paragraph: "has answered".
+        - roadmap.toml: the header comment's spike-model-engines sentence
+          is updated; experiment.hosting.spike-model-engines leaves active
+          and its table is deleted; spike-hosting-upgrades moves from
+          planned to active.
+        - references.md: "Asked ... Answered"; references.toml unchanged
+          (listed unarchived until the intake).
+      - spike-model-hosting: the Strix Halo runbook and the build log's
+        current-build line state the router's retirement (dated), what
+        was removed and kept, and how the profile would rebuild it.
+      - personal-agents, as a pointer:
+        - the README and the Framework preparation doc say the host
+          serves set A from spike-model-engines' llama container
+          (Vulkan), link its llama.cpp guide, and say the repository is
+          archived once ai-hosting's runbook lands;
+        - hosting-setup, remote-admin, the profiles and outpost are
+          marked superseded with the same link;
+        - its roadmap's tuning.slot-persistence task is dropped;
+        - pi-harness is unchanged.
+      Later goals' summaries are not edited (the intake's), and no
+      backlog entry is added.
+  15. Decisions record every settled question and the 11 holds.
 
 Test seams
-  vLLM's HTTP API on framework:8000 and llama-server's on framework:8080,
-  as GuideLLM and curl call them from the laptop, and the engines vllm
-  and llama commands' output and Docker's state on the Framework.
+  llama-server's HTTP API on framework:8080, as GuideLLM, curl and Pi
+  call it from the laptop; the engines llama commands' output and
+  Docker's state on the Framework; and the retirement's read-backs on the
+  Framework (systemctl, ls, du, df, ss).
 
 Slices
-  1. Upgrade (behavior 1). The session moves llama.cpp's pin to v0.8.0
-     (b11960) and its guide's version, and runs check and currency. Once
-     ggml publishes the b11960 images, it pulls the Vulkan server image
-     and updates the Framework's llama at flavor vulkan; until then only
-     the host step waits. Demo: currency reports only held items, and
-     /props reads b11960.
-  2. vLLM ROCm viable (behaviors 2–8). The architect runs `omarchy
-     update`, then the first walk from the guide written on the branch:
-     the rocminfo read-back, then the install and the first start. The
-     session first writes the flavor, the rows and the messages. It
-     stages gpt-oss-120b, reads each step back, checks the refusals,
-     then warms the model and runs anchor A in the architect's view.
-     Demo: vLLM's anchor A served from the laptop, or a recorded failure
-     and an escalation.
-  3. The comparison (behaviors 9–14, 16). The session stages every model
-     and image in parallel. It then runs each vLLM row's first and timed
-     starts, its read-outs and its cells, then llama.cpp's Vulkan set at
-     b11960, printing each command first in the architect's view, then
-     stops everything. Demo: the finding, with its paired served, cold-
-     start and footprint tables.
-  4. Walkthrough (behaviors 15, 17). The architect installs vLLM at
-     flavor rocm from the guide and runs warm anchor A on vLLM and on
-     llama.cpp's Vulkan from the finding's method. The architect leaves
-     the end state, and SHIP opens the coordinator PR.
+  1. The Framework sweep (behaviors 1-4). Architect: `omarchy update`.
+     Session, over SSH and in the architect's view: check and currency,
+     the hold Decisions, the host stack, the llama container at vulkan,
+     anchor A, then the sweep, then the finding. Demo: the finding's
+     curve and its initial setting.
+  2. Set A served (behaviors 5, 6, 8). Session: the preset section on the
+     branch, the update at vulkan, the four loads and their read-backs,
+     and the two removals. Demo: GET /models lists set A loaded, and
+     /health answers from the laptop.
+  3. The answer (behaviors 10-14). Session and editor: the README's "The
+     answer", the notes, the guides' set A and retirement steps written
+     for the walkthrough, and the pending edits. Demo: the README's "The
+     answer" and the answer section in Pending edits.
+  4. Walkthrough (behaviors 7, 9, 15). Architect: the router's
+     retirement, every step from the guide, with the session's
+     read-backs; then Pi against set A from the laptop. The editor
+     records the date and outputs in the guide, the answer and the
+     pending edits. SHIP opens the root's PR, then the sync. Demo: no
+     router on the Framework, and Pi's tool calls on set A.
 
 The split
-  The architect: `omarchy update` and any root step; the first walk of
-  vLLM's ROCm image (the read-back, the install, the first start); the
-  last slice's walkthrough; every escalation's decision.
-  The session, over Tailscale SSH without root: the pin move, image pulls
-  and hf downloads, the engines install, update and uninstall, starts and
-  their timing, page-cache drops through the existing sudoers rule, log
-  and memory read-outs, and health and version checks. From the laptop,
-  in the architect's view, it runs every GuideLLM cell, printing each
-  command first.
+  The architect: `omarchy update` and every root step; the router's
+  retirement, every step (the walkthrough); Pi from the laptop; every
+  escalation's decision.
+  The session, over Tailscale SSH without root: check and currency, the
+  engines update, model loads, readiness waits, read-outs, the two
+  removals, and the retirement's read-backs. From the laptop, in the
+  architect's view, it runs anchor A and the sweep, printing each command
+  first.
+
+Repositories and branches
+  spike-model-engines (root)  `answer` during BUILD; PR at SHIP
+  standards-lab               `sync-experiment.hosting.spike-model-engines`
+  spike-model-hosting         `sync-experiment.hosting.spike-model-engines`
+  personal-agents             `sync-experiment.hosting.spike-model-engines`
+  The goal record is deleted from the root's main once every sync PR
+  merges.
+
+Sync (for the session brief)
+  coordinator          ai-hosting.md: the answer section for
+                       spike-model-engines; the personal-agents paragraph
+                       (router retired, set A from the llama container);
+                       the spike-model-engines paragraph ("has answered")
+                       roadmap.toml: remove experiment.hosting.
+                       spike-model-engines (active, table, header
+                       comment); stage spike-hosting-upgrades
+                       references.md: spike-model-engines "Asked ...
+                       Answered"
+  spike-model-hosting  the Strix Halo runbook and build log: the router
+                       retired
+  personal-agents      a pointer to spike-model-engines' llama container
+                       and guide; setup, profiles and outpost superseded;
+                       slot-persistence dropped
+  next                 experiment.hosting.spike-hosting-upgrades · staged
+                       on accept (no repository yet; its first session is
+                       a plan that sets it up)
 
 Out of scope
-  ROCm tuning settings: --enforce-eager, attention or MoE backends,
-  memory shares other than 0.80. Native vLLM or llama.cpp on the
-  Framework (strix-native dropped). llama.cpp's ROCm flavor and
-  llama-bench. The concurrency sweep and the API probes on the Framework.
-  NVFP4 on ROCm. Any host step on gb10-1 or gb10-2. Retiring the router
-  (the answer task's). personal-agents' and spike-model-hosting's docs.
-  Rewriting earlier findings.
+  - A slot limit, and tuning set A's slots or context.
+  - Any benchmark but anchor A and the Framework sweep: no
+    shape, vision, ASR, embedding or API-probe cells, and no vLLM cell.
+  - Any host step on gb10-1 or gb10-2.
+  - Native llama.cpp or vLLM on the Framework.
+  - An API key, --no-webui, --offline, or any access configuration on the
+    router.
+  - Request priority.
+  - The suite building vLLM's audio image.
+  - Upgrading spike-model-hosting's pins.
+  - Rewriting personal-agents' setup.
+  - Editing later spikes' or goals' summaries.
+  - A backlog entry.
+  - Reusing the models drive.
+  - Rewriting earlier findings.
 
 Door
-  Two-way. The pin moves back with an edit and an update. The flavor is
-  resolved per host, so gb10-1 is unchanged. vLLM's image and container
-  go with uninstall, and models with the typed delete. No root step is
-  added. Nothing is released.
+  Two-way, with one cost.
+  - The preset section and the set A loads revert with an edit and an
+    update.
+  - The sweep adds a finding.
+  - The two removals rebuild from the Dockerfile and ggml's release.
+  - The router's retirement deletes files, but spike-model-hosting's
+    profile re-renders the unit and presets, and the builds and the 82G
+    of models download again, so it reverts at the cost of a re-download.
+  - Each sync edit reverts by commit.
+  Nothing is released.
+
+## Progress
+
+slices 0/4 committed · standards — · spec — · editor —
 
 ## Decisions
 
@@ -800,6 +916,94 @@ Door
   into any environment with AI hosting hardware, each upgrade verified by anchors A and B before
   it is adopted; rejected running benchmark matrices of our own. Landed with this goal's pending
   edits in standards-lab PR #106.
+- answer: llama.cpp is the GB10s' engine; vLLM's leads (gpt-oss-120b from 4 streams, embeddings at
+  concurrency) stay as evidence, since one engine serves per host and a split host wasn't measured;
+  rejected vLLM and a llama.cpp/vLLM role split (r1 q1).
+- answer: llama.cpp in ggml's Vulkan image is the Framework's engine build; ROCm's leads (cold load,
+  vision) and vLLM's embedding lead stay as evidence; rejected ggml's ROCm image and vLLM's ROCm
+  image (r1 q2).
+- answer: a container on both host classes; the Framework's bare metal marked unproven, with the
+  native Vulkan build's prompt-processing lead (likely Mesa, untested) as a gap; rejected bare
+  metal on the Framework (r1 q3).
+- answer: the general strategy is stated as rules keyed by host traits, with the GB10s and the
+  Framework as worked instances, drawn from two host classes and comparing no figure across
+  sessions; rejected verdicts per host class alone (r1 q4).
+- answer: the answer section carries the verdict-limiting gaps and the README all open items; the
+  Framework sweep, reopened at r2 q2, leaves the section's gaps and joins the README as measured
+  (r1 q5).
+- answer: vLLM's ROCm audio image stays a probe; the suite doesn't build it, and the derived image is
+  removed from the Framework; rejected a suite build step (r1 q6).
+- answer: the router's retirement removes everything router-only (unit, /etc/llama-router,
+  /opt/llama.cpp, its 82G cache, ~/models, the render copies, outpost's links) and keeps the models
+  drive mounted and empty, the ufw rules, the docker group and /srv/models; rejected keeping the
+  cache or the install (r1 q7).
+- answer: the architect runs every retirement step from the guide, as the walkthrough, with the
+  session's read-backs; rejected the session running the non-root deletions (r1 q8).
+- answer: the Framework ends this task serving set A from the engines suite's llama container at
+  vulkan; supersedes the recommendation that nothing serve (architect, r1 q9).
+- answer: both engines stay installed and stopped with their models staged; only ggml's native
+  Vulkan b11669 build is removed from the Framework (and the audio image, per r1 q6); gb10-1 gets
+  no step (r1 q10).
+- answer: spike-model-hosting's runbook and personal-agents' docs are pending edits the sync applies
+  on sync branches; rejected PRs during BUILD and leaving them to the architect (r1 q11).
+- answer: later spikes' roadmap summaries (spike-model-gateway's vLLM production-stack clause,
+  spike-model-layout's llama-swap clause) are left for the intake; the sync edits ai-hosting.md,
+  the roadmap's spike-model-engines entries and references.md only (r1 q12).
+- answer: spike-hosting-upgrades is staged on accept, without a repository; its first session is a
+  plan that sets it up (r1 q13).
+- answer: no backlog entries for the open items; they stay as gaps in the answer (r1 q14).
+- answer: the answer sets no slot limit; concurrency is evidence, and slots are a per-scenario
+  tuning setting (architect, r2 q1; supersedes the recommended 10 tok/s rule).
+- answer: "no new measurement" reopened for one llama.cpp Vulkan sweep on the Framework, gb10-1's
+  method at b11960 with anchor A first, giving an initial setting, not a standard (architect, r2 q2);
+  no roadmap edit, since the sync deletes the goal's table.
+- answer: request priority is named in the answer as a requirement for the intake; llama-server
+  queues past its slots first-come, first-served, with no limit, priority or 429; rejected a
+  spike-model-gateway summary edit and a probe (r2 q3).
+- answer: set A serves Google's Gemma 4 26B-A4B QAT Q4_0, staged and above the floor; rejected
+  ggml-org's Q4_0, below it, so the router's cache is still deleted (r2 q4).
+- answer: set A's gpt-oss-120b (c 131072, 4 slots, unified KV) is one new section in the suite's
+  one preset, named like the 16-slot variant; rejected a second preset file and changing the
+  anchor section (r2 q5).
+- answer: set A loads through the router's load API, with no load-on-startup, since the shared
+  preset would also load it on gb10-1 (r2 q6).
+- answer: the session stands up set A over SSH; the architect's walkthrough ends on Pi, with
+  LLAMA_BASE_URL unchanged (r2 q7).
+- answer: personal-agents gets a pointer to spike-model-engines' llama container and guide, its
+  setup, profiles and outpost marked superseded and slot-persistence dropped; rejected a rewrite
+  of its setup (r2 q8).
+- answer: personal-agents' retirement gets no new record; ai-hosting.md and v1.ai.hosting's summary
+  already archive it once ai-hosting lands (r2 q9).
+- answer: spike-model-hosting's 11 trailing items are held for this docs-only edit, each by its own
+  Decision; rejected an upgrade slice (r2 q10).
+- answer: concurrency is stated as the measured curves, with slots a per-scenario tuning setting
+  that depends on model, workload and host (r3 q1).
+- answer: workload-based tuning is an open item owned by model-evaluation and spike-model-layout,
+  with no roadmap edit; rejected a new backlog entry (r3 q2).
+- answer: the Framework finding's initial setting is the smaller of the 10 tok/s per-stream reading
+  and the 10% aggregate knee, worded "initial setting", with the curve beside it (r3 q3).
+- answer: set A starts at 4 slots whatever the sweep reads, since the sweep's prompts are synthetic
+  and Pi's run near 8k tokens (r3 q4).
+- answer: no access configuration on the router; model management separated from inference and held
+  by an admin is named as a requirement, since llama-server's keys all have the same access;
+  rejected an API key; --no-webui not added (r3 q5, architect).
+- answer: the model-management requirement is an open item in the answer for the intake, with no
+  ai-hosting.md SETTLE line or roadmap edit (r3 q6).
+- answer: held spike-model-hosting's aqua:anthropics/claude-code at 2.1.301: spike-model-hosting
+  answered and awaits experiment.hosting's intake's archive, and this sync's edit is docs only;
+  latest 2.1.312.
+- answer: held spike-model-hosting's aqua:earendil-works/pi at 1.3.0: the same reason; latest 1.4.0.
+- answer: held spike-model-hosting's aqua:anomalyco/opencode at 1.19.3: the same reason; latest
+  2.2.1, a new major.
+- answer: held spike-model-hosting's consumers python at 3.14.8: the same reason; latest 3.15.2.
+- answer: held spike-model-hosting's consumers uv at 0.13.5: the same reason; latest 0.13.6.
+- answer: held spike-model-hosting's huggingface-hub at v2.2.0: the same reason; latest v2.3.0.
+- answer: held spike-model-hosting's inspect-ai at v0.3.281: the same reason; latest v0.3.286.
+- answer: held spike-model-hosting's inspect-evals at v0.24.0: the same reason; latest v0.26.0.
+- answer: held spike-model-hosting's mteb at v2.26.4: the same reason; latest v2.26.29.
+- answer: held spike-model-hosting's openai at v3.31.0: the same reason; latest v3.41.0.
+- answer: held spike-model-hosting's pillow at v12.3.0: the same reason (its CVE fixes reach only
+  the laptop's evaluation suites, which don't run again); latest v13.0.0, a new major.
 
 ## Pending edits
 
