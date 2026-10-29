@@ -619,6 +619,17 @@ From the laptop at about 15:33Z (its clock read 11:33 local), with `LLAMA_BASE_U
    `.state/bench/vllm-granite-embed.json`, at 63,874,534 bytes (about 63.9 MiB).
 5. **The status bar** read `↑29k ↓870`, `R28k`, and `CH98.3%`, Pi's cache hit.
 
-**`/llama`'s list wasn't captured.** The architect's screenshots don't show Pi's `/llama` list of
-set A's four models as loaded. Selecting the new section's id, `gpt-oss-120b-MXFP4-set-a`, and
-the `/models` read-back with all four `loaded` ([Set A, served](#set-a-served)) stand for it.
+**`/llama`'s list**, captured after the prompt, on request: Pi's "llama.cpp models" for
+`framework:8080` listed the router's nine sections, set A's four `loaded` and the other five with
+no status:
+
+| Section | Pi's `/llama` |
+|---|---|
+| `ggml-org/gemma-4-E4B-it-GGUF:Q8_0` | loaded · 8k context |
+| `google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0` | loaded · 8k context |
+| `gpt-oss-120b-MXFP4-set-a` | loaded · 131k context |
+| `mrutkows/granite-embedding-english-r2-GGUF:BF16` | loaded · 8k context |
+| `ggml-org/gpt-oss-120b-GGUF:MXFP4`, `google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0`, `google/gemma-4-31B-it-qat-q4_0-gguf:Q4_0`, `google/gemma-4-E4B-it-qat-q4_0-gguf:Q4_0`, `gpt-oss-120b-MXFP4-16-slots` | listed, not loaded |
+
+The 8k context is each of a section's 4 slots, as the preset splits it; set A's gpt-oss-120b
+shares its 131k across its 4 slots through the unified KV cache.

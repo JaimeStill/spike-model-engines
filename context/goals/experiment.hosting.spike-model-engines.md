@@ -1014,8 +1014,8 @@ slices 4/4 committed (sweep: f0ffb9c, 25b59a1, 058f5a9, initial setting 4 stream
 - answer: set A's section keeps checkpoint-min-step = 4096 and kv-unified from spike-ai-pipeline's
   set A preset, where its [*] block sets them, so set A matches its definition; not a tuning
   change; rejected changing [*].
-- answer: Pi's /llama list wasn't captured in the walkthrough; selecting gpt-oss-120b-MXFP4-set-a
-  and slice 2's /models read-back stand for it.
+- answer: Pi's /llama list, missed in the walkthrough's screenshots, was captured on the spec
+  review's request (escalation, architect: capture); the finding records it without the tailnet name.
 - answer: setup.md step 12 names main, since answer is deleted at merge; the finding keeps the
   as-run line on answer.
 - answer: removed the Framework's tailnet address from the finding (STANDARDS.md); it remains in
