@@ -39,7 +39,7 @@ notes name, or a b-build, such as `b11429`, which runs as given
 - [Setup](setup.md): bring a host current, record its stack, prove the image, install, and allow
   the session's page-cache drop; natively, the architect's root steps, install, and stop; on the
   Framework, the GTT ceiling, Docker, the ufw route rules, stopping spike-model-hosting's router,
-  and the ROCm image's first run.
+  the ROCm image's first run, and serving set A between tasks.
 - [Models](models.md): the preset, pre-staging every model with hf, the Framework's staging and
   the seeding of its store, loading a model, watching or cancelling its download, copying it to
   gb10-2 under a borrow, and listing models.
@@ -48,7 +48,8 @@ notes name, or a b-build, such as `b11429`, which runs as given
 - [Update](update.md): moving to the pinned build, switching the flavor, moving to another
   version, rehearsing an update, how the pin moves, and the native update and rollback.
 - [Uninstall](uninstall.md): removing llama.cpp, deleting models, with hf or by hand, removing
-  native llama.cpp and its root steps, and removing the Framework's prebuilt and root steps.
+  native llama.cpp and its root steps, and removing the Framework's prebuilt, the vLLM audio
+  probe's image, and its root steps.
 - [llama-bench](setup.md#llama-bench): llama.cpp's raw pp/tg benchmark, natively and in ggml's
   full-cuda13 image on gb10-1, and on the Framework in the full-rocm and full-vulkan images and
   from ggml's native Vulkan prebuilt.

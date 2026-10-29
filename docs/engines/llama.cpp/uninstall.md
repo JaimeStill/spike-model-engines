@@ -98,6 +98,42 @@ The native Vulkan prebuilt that pre-staging fetched for llama-bench
 rm -r ~/llama.cpp/b11960-vulkan
 ```
 
+The Framework holds the build its llama-bench runs used,
+[llama-strix-rocm](../../findings/llama-strix-rocm.md#llama-bench)'s b11669, unpacked in
+`~/llama.cpp/b11669-vulkan`, with its tarball in `~/prestage`; the pin's was never fetched. The
+answer task removes both, then `~/llama.cpp`, which `rmdir` removes only when nothing else is
+left in it, and lists what remains, which prints `No such file or directory` for each:
+
+```sh
+rm -r ~/llama.cpp/b11669-vulkan ~/prestage/llama-b11669-bin-ubuntu-vulkan-x64.tar.gz
+rmdir ~/llama.cpp
+command ls -d ~/llama.cpp ~/prestage/llama-b11669-bin-ubuntu-vulkan-x64.tar.gz
+```
+
+ggml's release rebuilds it: the pre-staging block fetches the pin's prebuilt, checks its digest,
+and unpacks it in `~/llama.cpp/<build>-vulkan` ([Models](models.md#on-the-framework)); b11669's
+asset is `llama-b11669-bin-ubuntu-vulkan-x64.tar.gz`, whose SHA-256 is
+`e8709e5ba6c1b093dea7f3de57f4aba842f9a188fba6b465782d65d6fcfa4d9f`.
+
+The vLLM audio probe's image, `spike-model-engines/vllm-openai-rocm-audio:v0.32.0`, is vLLM's
+official ROCm image with three audio decoders added, which
+[vllm-strix](../../findings/vllm-strix.md#the-audio-probe) built on the Framework. The suite never
+builds or serves it, so neither `host/engines vllm uninstall` nor llama.cpp's removes it; the
+session does, and the image list then shows no `vllm-openai-rocm-audio`. It shares its layers
+with `vllm/vllm-openai-rocm:v0.32.0`, which stays, so only the added layer's space comes back:
+
+```sh
+docker rmi spike-model-engines/vllm-openai-rocm-audio:v0.32.0
+docker image ls --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}'
+```
+
+Its Dockerfile stays in the repository, `host/vllm-rocm-audio/Dockerfile`, and rebuilds it, as
+the probe did, from the clone:
+
+```sh
+docker build -q -t spike-model-engines/vllm-openai-rocm-audio:v0.32.0 host/vllm-rocm-audio
+```
+
 ### Removing the Framework's root steps
 
 After `uninstall`, the architect undoes the root steps of

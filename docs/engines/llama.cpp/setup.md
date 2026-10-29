@@ -674,6 +674,83 @@ grep ^Cached /proc/meminfo
 
 The rule goes when its file does ([Uninstall](uninstall.md#the-framework)).
 
+### 12. Serve set A
+
+The session's step. Between tasks the Framework serves set A, the four models Pi and the
+personal agents call, from the `llama` container in ggml's Vulkan image, at the pin. Set A is four
+sections of the preset ([Models](models.md#the-preset)), each already in `/srv/models` and within
+the quantization floor, so nothing downloads:
+
+| Section | Model | Role |
+|---|---|---|
+| `gpt-oss-120b-MXFP4-set-a` | OpenAI's gpt-oss-120b, MXFP4, `c = 131072` in one KV cache its 4 slots share | the harness model, with tools |
+| `google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0` | Google's Gemma 4 26B-A4B, QAT Q4_0, with its projector | vision |
+| `ggml-org/gemma-4-E4B-it-GGUF:Q8_0` | Google's Gemma 4 E4B, Q8_0, with its projector | audio |
+| `mrutkows/granite-embedding-english-r2-GGUF:BF16` | IBM's granite-embedding-english-r2, BF16 | embeddings |
+
+Set A starts at 4 slots for gpt-oss-120b. A session that measures owns the host: it stops `llama`
+first (`docker stop llama`), and the next session that serves set A runs this step again.
+
+On the host, the clone fetches the branch that carries the preset, here the task's, `answer`, and
+`update` runs the pin at flavor `vulkan`, since the suite picks `rocm` on an AMD GPU when none is
+given ([Update](update.md#switching-the-flavor)). When `llama` already runs the pin, `update`
+changes nothing and says so, and the router re-reads the preset so it lists the new section
+([Models](models.md#the-preset)). Then the container's image and devices, which read
+`server-vulkan-b11960` and `/dev/dri`, and the models, every one `unloaded`:
+
+```sh
+cd ~/repos/spike-model-engines && git switch -q answer && git pull -q --ff-only && git status -sb | head -1 && git log --oneline -1
+LLAMA_FLAVOR=vulkan host/engines llama update 2>&1 | tail -3
+docker start llama >/dev/null && until curl -fs "http://$(tailscale ip -4):8080/health" >/dev/null; do sleep 1; done
+curl -s "http://$(tailscale ip -4):8080/models?reload=1" > /dev/null
+docker inspect --format '{{.Config.Image}} {{range .HostConfig.Devices}}{{.PathOnHost}} {{end}}' llama
+curl -s "http://$(tailscale ip -4):8080/models" | jq -c '[.data[] | {id, status: .status.value}]'
+```
+
+Load set A through the router's API, one model at a time, each with the
+[answer finding's](../../findings/answer.md#3-the-4-slot-section-the-load) wait: the load request,
+then a `/models` poll until the model reads `loaded` (or failed), timed from the request. The
+memory is read before the first load and after the last: `MemAvailable`, the host's, and
+`gtt_used`, the GPU's GTT in use, in bytes:
+
+```sh
+cd ~/repos/spike-model-engines
+grep ^MemAvailable /proc/meminfo; echo "gtt_used $(cat /sys/class/drm/card*/device/mem_info_gtt_used)"
+for model in gpt-oss-120b-MXFP4-set-a google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0 ggml-org/gemma-4-E4B-it-GGUF:Q8_0 mrutkows/granite-embedding-english-r2-GGUF:BF16; do
+start=$(date +%s.%N)
+curl -s -X POST "http://$(tailscale ip -4):8080/models/load" -H "Content-Type: application/json" -d "{\"model\": \"$model\"}"; echo
+while :; do s=$(curl -s "http://$(tailscale ip -4):8080/models" | jq -r --arg m "$model" '.data[] | select(.id == $m) | if .status.failed then "failed" else .status.value end'); [[ $s == loaded || $s == failed ]] && break; sleep 0.5; done
+echo "$model $s after $(awk -v a="$start" -v b="$(date +%s.%N)" 'BEGIN { printf "%.1f", b - a }') s"
+done
+grep ^MemAvailable /proc/meminfo; echo "gtt_used $(cat /sys/class/drm/card*/device/mem_info_gtt_used)"
+```
+
+Each load prints `{"success":true}`, then the model, `loaded`, and its time. The router holds up
+to 4 models at once (`--models-max`, whose default, 4, the suite leaves as it is), so set A's four
+load side by side.
+
+Then the router's models, set A's four `loaded` and the rest `unloaded`, and the containers,
+`llama` up and `vllm` exited:
+
+```sh
+curl -s "http://$(tailscale ip -4):8080/models" | jq -c '[.data[] | {id, status: .status.value}]'
+docker ps -a --filter name=vllm --filter name=llama --format "{{.Names}} {{.Image}} {{.Status}}"
+```
+
+From the laptop, the router answers on the tailnet; it prints `{"status":"ok"}`:
+
+```sh
+curl -s http://framework:8080/health
+```
+
+The router runs with `--no-models-autoload`, and the suite keeps it so. After `llama` starts, by
+an update, a `docker start`, or a reboot, which `--restart unless-stopped` brings it back from, the
+router serves nothing until a model is loaded: run the load block above again, or load each model
+from Pi's `/llama`.
+
+What the spike no longer runs on the Framework, the vLLM audio probe's image and ggml's native
+Vulkan prebuilt, is removed with [Uninstall](uninstall.md#the-framework)'s two blocks.
+
 ## llama-bench
 
 ### What it is

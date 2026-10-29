@@ -31,7 +31,8 @@ The sections, each one model the router lists:
 | Section | Slots × context | Sampling | Other keys |
 |---|---|---|---|
 | `ggml-org/gpt-oss-120b-GGUF:MXFP4` | 4 × 8192 | gpt-oss's, above | the anchor cells' model |
-| `gpt-oss-120b-MXFP4-16-slots` | 16 × 8192 (`c = 131072`) | gpt-oss's | the same file, for the concurrency sweep; load one of the two gpt-oss sections at a time |
+| `gpt-oss-120b-MXFP4-16-slots` | 16 × 8192 (`c = 131072`) | gpt-oss's | the same file, for the concurrency sweep; load one of the gpt-oss sections at a time |
+| `gpt-oss-120b-MXFP4-set-a` | 4 sharing 131072 | gpt-oss's | the same file, as set A's harness model; `kv-unified = true`, `checkpoint-min-step = 4096` |
 | `ggml-org/gemma-4-E4B-it-GGUF:Q8_0` | 4 × 8192 | Gemma 4's | dense small; projector with vision and audio |
 | `google/gemma-4-E4B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | E4B's quantization pair, Google's QAT Q4_0 |
 | `google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | dense mid |
@@ -43,6 +44,13 @@ Gemma 4's sampling is the configuration its cards standardize for every use, tem
 top_p 0.95, top_k 64, which vLLM applies from the checkpoint's generation config; `min-p = 0`
 turns off llama.cpp's other truncation, which vLLM doesn't apply. Every Gemma 4 section attaches
 its projector, as vLLM loads the encoders with the model, so the footprints compare.
+
+`gpt-oss-120b-MXFP4-set-a` is set A's harness model, which the Framework serves between tasks
+([Setup](setup.md#12-serve-set-a)). It takes set A's values from spike-ai-pipeline's preset:
+gpt-oss-120b's trained context, 131072 tokens, in one KV cache its 4 slots share
+(`kv-unified`), so one long request may use more than a quarter of it, and context checkpoints
+at least 4096 tokens apart (`checkpoint-min-step`), so the 32 a slot keeps reach 131072. Set A
+starts at 4 slots: tuning them is a per-scenario setting, not this preset's.
 
 granite-embedding-english-r2 serves only `/v1/embeddings`, in BF16, the weights vLLM serves, with
 the pooling its GGUF declares, CLS. IBM publishes no GGUF of it, so the section names a
