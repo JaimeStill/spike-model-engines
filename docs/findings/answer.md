@@ -477,7 +477,13 @@ held by the container.
 As run on 2026-10-29, on framework from about 15:12Z, with
 [step 12, Serve set A](../engines/llama.cpp/setup.md#12-serve-set-a), then the removals with
 [Uninstall's Framework blocks](../engines/llama.cpp/uninstall.md#the-framework), each block
-exactly as the guides give it:
+exactly as the guides give it but the first line, which ran on the task's branch:
+
+```sh
+cd ~/repos/spike-model-engines && git switch -q answer && git pull -q --ff-only && git status -sb | head -1 && git log --oneline -1
+```
+
+The guide's block names `main` in its place, since `answer` merged.
 
 | Block | Printed |
 |---|---|

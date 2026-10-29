@@ -759,15 +759,15 @@ the quantization floor, so nothing downloads:
 Set A starts at 4 slots for gpt-oss-120b. A session that measures owns the host: it stops `llama`
 first (`docker stop llama`), and the next session that serves set A runs this step again.
 
-On the host, the clone fetches the branch that carries the preset, here the task's, `answer`, and
-`update` runs the pin at flavor `vulkan`, since the suite picks `rocm` on an AMD GPU when none is
-given ([Update](update.md#switching-the-flavor)). When `llama` already runs the pin, `update`
-changes nothing and says so, and the router re-reads the preset so it lists the new section
+On the host, the clone fetches its default branch, `main`, which carries the preset, and `update`
+runs the pin at flavor `vulkan`, since the suite picks `rocm` on an AMD GPU when none is given
+([Update](update.md#switching-the-flavor)). When `llama` already runs the pin, `update` changes
+nothing and says so, and the router re-reads the preset so it lists the new section
 ([Models](models.md#the-preset)). Then the container's image and devices, which read
 `server-vulkan-b11960` and `/dev/dri`, and the models, every one `unloaded`:
 
 ```sh
-cd ~/repos/spike-model-engines && git switch -q answer && git pull -q --ff-only && git status -sb | head -1 && git log --oneline -1
+cd ~/repos/spike-model-engines && git switch -q main && git pull -q --ff-only && git status -sb | head -1 && git log --oneline -1
 LLAMA_FLAVOR=vulkan host/engines llama update 2>&1 | tail -3
 docker start llama >/dev/null && until curl -fs "http://$(tailscale ip -4):8080/health" >/dev/null; do sleep 1; done
 curl -s "http://$(tailscale ip -4):8080/models?reload=1" > /dev/null

@@ -34,8 +34,8 @@ finding's session; no figure is compared across sessions or versions.
    vLLM v0.32.0, 2026-10-26).
 2. **vLLM's NVFP4 decodes slowly on SM121.** Its NVFP4 rows decode at about half llama.cpp's QAT
    Q4_0 rate on the same model (26B-A4B 30.5 against 70.8 tok/s). Neither the attention backend
-   ([bench-gb10-container](docs/findings/bench-gb10-container.md#the-flashinfer-diagnostic),
-   2026-10-26) nor the MoE kernel
+   ([bench-gb10-container](docs/findings/bench-gb10-container.md#the-flashinfer-diagnostic):
+   v0.32.0, 2026-10-26) nor the MoE kernel
    ([vllm-gb10-native](docs/findings/vllm-gb10-native.md#the-marlin-diagnostic): v0.32.0,
    2026-10-27) is the cause.
 3. **On AMD, llama.cpp on Vulkan, not ROCm; ROCm's leads in cold load and vision are evidence.**
@@ -54,12 +54,12 @@ finding's session; no figure is compared across sessions or versions.
    host share, vLLM reserves 0.80 of the memory whatever the model, and llama.cpp only the model's
    buffers, so one llama.cpp router holds several models. On gb10-1, vLLM left 15.9 to 19.1 GiB
    available at every generative start, and llama.cpp took 1.6 to 65.5 GiB
-   ([bench-gb10-container](docs/findings/bench-gb10-container.md#cold-load-and-footprint),
-   2026-10-26). On the Framework, vLLM reserved 89.6 of the 112 GiB GTT ceiling at every
-   generative row, and llama.cpp took 8.95 to 62.23 GiB
-   ([vllm-strix](docs/findings/vllm-strix.md#cold-start-and-footprint), 2026-10-28); set A's four
-   models hold 92.1 GiB of GTT ([answer](docs/findings/answer.md#set-a-served): b11960,
-   2026-10-29).
+   ([bench-gb10-container](docs/findings/bench-gb10-container.md#cold-load-and-footprint): vLLM
+   v0.32.0, llama.cpp v0.7.0 (b11669), 2026-10-26). On the Framework, vLLM reserved 89.6 of the
+   112 GiB GTT ceiling at every generative row, and llama.cpp took 8.95 to 62.23 GiB
+   ([vllm-strix](docs/findings/vllm-strix.md#cold-start-and-footprint): vLLM v0.32.0, llama.cpp
+   v0.8.0 (b11960), 2026-10-28); set A's four models hold 92.1 GiB of GTT
+   ([answer](docs/findings/answer.md#set-a-served): b11960, 2026-10-29).
 
 ### Workload: streams, embeddings, models on demand
 
@@ -77,16 +77,18 @@ finding's session; no figure is compared across sessions or versions.
 7. **Embeddings at concurrency: vLLM's lead is evidence.** vLLM's embedding rate scales with
    streams and llama.cpp's doesn't. On granite-embedding-english-r2 at 16 streams, vLLM served
    295.1 requests/s against llama.cpp's 55.5 on gb10-1
-   ([bench-gb10-container](docs/findings/bench-gb10-container.md#embeddings), 2026-10-26), and
-   215.3 against 40.5 on the Framework ([vllm-strix](docs/findings/vllm-strix.md#served),
+   ([bench-gb10-container](docs/findings/bench-gb10-container.md#embeddings): vLLM v0.32.0,
+   llama.cpp v0.7.0 (b11669), 2026-10-26), and 215.3 against 40.5 on the Framework
+   ([vllm-strix](docs/findings/vllm-strix.md#served): vLLM v0.32.0, llama.cpp v0.8.0 (b11960),
    2026-10-28). vLLM's embeddings come unnormalized, llama.cpp's of unit norm.
 8. **Models on demand: llama.cpp's router.** It loads and unloads models through its API in
    seconds; vLLM serves one model a start, in minutes. On gb10-1, gpt-oss-120b loaded in 48 s
    against vLLM's 577 s cold start
-   ([bench-gb10-container](docs/findings/bench-gb10-container.md#findings), 2026-10-26). On the
-   Framework, llama.cpp's generative models cold-loaded in 2.6 to 18.2 s, and vLLM's timed
-   starts took 70.0 to 160.9 s
-   ([vllm-strix](docs/findings/vllm-strix.md#cold-start-and-footprint), 2026-10-28).
+   ([bench-gb10-container](docs/findings/bench-gb10-container.md#findings): llama.cpp v0.7.0
+   (b11669), vLLM v0.32.0, 2026-10-26). On the Framework, llama.cpp's generative models
+   cold-loaded in 2.6 to 18.2 s, and vLLM's timed starts took 70.0 to 160.9 s
+   ([vllm-strix](docs/findings/vllm-strix.md#cold-start-and-footprint): llama.cpp v0.8.0
+   (b11960), vLLM v0.32.0, 2026-10-28).
 
 ### Hosting method
 
