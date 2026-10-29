@@ -1,8 +1,8 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** brief ready
-- **Task:** vllm-strix
-- **Branch:** vllm-strix
+- **State:** idle
+- **Task:** none
+- **Branch:** none
 
 ## Tasks
 
@@ -13,9 +13,8 @@
 5. [x] llama-gb10-native
 6. [x] vllm-gb10-native
 7. [x] llama-strix-rocm
-8. [ ] vllm-strix
-9. [ ] strix-native (dropped by llama-strix-rocm's verdict; leaves the manifest with the pending edit)
-10. [ ] answer
+8. [x] vllm-strix
+9. [ ] answer
 
 ## Task brief · vllm-strix
 
@@ -192,10 +191,6 @@ Door
   resolved per host, so gb10-1 is unchanged. vLLM's image and container
   go with uninstall, and models with the typed delete. No root step is
   added. Nothing is released.
-
-## Progress
-
-slices 4/4 · standards done · spec done (two passes) · editor done
 
 ## Decisions
 
@@ -799,31 +794,16 @@ slices 4/4 · standards done · spec done (two passes) · editor done
   parse error and bench-gb10-container's 7-of-8 A, they make a practice in the notes: rerun a cell
   once when the server shows no error, keeping both runs. The walkthrough's dropped stream wasn't
   rerun.
+- vllm-strix: at the session brief (architect, 2026-10-29): spike-model-benchmarks is replaced by
+  experiment.hosting.spike-hosting-upgrades, a convention for evaluating upgrades to hardware
+  configuration, model host, and models from published sources, run as an agent skill pluggable
+  into any environment with AI hosting hardware, each upgrade verified by anchors A and B before
+  it is adopted; rejected running benchmark matrices of our own. Landed with this goal's pending
+  edits in standards-lab PR #106.
 
 ## Pending edits
 
 (PR #100, merged 2026-10-26, carried every edit tasks 1–3 owed until then. PR #104 carried the
-`engines/` rename's roadmap edit.)
-
-- coordinator · roadmap.toml: delete
-  `[goals.experiment.hosting.spike-model-engines.tasks.strix-native]`. llama-strix-rocm's verdict
-  is that ROCm doesn't lead, and the GB10 native tasks measured bare metal level with the
-  container, so neither condition in its summary holds; the manifest holds only what remains.
-- coordinator · roadmap.toml, `experiment.hosting.spike-model-engines.tasks.vllm-strix`'s summary
-  (vllm-strix; supersedes llama-strix-rocm's edit to it): "vLLM's official ROCm image
-  (vllm/vllm-openai-rocm) on gfx1151, serving or a recorded failure, against llama.cpp in ggml's
-  Vulkan image, its leading Strix backend, cell for cell at llama.cpp v0.8.0. New tool: vLLM's
-  ROCm image."
-- coordinator · roadmap.toml, `experiment.hosting.spike-model-engines.tasks.answer`'s summary: add
-  that it retires spike-model-hosting's `llama-router` on the Framework, which strix-native would
-  have.
-- coordinator · roadmap.toml, `experiment.hosting.spike-model-engines.tasks.llama-strix-rocm`'s
-  summary: replace "against the native Vulkan router" with "against ggml's Vulkan image".
-- coordinator · ai-hosting.md, "The existing setup: personal-agents", the Framework's
-  "Hardware": replace "about 96GB of it exposed to the GPU" with "112 GiB of it reachable by the
-  GPU as GTT (spike-model-engines, llama-strix-rocm)"; and "Serving": say the router is stopped
-  and disabled while the spike-model-engines sessions own the Framework, until its answer task
-  retires it. The "3.30 GiB of the 96GB GPU pool" line stays, as measured at that ceiling.
-- coordinator · ai-hosting.md, "spike-model-engines" (vllm-strix): replace "vLLM's ROCm image"
-  with "vLLM's official ROCm image (vllm/vllm-openai-rocm; AMD's rocm/vllm images are
-  deprecated)".
+`engines/` rename's roadmap edit. PR #106, merged 2026-10-29, carried llama-strix-rocm's and
+vllm-strix's: strix-native's delete, three task summaries, and ai-hosting.md's Framework and vLLM
+image lines.)
