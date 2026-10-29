@@ -997,10 +997,10 @@ slices 4/4 committed (sweep: f0ffb9c, 25b59a1, 058f5a9, initial setting 4 stream
   2.2.1, a new major.
 - answer: held spike-model-hosting's consumers python at 3.14.8: the same reason; latest 3.15.2.
 - answer: held spike-model-hosting's consumers uv at 0.13.5: the same reason; latest 0.13.6.
-- answer: held spike-model-hosting's huggingface-hub at v2.2.0: the same reason; latest v2.3.0.
+- answer: held spike-model-hosting's huggingface-hub at v2.2.0: the same reason; latest v2.4.0.
 - answer: held spike-model-hosting's inspect-ai at v0.3.281: the same reason; latest v0.3.286.
 - answer: held spike-model-hosting's inspect-evals at v0.24.0: the same reason; latest v0.26.0.
-- answer: held spike-model-hosting's mteb at v2.26.4: the same reason; latest v2.26.29.
+- answer: held spike-model-hosting's mteb at v2.26.4: the same reason; latest v2.26.30.
 - answer: held spike-model-hosting's openai at v3.31.0: the same reason; latest v3.41.0.
 - answer: held spike-model-hosting's pillow at v12.3.0: the same reason (its CVE fixes reach only
   the laptop's evaluation suites, which don't run again); latest v13.0.0, a new major.
@@ -1064,7 +1064,8 @@ image lines.)
   4. Streams: the measured curves are the evidence, and the answer sets no slot limit.
      gpt-oss-120b on 16 slots served 48.5, 77.1, 129.0, and 126.2 output tok/s at 1, 4, 16, and
      32 streams on gb10-1 (b11669, 2026-10-26), and 43.6, 69.5, 81.6, and 80.1 on the Framework
-     over a DERP relay (b11960, 2026-10-29). The Framework sweep gives gpt-oss-120b an initial
+     over a DERP relay (b11960, 2026-10-29); the two curves ran in different sessions on
+     different builds and are not compared. The Framework sweep gives gpt-oss-120b an initial
      setting of 4 streams, where set A starts. Proven by measured runs:
      `docs/findings/bench-gb10-container.md` and `docs/findings/answer.md`.
   5. Embeddings at concurrency: vLLM's lead is kept as evidence. On granite-embedding-english-r2
