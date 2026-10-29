@@ -1,6 +1,6 @@
 # goal · experiment.hosting.spike-model-engines
 
-- **State:** building
+- **State:** brief ready
 - **Task:** answer
 - **Branch:** answer
 
@@ -306,7 +306,7 @@ Door
 
 ## Progress
 
-slices 4/4 committed (sweep: f0ffb9c, 25b59a1, 058f5a9, initial setting 4 streams, run over DERP(iad) by the architect's decision; set A: 810ac56, 3d83136, served on framework:8080, removals done; answer: f8e34a4; walkthrough: router retired 15:31Z, Pi on set A, 3d36ffe) · standards — · spec — · editor —
+slices 4/4 committed (sweep: f0ffb9c, 25b59a1, 058f5a9, initial setting 4 streams, run over DERP(iad) by the architect's decision; set A: 810ac56, 3d83136, served on framework:8080, removals done; answer: f8e34a4; walkthrough: router retired 15:31Z, Pi on set A, 3d36ffe) · standards ✓ (2252adc, da015b2) · spec ✓ (2 rounds, 5bee540, 672ce04) · editor ✓ (04d9dff)
 
 ## Decisions
 
