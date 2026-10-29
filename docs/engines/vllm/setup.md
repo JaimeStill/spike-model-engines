@@ -611,15 +611,15 @@ and they hold for vLLM's container too:
 - [Docker for jaime](../llama.cpp/setup.md#3-docker-for-jaime), the `docker` group;
 - [the ufw rule](../llama.cpp/setup.md#4-route-the-ports-through-ufw) that routes the tailnet's
   traffic to port 8000, vLLM's, beside 8080;
-- [the router stopped](../llama.cpp/setup.md#5-stop-the-router), spike-model-hosting's
+- [the router retired](../llama.cpp/setup.md#5-retire-the-router), spike-model-hosting's
   `llama-router`;
 - [the model store](../llama.cpp/setup.md#8-create-the-model-store), `/srv/models`;
 - [the page-cache drop](../llama.cpp/setup.md#11-allow-the-page-cache-drop), the sudoers rule.
 
 The session checks them without root. In order: `jaime` is in the `docker` group (prints
 `docker`), the page-cache rule is in place (prints its line), the GTT ceiling in bytes (prints
-`120259084288`), the router is stopped (prints `inactive`), and the store is `jaime`'s (prints
-`jaime`):
+`120259084288`), the router is gone (prints `inactive`, as for any unit that doesn't exist), and
+the store is `jaime`'s (prints `jaime`):
 
 ```sh
 id -nG | tr ' ' '\n' | grep -x docker

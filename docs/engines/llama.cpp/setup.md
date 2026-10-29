@@ -436,30 +436,92 @@ with `(v6)`. The rules name a port, not a container, so they hold for any contai
 there: a flavor switch, an update, or vLLM's container. They go with
 [Uninstall](uninstall.md#removing-the-frameworks-root-steps).
 
-### 5. Stop the router
+<a id="5-stop-the-router"></a>
 
-The architect's root step. spike-model-hosting's native router, `llama-router`, serves on the
-Framework: it holds port 8080 and, with its set A loaded, most of the GTT. A Framework session
-owns the host, and the `engines` commands refuse while any `llama-router` unit is active, so stop
-it and keep it from starting at boot:
+### 5. Retire the router
+
+The architect runs every step of the retirement; the session reads the state back before and
+after. spike-model-hosting's native router, `llama-router`, served on the Framework before this
+spike: it held port 8080 and, with its set A loaded, most of the GTT, and the `engines` commands
+refuse while any `llama-router` unit is active. The spike's answer task retires it, and the
+Framework serves set A from the `llama` container instead ([12. Serve set A](#12-serve-set-a)).
+The retirement removes everything only the router used, read on 2026-10-29 with the router
+disabled and inactive:
+
+| What | Where | Owner |
+|---|---|---|
+| The unit | `/etc/systemd/system/llama-router.service`, with no drop-ins | root |
+| Its presets | `/etc/llama-router`: `models.ini` and 7 earlier copies, 8 files | root; one copy, `models.ini.a65fd306`, `jaime`'s |
+| Its builds | `/opt/llama.cpp`: `b11715`, `b11734`, and `current`, a link to `b11734` | root |
+| Its models | `/mnt/models/hf-cache`, the unit's `HF_HOME`: four repositories under `hub/`, 82G (`gpt-oss-120b-GGUF` 60G, `gemma-4-26B-A4B-it-GGUF` 15G, `gemma-4-E4B-it-GGUF` 8.1G, `embeddinggemma-2-GGUF` 296M, all ggml-org's) | `jaime` |
+| Its models directory | `/mnt/models/gguf`, empty, the unit's `--models-dir` through the link `~/models` | `jaime` |
+| The render copies | `~/models.ini.039c5fa7`, `.96732ef9`, `.9c983739`, `.9eeb9f04`, and `~/llama-router.service.83b0a95c` | `jaime` |
+| outpost's links | `~/.local/bin`: `outpost`, `outpost-preset-install`, `outpost-service-restart`, `outpost-service-status`, and a stray link named `outpost*`, each into `~/personal-agents/admin/bin` | `jaime` |
+
+It keeps the models drive, mounted at `/mnt/models` and holding no model; the ufw route rules
+([4](#4-route-the-ports-through-ufw)); the `docker` group ([3](#3-docker-for-jaime)); and
+`/srv/models` ([8](#8-create-the-model-store)), whose seeded models are copies of their own
+([Models](models.md#seeding-the-frameworks-store)). No sudoers rule names the router.
+
+The session reads the state back first. The unit is found, disabled and inactive, the two root
+directories list their files, the drive holds the cache, the home directory holds the link and
+the render copies, `find` names outpost's five links, and port 8080 is the `llama` container's:
+
+```sh
+systemctl show llama-router -p LoadState -p FragmentPath -p DropInPaths -p UnitFileState -p ActiveState
+command ls -la /etc/llama-router /opt/llama.cpp
+findmnt /mnt/models; df -h /mnt/models; du -sh /mnt/models/hf-cache/hub/*
+command ls -la ~/models ~/models.ini.* ~/llama-router.service.* /mnt/models/gguf
+find ~/.local/bin -maxdepth 1 -lname '*personal-agents/admin/bin*' -printf '%f\n'
+ss -ltn 'sport = :8080'; docker port llama
+```
+
+Then the architect's root steps. `disable --now` stops the unit when it runs and disables it when
+it is enabled; on a host where it is already both, it changes nothing. The unit file goes, systemd
+forgets it, and the presets and the builds go with it:
 
 ```sh
 sudo systemctl disable --now llama-router
+sudo rm /etc/systemd/system/llama-router.service
+sudo systemctl daemon-reload
+sudo rm -r /etc/llama-router /opt/llama.cpp
 ```
 
-`systemctl is-active llama-router` prints `inactive`, and nothing listens on port 8080; the
-second command prints only its header:
+The cache is `jaime`'s, so it needs no root. The architect removes the rest as `jaime`: the
+cache with its four repositories, the empty models directory, the link to it and the render
+copies, and outpost's links. `rm ~/models` removes the link, not the directory it names; quoting
+`'outpost*'` removes the stray link by its name alone:
 
 ```sh
-systemctl is-active llama-router
-ss -ltn 'sport = :8080'
+rm -r /mnt/models/hf-cache
+rmdir /mnt/models/gguf
+rm ~/models ~/models.ini.039c5fa7 ~/models.ini.96732ef9 ~/models.ini.9c983739 ~/models.ini.9eeb9f04 ~/llama-router.service.83b0a95c
+rm ~/.local/bin/outpost ~/.local/bin/'outpost*' ~/.local/bin/outpost-preset-install ~/.local/bin/outpost-service-restart ~/.local/bin/outpost-service-status
 ```
 
-Retiring the router for good is the spike's answer task's. Until then it comes back with:
+The session reads the state back after. `LoadState=not-found` means no `llama-router` unit is
+left; `command ls -d` prints `cannot access` for both directories and exits 2, the read-back that
+they are gone; the drive holds only `lost+found`, which `du` can't read as `jaime` and says so;
+`find` prints nothing; and port 8080 still listens on the tailnet address, published by `llama`:
 
 ```sh
-sudo systemctl enable --now llama-router
+systemctl show llama-router -p LoadState
+command ls -d /etc/llama-router /opt/llama.cpp
+df -h /mnt/models; du -sh /mnt/models/*
+command ls -la ~/models ~/models.ini.* ~/llama-router.service.*
+find ~/.local/bin -maxdepth 1 -lname '*personal-agents/admin/bin*' -printf '%f\n'
+ss -ltn 'sport = :8080'; docker port llama
 ```
+
+On a host where `llama` doesn't run yet, as in a setup from scratch, which retires the router
+before [10. Install](#10-install), the last line prints only `ss`'s header and `docker port`'s
+error.
+
+The `engines` commands still refuse beside any active `llama-router` unit, by its name alone:
+native llama.cpp's on gb10-1 ([GB10, native](#gb10-native)), or one a host rebuilds. Nothing here
+brings the router back. spike-model-hosting's profile would rebuild it: its tasks re-render the
+unit and the presets from `devices/strix-halo/profile.toml`, the architect installs them, and the
+builds and the 82G of models download again, by its Strix Halo runbook.
 
 ### 6. Record the host stack
 
@@ -579,8 +641,9 @@ on a host with an AMD GPU: it pulls `ghcr.io/ggml-org/llama.cpp:server-rocm-b119
 llama runs ghcr.io/ggml-org/llama.cpp:server-rocm-b11960 on port 8080 of the tailnet address
 ```
 
-It refuses while spike-model-hosting's `llama-router` is active ([5. Stop the
-router](#5-stop-the-router)), or vLLM's `vllm` container runs or its `vllm-server` unit is active.
+It refuses while any `llama-router` unit is active, native llama.cpp's or spike-model-hosting's
+until its retirement ([5. Retire the router](#5-retire-the-router)), or vLLM's `vllm` container
+runs or its `vllm-server` unit is active.
 
 A `llama` started by hand, as in step 9, stays in place. When it runs the same image with the
 clone's preset, `install` counts it as installed and says `llama already runs

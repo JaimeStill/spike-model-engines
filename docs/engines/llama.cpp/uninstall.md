@@ -163,8 +163,9 @@ The page-cache rule:
 sudo rm /etc/sudoers.d/drop-caches
 ```
 
-The model store, with the models seeded into it. Their originals stay on the models drive, in
-`/mnt/models/hf-cache`, which seeding never changed:
+The model store, with the models seeded into it. Their originals on the models drive went with
+the router's retirement ([Setup](setup.md#5-retire-the-router)), so the store holds the only
+copies, and a new store downloads them again:
 
 ```sh
 sudo rm -rf /srv/models
@@ -187,11 +188,5 @@ sudo reboot
 After the reboot, `cat /sys/module/ttm/parameters/pages_limit` prints `25165824`, and `cat
 /sys/class/drm/card*/device/mem_info_gtt_total` prints `103079215104`.
 
-Last, spike-model-hosting's router, stopped by the setup, starts again and at every boot. It
-holds port 8080, so the `llama` container must be gone first:
-
-```sh
-sudo systemctl enable --now llama-router
-```
-
-`systemctl is-active llama-router` prints `active`.
+spike-model-hosting's router doesn't come back: the setup retired it
+([Setup](setup.md#5-retire-the-router)), which says how that spike's profile would rebuild it.

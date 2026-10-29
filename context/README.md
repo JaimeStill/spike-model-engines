@@ -257,7 +257,7 @@ The practices every task on the Framework follows, each with its reason:
   rule is missing ([setup](../docs/engines/llama.cpp/setup.md#4-route-the-ports-through-ufw)).
 - **spike-model-hosting's router.** Its `llama-router` holds port 8080 and most of the GTT, so it
   stays stopped and disabled, and the `engines` commands refuse while it is active
-  ([setup](../docs/engines/llama.cpp/setup.md#5-stop-the-router)). Retiring it is the answer
+  ([setup](../docs/engines/llama.cpp/setup.md#5-retire-the-router)). Retiring it is the answer
   task's.
 - **Flavors.** `host/engines llama` picks the `rocm` flavor on the Framework's AMD GPU, and
   `LLAMA_FLAVOR=vulkan host/engines llama update` switches to `vulkan`. Update keeps the same

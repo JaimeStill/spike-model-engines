@@ -300,7 +300,8 @@ models drive, `/mnt/models/hf-cache`: gpt-oss-120b MXFP4 and gemma-4-E4B Q8_0, e
 files the preset resolves. Seeding copies them into `/srv/models` instead of downloading them
 again, once the architect has created the store ([Setup](setup.md#framework-in-a-container),
 step 8). The models drive belongs to spike-model-hosting: the copy reads it and changes nothing
-on it.
+on it. The router's retirement then removed that cache ([Setup](setup.md#5-retire-the-router)),
+so this copy is the record of how the store was seeded, and a store seeded again downloads.
 
 The two caches differ in one level: hosting's keeps each model under `hub/`, as
 `/mnt/models/hf-cache/hub/models--<org>--<repo>`, and the store keeps it at the top, as
