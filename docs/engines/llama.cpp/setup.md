@@ -49,18 +49,19 @@ needs.
 
 ### 3. Prove the pinned image runs on the GPU
 
-Pull the pinned image (`host/llama.env`), gb10's build, ask its `llama-server` for its build,
-then list the devices it finds with the GPU attached. The walk below ran when that pin was v0.8.0
-(b11960); gb10's pin is now b12063:
+Pull the pinned image (`host/llama.env`), gb10's build, b12063, ask its `llama-server` for its
+build, then list the devices it finds with the GPU attached:
 
 ```sh
-docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b11960
-docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b11960 --version
-docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b11960 --list-devices
+docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b12063
+docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b12063 --version
+docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b12063 --list-devices
 ```
 
-`--version` prints `version: 0.8.0-dev (build 11960, commit 8642541b2)`. `--list-devices` lists
-the GB10 as a CUDA device; an empty list means the container didn't reach the GPU.
+`--version` prints `version: 0.8.0-dev (build 12063, commit 2cbca389f)`, then `built with GNU
+14.2.0 for Linux aarch64`, as read from gb10-1's running container of the same image on
+2026-11-03. `--list-devices` lists the GB10 as a CUDA device; an empty list means the container
+didn't reach the GPU.
 
 ### 4. Get the clone onto the host
 
