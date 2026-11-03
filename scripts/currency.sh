@@ -6,7 +6,8 @@
 # release (host/llama-release.sh); the vLLM release, whose latest is vLLM's latest GitHub
 # release; and native vLLM's Python (host/vllm.env), a minor version, whose latest is the minor
 # version of CPython's latest release, as mise reads it. A pin held on purpose, as GuideLLM's
-# Python and native vLLM's are, is reported like any other, and its comment says why it is held.
+# Python, the vLLM release, and native vLLM's Python are, is reported like any other, and its
+# comment says why it is held.
 # Reads the network.
 set -euo pipefail
 cd "$(dirname "$0")/.."

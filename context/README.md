@@ -211,8 +211,12 @@ The practices every task follows, on the GB10s and the Framework, each with its 
 - **Base64 from a file.** The vision probes read the image's base64 with `jq --rawfile`, since
   the base64 passed as a jq argument exceeds the shell's argument-list limit
   ([API](../docs/engines/llama.cpp/api.md#vision)).
-- **GuideLLM's Python.** `mise.bench.toml` holds Python at 3.14, because torch publishes no 3.15
-  wheels, so `mise run currency` reports Python behind until it does.
+- **Held pins.** `mise run currency` reports a held pin like any other, and the pin's comment says
+  why it is held. Three are held: `mise.bench.toml` holds GuideLLM's Python at 3.14, because
+  torchcodec 0.17.0, which GuideLLM's audio extra needs, publishes no 3.15 wheel; `host/vllm.env`
+  holds vLLM at v0.32.0, because its latest, v0.33.0rc3, is a release candidate and vLLM is being
+  removed from both hosts; and it holds native vLLM's Python at 3.12, because native vLLM is
+  retired on both hosts.
 - **GuideLLM's client faults.** GuideLLM 0.8.1 has failed on the client while the server served:
   it stalled between an embedding cell's 1- and 16-stream levels, and it dropped a request's
   stream before the request finished, which llama.cpp logged as the client's read error. When the
