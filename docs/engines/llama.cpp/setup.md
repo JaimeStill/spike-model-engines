@@ -298,8 +298,8 @@ pin, or `host/engines llama-native install v0.6.0` at b11429.
 ## Framework, in a container
 
 Run these steps on the Framework, `framework`: Omarchy, which is Arch Linux, on an AMD Strix Halo
-whose GPU is gfx1151, with 125 GiB of RAM. ggml's ROCm image runs the pinned build, v0.8.0
-(b11960), as on the GB10. The image brings its own ROCm runtime; the host gives it only the
+whose GPU is gfx1151, with 125 GiB of RAM. ggml's ROCm image runs strix-halo's pinned build,
+v0.8.0 (b11960). The image brings its own ROCm runtime; the host gives it only the
 kernel's GPU driver, through two device files, `/dev/kfd` and `/dev/dri`, in place of the NVIDIA
 Container Toolkit's `--gpus all`. The `engines` commands pick that image, the `rocm` flavor, on
 any host with an AMD GPU; ggml's Vulkan image, the `vulkan` flavor, runs the same build with
@@ -587,8 +587,8 @@ The session then seeds the store from the models drive, with no download
 ### 9. Prove the pinned image runs on the GPU
 
 The architect's first walk of ggml's ROCm image; the session walks them through it. The pin
-(`host/llama.env`) is v0.8.0 (b11960), and the ROCm image of that build carries gfx1151 among
-its targets.
+for strix-halo (`host/llama.env`) is v0.8.0 (b11960), and the ROCm image of that build carries
+gfx1151 among its targets.
 
 First, the full image, which holds every tool of the build, llama-bench among them. Its
 entrypoint picks the tool from its first argument ([llama-bench](#llama-bench)): `--server` runs

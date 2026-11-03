@@ -31,7 +31,8 @@ docker image ls ghcr.io/ggml-org/llama.cpp
 
 The first prints the pinned image; the second lists it, and no image of another build. Once
 the model is loaded, the laptop confirms the build the model itself runs ([API](api.md#build)),
-which reads `b11960-8642541b2` at the pin, v0.8.0 (b11960).
+which reads `b12063-2cbca389f` at gb10's pin, b12063, and `b11960-8642541b2` at strix-halo's,
+v0.8.0 (b11960).
 
 `update` also replaces a `llama` container whose preset mount isn't the clone's preset
 directory, `host/llama-preset`, such as one installed before the scripts moved from `engines/` to

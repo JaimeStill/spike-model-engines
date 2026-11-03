@@ -39,8 +39,7 @@ llama_pin() {
     gb10) echo "$LLAMA_BUILD_GB10" ;;
     strix-halo) echo "$LLAMA_BUILD_STRIX_HALO" ;;
     *)
-      echo "${1:-An empty name} is no host class llama.cpp is pinned for:" \
-        "none of ${LLAMA_CLASSES[*]}" >&2
+      echo "The host class is ${1:-empty}, which is none of ${LLAMA_CLASSES[*]}" >&2
       return 1
       ;;
   esac
