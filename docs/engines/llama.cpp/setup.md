@@ -856,8 +856,10 @@ llama-bench ships with every llama.cpp build, so the spike installs nothing for 
 `llama-server`. ggml's `full-<flavor>-<build>` image holds every tool, llama-bench among them, for
 the same build. Its entrypoint, `/app/tools.sh`, picks the tool from its first argument;
 `--bench` (or `-b`) runs `./llama-bench` in `/app` with the rest. On the GB10, pull
-`full-cuda13` for the pin, v0.8.0 (b11960), and list the devices it finds with the GPU attached
-(the Framework's flavors are under [On the Framework](#on-the-framework)):
+`full-cuda13` for gb10's pin and list the devices it finds with the GPU attached (the Framework's
+flavors are under [On the Framework](#on-the-framework)). The walk below ran when that pin was
+v0.8.0 (b11960); gb10's pin is now b12063, and `update` removes every other build's full images
+([Update](update.md#moving-to-the-pinned-build)):
 
 ```sh
 docker pull ghcr.io/ggml-org/llama.cpp:full-cuda13-b11960
@@ -887,7 +889,8 @@ to `~/bench/<name>.err` beside it (`mkdir -p ~/bench` first):
 LLAMA_CACHE=/srv/models /opt/llama.cpp/current/llama-bench -m <model.gguf> -p <prompt tokens> -n <generated tokens> -r <repetitions> -o md 2>~/bench/<name>.err | tee ~/bench/<name>.md
 ```
 
-and in the container, as the invoking user, with the store mounted where it is on the host:
+and in the container, as the invoking user, with the store mounted where it is on the host
+(walked when gb10's pin was b11960, as above):
 
 ```sh
 docker run --rm --gpus all --user "$(id -u):$(id -g)" --volume /srv/models:/srv/models --env LLAMA_CACHE=/srv/models ghcr.io/ggml-org/llama.cpp:full-cuda13-b11960 --bench -m <model.gguf> -p <prompt tokens> -n <generated tokens> -r <repetitions> -o md 2>~/bench/<name>.err | tee ~/bench/<name>.md
