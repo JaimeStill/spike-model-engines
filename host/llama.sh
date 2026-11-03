@@ -21,8 +21,9 @@ LLAMA_PRESET_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/llama-preset" && pwd)
 # driver, its compute device and its render nodes (/dev/kfd, /dev/dri); or vulkan, the render
 # nodes alone (/dev/dri). Unset or empty, it follows the GPU the host has: rocm when any DRM card
 # under /sys/class/drm has AMD's PCI vendor ID, 0x1002, as the Framework's Strix Halo does, and
-# cuda13 otherwise, as on the GB10s. Reading the vendor ID needs no root and no Docker. Refuses
-# any other flavor, before Docker is read.
+# cuda13 otherwise, as on the GB10s. Reading the vendor ID needs no root and no Docker. Sets
+# LLAMA_CLASS to the flavor's host class, whose pin llama_build reads (llama-release.sh): gb10 for
+# cuda13, strix-halo for rocm and vulkan. Refuses any other flavor, before Docker is read.
 llama_flavor() {
   if [[ -z ${LLAMA_FLAVOR:-} ]]; then
     LLAMA_FLAVOR=cuda13
@@ -31,9 +32,9 @@ llama_flavor() {
     fi
   fi
   case $LLAMA_FLAVOR in
-    cuda13) LLAMA_DEVICES=(--gpus all) ;;
-    rocm) LLAMA_DEVICES=(--device /dev/kfd --device /dev/dri) ;;
-    vulkan) LLAMA_DEVICES=(--device /dev/dri) ;;
+    cuda13) LLAMA_CLASS=gb10 LLAMA_DEVICES=(--gpus all) ;;
+    rocm) LLAMA_CLASS=strix-halo LLAMA_DEVICES=(--device /dev/kfd --device /dev/dri) ;;
+    vulkan) LLAMA_CLASS=strix-halo LLAMA_DEVICES=(--device /dev/dri) ;;
     *)
       echo "LLAMA_FLAVOR is $LLAMA_FLAVOR, which is none of cuda13, rocm, or vulkan" >&2
       return 1

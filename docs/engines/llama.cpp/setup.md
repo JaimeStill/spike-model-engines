@@ -49,8 +49,9 @@ needs.
 
 ### 3. Prove the pinned image runs on the GPU
 
-Pull the pinned image (`host/llama.env`), v0.8.0 (b11960), ask its `llama-server` for its
-build, then list the devices it finds with the GPU attached:
+Pull the pinned image (`host/llama.env`), gb10's build, ask its `llama-server` for its build,
+then list the devices it finds with the GPU attached. The walk below ran when that pin was v0.8.0
+(b11960); gb10's pin is now b12063:
 
 ```sh
 docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b11960
@@ -241,7 +242,7 @@ host/engines llama-native install v0.6.0
 GitHub lists for it, and unpacks both into `/opt/llama.cpp/b11429`, about 870 MB. It points
 `current` and `preset`, enables and starts `llama-router`, and waits for `/health` to answer, for
 at most a minute. It prints each file's digest, then `llama-router serves b11429 on port 8080 of
-the tailnet address`. With no version, it installs the pin, v0.8.0 (b11960); the version is read
+the tailnet address`. With no version, it installs gb10's pin, b12063; the version is read
 as the container's install reads it ([Update](update.md#moving-to-another-version)).
 
 A second run changes nothing and says `llama-router already serves b11429; nothing changed`; when
