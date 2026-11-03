@@ -31,7 +31,8 @@ docker image ls ghcr.io/ggml-org/llama.cpp
 
 The first prints the pinned image; the second lists it, and no image of another build. Once
 the model is loaded, the laptop confirms the build the model itself runs ([API](api.md#build)),
-which reads `b11960-8642541b2` at the pin, v0.8.0 (b11960).
+which reads `b12063-2cbca389f` at gb10's pin, b12063, and `b11960-8642541b2` at strix-halo's,
+v0.8.0 (b11960).
 
 `update` also replaces a `llama` container whose preset mount isn't the clone's preset
 directory, `host/llama-preset`, such as one installed before the scripts moved from `engines/` to
@@ -160,19 +161,21 @@ where it isn't installed, or after [uninstalling](uninstall.md).
 
 ## How the pin moves
 
-The pin is `host/llama.env`: `LLAMA_RELEASE`, the latest semver release, and `LLAMA_BUILD`,
-the b-build its notes name ("Nightly build:"), which every flavor's server image names, as
-`server-<flavor>-<build>` in `LLAMA_REPOSITORY`. On the laptop,
-`mise run currency` reports when a newer release names a newer build, reading the notes the same
-way `update` and `install` read a release given (`host/llama-release.sh`):
+The pins are `host/llama.env`: one b-build per host class, `LLAMA_BUILD_GB10` (cuda13) and
+`LLAMA_BUILD_STRIX_HALO` (rocm and vulkan), which each of the class's flavors names, as
+`server-<flavor>-<build>` in `LLAMA_REPOSITORY`; and `LLAMA_RELEASE`, the latest semver release,
+whose notes ("Nightly build:") name strix-halo's build. gb10's build, b12063, is past that release.
+On the laptop, `mise run currency` reports a class whose build is older than the one the newest
+release names, reading the notes the same way `update` and `install` read a release given
+(`host/llama-release.sh`); a class at that build, or past it, reads as current:
 
 ```sh
 mise run currency
 ```
 
-A line beginning `host/llama.env: llama.cpp` means the pin is behind, and names the new build
-and its release. Edit `LLAMA_RELEASE` and `LLAMA_BUILD` in `host/llama.env` to the release
-and build it names, and the pin this guide quotes to match: the [README](README.md), and the
+A line beginning `host/llama.env: llama.cpp (<class>)` means that class's pin is behind, and names
+the new build and its release. Edit `LLAMA_RELEASE` and the class's build in `host/llama.env` to the
+release and build it names, and the pin this guide quotes to match: the [README](README.md), and the
 image and its `--version` output in [Setup](setup.md#3-prove-the-pinned-image-runs-on-the-gpu).
 Commit and push; then, on each host, `git pull` and `host/engines llama update`, or
 `host/engines llama-native update` where native llama.cpp serves ([Native](#native)).
@@ -180,7 +183,8 @@ Commit and push; then, on each host, `git pull` and `host/engines llama update`,
 ## Native
 
 Native llama.cpp ([Setup](setup.md#gb10-native)) updates with its own command, from the clone,
-after `git pull`; with no version it moves to the pin, v0.8.0 (b11960):
+after `git pull`; with no version it moves to gb10's pin, b12063. The walk below ran when that
+pin was v0.8.0 (b11960):
 
 ```sh
 git pull

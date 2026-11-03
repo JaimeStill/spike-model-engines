@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # engines:summary=Serve native llama.cpp under llama-router, at the pin or the version given
-# Fetches the pinned build, or the build for the version given (a semver release, such as v0.6.0,
-# runs the b-build its notes name; a b-build, such as b11429, runs as given), into /opt/llama.cpp,
-# points current at it and preset at the clone's preset directory, then enables and starts the
-# llama-router unit and waits until it answers (llama-native.sh). When native llama.cpp is already
-# at that build with the clone's preset, it changes nothing if llama-router serves (active and
-# enabled), and otherwise enables and starts it. When it is at another build, or its preset link
-# names anywhere else, it refuses, saying which, and points at update. It refuses while the llama
-# or vllm container runs or native vLLM's vllm-server unit is active, since one engine serves per
-# host at a time, and refuses, pointing at the setup guide, until the architect's root steps are
-# done. It refuses a version that is neither, or a release whose notes it can't read, before it
-# reads Docker or the host.
+# Fetches gb10's pinned build (native llama.cpp is the GB10s'), or the build for the version given
+# (a semver release, such as v0.6.0, runs the b-build its notes name; a b-build, such as b11429,
+# runs as given), into /opt/llama.cpp, points current at it and preset at the clone's preset
+# directory, then enables and starts the llama-router unit and waits until it answers
+# (llama-native.sh). When native llama.cpp is already at that build with the clone's preset, it
+# changes nothing if llama-router serves (active and enabled), and otherwise enables and starts it.
+# When it is at another build, or its preset link names anywhere else, it refuses, saying which, and
+# points at update. It refuses while the llama or vllm container runs or native vLLM's vllm-server
+# unit is active, since one engine serves per host at a time, and refuses, pointing at the setup
+# guide, until the architect's root steps are done. It refuses a version that is neither, or a
+# release whose notes it can't read, before it reads Docker or the host.
 set -euo pipefail
 # shellcheck source=host/llama-native.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama-native.sh"

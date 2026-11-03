@@ -20,6 +20,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/llama.sh"
 LLAMA_NATIVE_DIR=/opt/llama.cpp
 LLAMA_UNIT=llama-router
 LLAMA_PLATFORM=bin-ubuntu-cuda-13.4-arm64
+# The prebuilt is the GB10s', so native llama.cpp takes gb10's pin (llama_build).
+LLAMA_CLASS=gb10
 LLAMA_ROOT_STEPS='docs/engines/llama.cpp/setup.md, "GB10, native"'
 
 # The build current names, or nothing when there is no link.

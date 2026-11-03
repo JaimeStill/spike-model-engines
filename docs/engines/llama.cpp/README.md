@@ -7,12 +7,16 @@ or Vulkan server image. Each way, one `llama-server` runs in router mode: it hol
 itself, and loads each model named in its models preset, as a child process, when asked over its
 API. The router loads models on demand, so one server serves every model in the preset.
 
-The spike follows llama.cpp's semver releases and runs the b-build each one names. The pin lives
-in `host/llama.env`: v0.8.0 (b11960). Every flavor of server image runs that build, as
-`ghcr.io/ggml-org/llama.cpp:server-<flavor>-b11960`: `cuda13` on gb10-1, and `rocm` or `vulkan` on
-the Framework. With none named, the `engines` commands pick `rocm` on a host with an AMD GPU and
-`cuda13` otherwise; `LLAMA_FLAVOR` names the flavor ([Update](update.md#switching-the-flavor)).
-`mise run currency` reports the build when a newer semver release names a newer one.
+The spike follows llama.cpp's semver releases and runs the b-build each one names, pinned per host
+class in `host/llama.env`: `gb10` at b12063, a b-build past v0.8.0 that gb10-1's verification
+adopted (spike-hosting-upgrades, `docs/findings/verify-gb10-1.md`), and `strix-halo` at v0.8.0
+(b11960). The flavor of server image names the class, as
+`ghcr.io/ggml-org/llama.cpp:server-<flavor>-<build>`: `cuda13`, gb10's, on gb10-1, and `rocm` or
+`vulkan`, strix-halo's, on the Framework. With none named, the `engines` commands pick `rocm` on a
+host with an AMD GPU and `cuda13` otherwise; `LLAMA_FLAVOR` names the flavor
+([Update](update.md#switching-the-flavor)). With no version, `install` and `update` take the class's
+pin; native llama.cpp is gb10's. `mise run currency` reports a class's build only when the newest
+semver release names a newer one.
 
 The `engines` commands install, update, and uninstall it. They run from a clone of this
 repository on the host, as `host/engines llama <verb>`:

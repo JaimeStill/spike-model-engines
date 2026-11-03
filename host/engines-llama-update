@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# engines:summary=Move llama to the pinned build or the version given; remove other builds' images
-# Moves llama to the pinned build's server image, or to that of the version given, as install reads
-# it: a semver release, such as v0.6.0, runs the b-build its notes name (llama-release.sh), and a
-# b-build, such as b11429, runs as given. The image's flavor is install's: LLAMA_FLAVOR's, cuda13,
-# rocm, or vulkan, or with none given the host's GPU's (llama_flavor), so LLAMA_FLAVOR=vulkan
-# switches a rocm llama to vulkan as a build move does, replacing the container and reporting the
-# move. It pulls that image before replacing the container, so a failed pull leaves the old build
-# serving. The container is replaced when its image isn't that one or its preset mount isn't the
-# clone's preset directory (as after the clone's scripts move); one replacement handles both, and
-# when the image is already that one it pulls nothing. A replaced container runs, even if the old
-# one was stopped. Then it removes every image of every other build, server and full, in every
-# flavor, and every untagged image, and keeps the build's own, server and full, in each, so a switch
-# back needs no pull and llama-bench keeps the build's full images (llama_remove_images). When llama
-# already runs that image with the clone's preset and no other build's image is left, it changes
-# nothing; when that container is stopped, it
+# engines:summary=Move llama to the class's pin or the version given; remove other builds' images
+# Moves llama to the server image of the pinned build of the flavor's host class, or to that of the
+# version given, as install reads them: a semver release, such as v0.6.0, runs the b-build its notes
+# name (llama-release.sh), and a b-build, such as b11429, runs as given. The image's flavor is
+# install's: LLAMA_FLAVOR's, cuda13, rocm, or vulkan, or with none given the host's GPU's
+# (llama_flavor), so LLAMA_FLAVOR=vulkan switches a rocm llama to vulkan as a build move does,
+# replacing the container and reporting the move. It pulls that image before replacing the
+# container, so a failed pull leaves the old build serving. The container is replaced when its image
+# isn't that one or its preset mount isn't the clone's preset directory (as after the clone's
+# scripts move); one replacement handles both, and when the image is already that one it pulls
+# nothing. A replaced container runs, even if the old one was stopped. Then it removes every image
+# of every other build, server and full, in every flavor, and every untagged image, and keeps the
+# build's own, server and full, in each, so a switch back needs no pull and llama-bench keeps the
+# build's full images (llama_remove_images). When llama already runs that image with the clone's
+# preset and no other build's image is left, it changes nothing; when that container is stopped, it
 # says docker start starts it, and never starts it itself. It refuses while the vllm container runs,
 # or native llama.cpp's llama-router unit or native vLLM's vllm-server unit is active, since one
 # engine serves per host at a time. It refuses an unknown flavor, a version that is neither, or a

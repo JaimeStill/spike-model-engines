@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Prints `<file>: <tool> <pin> -> <latest>` for each pin behind its latest, and exits 1 if any;
 # prints nothing when all are current. Covers the mise tools, those of mise.toml, of the bench
-# environment (mise.bench.toml, GuideLLM's), and of the host environment (mise.host.toml, hf's);
-# the llama.cpp build, whose latest is the b-build named in the notes of llama.cpp's latest semver
-# release (host/llama-release.sh); the vLLM release, whose latest is vLLM's latest GitHub
+# environment (mise.bench.toml, GuideLLM's), and of the host environment (mise.host.toml, hf's); the
+# llama.cpp build of each host class (host/llama-release.sh), reported only when it is behind its
+# latest, the b-build named in the notes of llama.cpp's latest semver release, since a class may run
+# a b-build past that release, as gb10 does; the vLLM release, whose latest is vLLM's latest GitHub
 # release; and native vLLM's Python (host/vllm.env), a minor version, whose latest is the minor
 # version of CPython's latest release, as mise reads it. A pin held on purpose, as GuideLLM's
-# Python and native vLLM's are, is reported like any other, and its comment says why it is held.
+# Python, the vLLM release, and native vLLM's Python are, is reported like any other, and its
+# comment says why it is held.
 # Reads the network.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -26,9 +28,12 @@ done | sort -u)
 source host/llama-release.sh
 release=$(llama_release latest) || exit 2
 tag=${release% *} latest=${release#* }
-if [[ $latest != "$LLAMA_BUILD" ]]; then
-  trailing+="${trailing:+$'\n'}host/llama.env: llama.cpp $LLAMA_BUILD -> $latest ($tag)"
-fi
+for class in "${LLAMA_CLASSES[@]}"; do
+  pin=$(llama_pin "$class")
+  if ((${pin#b} < ${latest#b})); then
+    trailing+="${trailing:+$'\n'}host/llama.env: llama.cpp ($class) $pin -> $latest ($tag)"
+  fi
+done
 
 # shellcheck source=host/vllm.env
 source host/vllm.env

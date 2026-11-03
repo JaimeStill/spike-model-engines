@@ -27,12 +27,31 @@ llama_release() {
   echo "${tag:-$1} ${BASH_REMATCH[1]}"
 }
 
+# The host classes llama.cpp is pinned for, each with its own build in llama.env: gb10, the GB10s,
+# whose flavor is cuda13, and strix-halo, the Framework's Strix Halo, whose flavors are rocm and
+# vulkan. llama_flavor (host/llama.sh) sets LLAMA_CLASS from the flavor; native llama.cpp, a CUDA
+# arm64 prebuilt, is gb10's (host/llama-native.sh).
+LLAMA_CLASSES=(gb10 strix-halo)
+
+# Prints the pin of the host class given, from llama.env. Refuses any other class.
+llama_pin() {
+  case ${1:-} in
+    gb10) echo "$LLAMA_BUILD_GB10" ;;
+    strix-halo) echo "$LLAMA_BUILD_STRIX_HALO" ;;
+    *)
+      echo "The host class is ${1:-empty}, which is none of ${LLAMA_CLASSES[*]}" >&2
+      return 1
+      ;;
+  esac
+}
+
 # Prints the b-build for the version given: a b-build as given, a semver release's b-build from its
-# notes (llama_release), and the pin's, LLAMA_BUILD, when given nothing. Refuses anything else.
+# notes (llama_release), and the pin of LLAMA_CLASS's host class (llama_pin) when given nothing.
+# Refuses anything else.
 llama_build() {
   local release
   if [[ -z ${1:-} ]]; then
-    echo "$LLAMA_BUILD"
+    llama_pin "${LLAMA_CLASS:-}"
   elif [[ $1 =~ ^b[0-9]+$ ]]; then
     echo "$1"
   elif [[ $1 =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -40,7 +59,7 @@ llama_build() {
     echo "${release#* }"
   else
     echo "$1 is neither a semver release, such as $LLAMA_RELEASE, nor a b-build, such as" \
-      "$LLAMA_BUILD" >&2
+      "$LLAMA_BUILD_STRIX_HALO" >&2
     return 1
   fi
 }
