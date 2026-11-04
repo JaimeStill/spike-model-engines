@@ -38,7 +38,7 @@ The sections, each one model the router lists:
 | `google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | dense mid |
 | `google/gemma-4-31B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | dense large |
 | `google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | MoE; projector with vision |
-| `gemma-4-26B-A4B-QAT-Q4_0-agent` | 16 × 131072 (`c = 2097152`) | Gemma 4's | the same file and projector, as an agent model; load one of the 26B-A4B sections at a time |
+| `gemma-4-26B-A4B-QAT-Q4_0-agent` | 15 × 131072 (`c = 1966080`) | Gemma 4's | the same file and projector, as an agent model; load one of the 26B-A4B sections at a time |
 | `mrutkows/granite-embedding-english-r2-GGUF:BF16` | 16 × 8192 | none | `embeddings = true`; `batch-size` and `ubatch-size` 8192 |
 
 Gemma 4's sampling is the configuration its cards standardize for every use, temperature 1.0,
@@ -54,11 +54,12 @@ at least 4096 tokens apart (`checkpoint-min-step`), so the 32 a slot keeps reach
 starts at 4 slots: tuning them is a per-scenario setting, not this preset's.
 
 `gemma-4-26B-A4B-QAT-Q4_0-agent` is the 26B-A4B QAT file measured as an agent model, serving
-agent and vision both with gpt-oss-120b unloaded (spike-hosting-upgrades' screen task): 16 slots,
+agent and vision both with gpt-oss-120b unloaded (spike-hosting-upgrades' screen task): 15 slots,
 each holding gpt-oss-120b's trained context, 131072 tokens, in a KV cache split across them, not
 unified, so no session's context depends on the others'. Its 5 full-attention layers cost 20,480
-bytes a token, 40 GiB at `c = 2097152`, so the section is about 59 GiB with its weights,
-estimated.
+bytes a token, 37.5 GiB at `c = 1966080`, so the section is about 56 GiB with its weights,
+estimated. It was 16 slots at first, but at `c = 2097152` each full-attention layer's K tensor is
+exactly 4 GiB, which aborted the load on Vulkan (b11960, framework, 2026-11-04).
 
 granite-embedding-english-r2 serves only `/v1/embeddings`, in BF16, the weights vLLM serves, with
 the pooling its GGUF declares, CLS. IBM publishes no GGUF of it, so the section names a
