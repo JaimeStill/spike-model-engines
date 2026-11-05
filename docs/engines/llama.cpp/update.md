@@ -165,12 +165,12 @@ The pins are `host/llama.env`: one b-build per host class, `LLAMA_BUILD_GB10` (c
 `LLAMA_BUILD_STRIX_HALO` (rocm and vulkan), which each of the class's flavors names, as
 `server-<flavor>-<build>` in `LLAMA_REPOSITORY`; and `LLAMA_RELEASE`, the semver release whose
 notes ("Nightly build:") name strix-halo's build. gb10's build, b12098, is past that release, and
-is held there: b12100 and later (llama.cpp #31620 and #31639) resolve no Google QAT GGUF from an
-`hf-repo` tag (`host/llama.env`). On the laptop, `mise run currency` reports a class whose build
-is older than the newest b-build with the class's server image on ghcr.io (`server-cuda13-<build>`
-for gb10, `server-vulkan-<build>` for strix-halo), not the newest release, since llama.cpp
-publishes images only nightly and on manual runs; a class at that build, or past it, reads as
-current:
+is held there: b12100 and later (llama.cpp #31620 and #31639) can't resolve Google's 26B-A4B, 31B
+and E4B QAT GGUFs from an `hf-repo` tag (`host/llama.env`). On the laptop, `mise run currency`
+reports a class whose build is older than the newest b-build with the class's server image on
+ghcr.io (`server-cuda13-<build>` for gb10, `server-vulkan-<build>` for strix-halo), not the
+newest release, since llama.cpp publishes images only nightly and on manual runs; a class at that
+build, or past it, reads as current:
 
 ```sh
 mise run currency

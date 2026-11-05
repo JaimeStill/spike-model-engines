@@ -10,8 +10,8 @@ API. The router loads models on demand, so one server serves every model in the 
 The spike pins one b-build per host class in `host/llama.env`: `gb10` at b12098, the 2026-11-04
 nightly image that spike-hosting-upgrades' screen adopted (its
 `docs/screens/gb10-1/2026-11-05.md`), held below newer builds because b12100 and later (llama.cpp
-#31620 and #31639) resolve no Google QAT GGUF from an `hf-repo` tag, and `strix-halo` at v0.8.0
-(b11960). The flavor of server image names the class, as
+#31620 and #31639) can't resolve Google's 26B-A4B, 31B and E4B QAT GGUFs from an `hf-repo` tag,
+and `strix-halo` at v0.8.0 (b11960). The flavor of server image names the class, as
 `ghcr.io/ggml-org/llama.cpp:server-<flavor>-<build>`: `cuda13`, gb10's, on gb10-1, and `rocm` or
 `vulkan`, strix-halo's, on the Framework. With none named, the `engines` commands pick `rocm` on a
 host with an AMD GPU and `cuda13` otherwise; `LLAMA_FLAVOR` names the flavor
