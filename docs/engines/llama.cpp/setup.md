@@ -49,8 +49,9 @@ needs.
 
 ### 3. Prove the pinned image runs on the GPU
 
-Pull the pinned image (`host/llama.env`), gb10's build, b12063, ask its `llama-server` for its
-build, then list the devices it finds with the GPU attached:
+Pull the pinned image (`host/llama.env`), gb10's build, ask its `llama-server` for its build, then
+list the devices it finds with the GPU attached. The block below ran when gb10's pin was b12063;
+gb10's pin is now b12098:
 
 ```sh
 docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b12063
@@ -243,7 +244,7 @@ host/engines llama-native install v0.6.0
 GitHub lists for it, and unpacks both into `/opt/llama.cpp/b11429`, about 870 MB. It points
 `current` and `preset`, enables and starts `llama-router`, and waits for `/health` to answer, for
 at most a minute. It prints each file's digest, then `llama-router serves b11429 on port 8080 of
-the tailnet address`. With no version, it installs gb10's pin, b12063; the version is read
+the tailnet address`. With no version, it installs gb10's pin, b12098; the version is read
 as the container's install reads it ([Update](update.md#moving-to-another-version)).
 
 A second run changes nothing and says `llama-router already serves b11429; nothing changed`; when
@@ -858,7 +859,7 @@ the same build. Its entrypoint, `/app/tools.sh`, picks the tool from its first a
 `--bench` (or `-b`) runs `./llama-bench` in `/app` with the rest. On the GB10, pull
 `full-cuda13` for gb10's pin and list the devices it finds with the GPU attached (the Framework's
 flavors are under [On the Framework](#on-the-framework)). The walk below ran when that pin was
-v0.8.0 (b11960); gb10's pin is now b12063, and `update` removes every other build's full images
+v0.8.0 (b11960); gb10's pin is now b12098, and `update` removes every other build's full images
 ([Update](update.md#moving-to-the-pinned-build)):
 
 ```sh

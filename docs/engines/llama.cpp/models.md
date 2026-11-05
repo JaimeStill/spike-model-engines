@@ -167,7 +167,7 @@ stage() { nohup bash -c 'mise exec -- hf download "$@"; echo "exit $?"' stage "$
 
 Then start every download, and both engines' pinned images (`host/llama.env`,
 `host/vllm.env`), together. The block below ran when gb10's llama.cpp pin was v0.8.0 (b11960);
-gb10's pin is now b12063:
+gb10's pin is now b12098:
 
 ```sh
 stage ggml-org/gemma-4-E4B-it-GGUF --include gemma-4-E4B-it-Q8_0.gguf --include mmproj-gemma-4-E4B-it-Q8_0.gguf
