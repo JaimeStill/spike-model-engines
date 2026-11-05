@@ -213,11 +213,14 @@ The practices every task follows, on the GB10s and the Framework, each with its 
   the base64 passed as a jq argument exceeds the shell's argument-list limit
   ([API](../docs/engines/llama.cpp/api.md#vision)).
 - **Held pins.** `mise run currency` reports a held pin like any other, and the pin's comment says
-  why it is held. Three are held: `mise.bench.toml` holds GuideLLM's Python at 3.14, because
-  torchcodec 0.17.0, which GuideLLM's audio extra needs, publishes no 3.15 wheel; `host/vllm.env`
-  holds vLLM at v0.32.0, because its latest, v0.33.0rc3, is a release candidate and vLLM is being
-  removed from both hosts; and it holds native vLLM's Python at 3.12, because native vLLM is
-  retired on both hosts.
+  why it is held. Five are held: `mise.bench.toml` holds GuideLLM's Python at 3.14, because
+  torchcodec 0.17.0, which GuideLLM's audio extra needs, publishes no 3.15 wheel; `host/llama.env`
+  holds gb10's llama.cpp at b12098, because b12100 and later match an `-hf` quantization tag only
+  after `-`, `.` or `/`, so no Google QAT section resolves on them (llama.cpp #31620 and #31639),
+  and strix-halo's at b11960 until the Framework's next host update, because its Gemma 4 26B-A4B
+  re-screen waits on llama.cpp #25584 and #31418; `host/vllm.env` holds vLLM at v0.32.0, because
+  its latest, v0.33.0rc3, is a release candidate and vLLM is being removed from both hosts; and it
+  holds native vLLM's Python at 3.12, because native vLLM is retired on both hosts.
 - **GuideLLM's client faults.** GuideLLM 0.8.1 has failed on the client while the server served:
   it stalled between an embedding cell's 1- and 16-stream levels, and it dropped a request's
   stream before the request finished, which llama.cpp logged as the client's read error. When the
