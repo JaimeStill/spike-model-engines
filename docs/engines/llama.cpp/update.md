@@ -179,9 +179,9 @@ mise run currency
 A line beginning `host/llama.env: llama.cpp (<class>)` means that class's pin is behind, and names
 the newer build and the image it found, as `b12098 -> <build> (server-cuda13)`; a pin held on
 purpose, as gb10's is, is reported like any other. To move a class, edit its build in
-`host/llama.env` (and `LLAMA_RELEASE`, when the build is the one a newer semver release names), and
-the pin this guide quotes to match: the [README](README.md), and the
-image and its `--version` output in [Setup](setup.md#3-prove-the-pinned-image-runs-on-the-gpu).
+`host/llama.env` (and `LLAMA_RELEASE`, when the build is the one a newer semver release names),
+and the pin this guide quotes to match: the [README](README.md), and the image and its
+`--version` output in [Setup](setup.md#3-prove-the-pinned-image-runs-on-the-gpu).
 Commit and push; then, on each host, `git pull` and `host/engines llama update`, or
 `host/engines llama-native update` where native llama.cpp serves ([Native](#native)).
 

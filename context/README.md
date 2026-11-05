@@ -52,7 +52,8 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
 - **Current hosts and engines.** Every session starts by bringing the hosts current. llama.cpp
   is pinned to one b-build per host class, which currency compares with the newest b-build that
   has the class's server image on ghcr.io; the guides name a build a semver release names by the
-  release first, with the b-build beside it, as v0.7.0 (b11669); vLLM follows its releases. Every result records the engine version and the host stack.
+  release first, with the b-build beside it, as v0.7.0 (b11669); vLLM follows its releases.
+  Every result records the engine version and the host stack.
 - **Comparisons.** Only cells run in the same session on the same versions are compared. A task
   that compares with an earlier one first reruns one anchor cell per engine.
 - **Quantization floor.** A format is accepted when its publisher evaluated it (native MXFP4, a
