@@ -50,9 +50,10 @@ The experiment's rules, in `ai-hosting.md`, govern every session. In short:
   architect's view, printing each command first. A run takes at most 10 minutes unless the
   brief decides otherwise.
 - **Current hosts and engines.** Every session starts by bringing the hosts current. llama.cpp
-  follows its semver releases, running the b-build each one names, and the guides name its
-  version by release first, with the b-build beside it, as v0.7.0 (b11669); vLLM follows its
-  releases. Every result records the engine version and the host stack.
+  is pinned to one b-build per host class, which currency compares with the newest b-build that
+  has the class's server image on ghcr.io; the guides name a build a semver release names by the
+  release first, with the b-build beside it, as v0.7.0 (b11669); vLLM follows its releases.
+  Every result records the engine version and the host stack.
 - **Comparisons.** Only cells run in the same session on the same versions are compared. A task
   that compares with an earlier one first reruns one anchor cell per engine.
 - **Quantization floor.** A format is accepted when its publisher evaluated it (native MXFP4, a
@@ -212,11 +213,15 @@ The practices every task follows, on the GB10s and the Framework, each with its 
   the base64 passed as a jq argument exceeds the shell's argument-list limit
   ([API](../docs/engines/llama.cpp/api.md#vision)).
 - **Held pins.** `mise run currency` reports a held pin like any other, and the pin's comment says
-  why it is held. Three are held: `mise.bench.toml` holds GuideLLM's Python at 3.14, because
-  torchcodec 0.17.0, which GuideLLM's audio extra needs, publishes no 3.15 wheel; `host/vllm.env`
-  holds vLLM at v0.32.0, because its latest, v0.33.0rc3, is a release candidate and vLLM is being
-  removed from both hosts; and it holds native vLLM's Python at 3.12, because native vLLM is
-  retired on both hosts.
+  why it is held. Five are held: `mise.bench.toml` holds GuideLLM's Python at 3.14, because
+  torchcodec 0.17.0, which GuideLLM's audio extra needs, publishes no 3.15 wheel; `host/llama.env`
+  holds gb10's llama.cpp at b12098, because b12100 and later match an `-hf` quantization tag only
+  after `-`, `.` or `/`, so Google's 26B-A4B, 31B and E4B QAT sections, whose files put `_` before
+  the tag, don't resolve on them (llama.cpp #31620 and #31639), and strix-halo's at b11960 until
+  the Framework's next host update, because its Gemma 4 26B-A4B re-screen waits on llama.cpp
+  #25584 and #31418; `host/vllm.env` holds vLLM at v0.32.0, because
+  its latest, v0.33.0rc3, is a release candidate and vLLM is being removed from both hosts; and it
+  holds native vLLM's Python at 3.12, because native vLLM is retired on both hosts.
 - **GuideLLM's client faults.** GuideLLM 0.8.1 has failed on the client while the server served:
   it stalled between an embedding cell's 1- and 16-stream levels, and it dropped a request's
   stream before the request finished, which llama.cpp logged as the client's read error. When the
