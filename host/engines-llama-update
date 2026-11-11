@@ -14,17 +14,19 @@
 # build's own, server and full, in each, so a switch back needs no pull and llama-bench keeps the
 # build's full images (llama_remove_images). When llama already runs that image with the clone's
 # preset and no other build's image is left, it changes nothing; when that container is stopped, it
-# says docker start starts it, and never starts it itself. It refuses while the vllm container runs,
-# or native llama.cpp's llama-router unit or native vLLM's vllm-server unit is active, since one
-# engine serves per host at a time. It refuses an unknown flavor, a version that is neither, or a
-# release whose notes it can't read, before it reads Docker.
+# says docker start starts it, and never starts it itself. It refuses while any vLLM container runs
+# (vllm_refuse_running), or native llama.cpp's llama-router unit or native vLLM's vllm-server unit
+# is active, since one engine serves per host at a time. It refuses an unknown flavor, a version
+# that is neither, or a release whose notes it can't read, before it reads Docker.
 set -euo pipefail
 # shellcheck source=host/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
+# shellcheck source=host/vllm.sh
+source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 
 llama_flavor
 build=$(llama_build "${1:-}")
-engines_refuse_running vllm
+vllm_refuse_running
 engines_refuse_unit llama-router
 engines_refuse_unit vllm-server
 

@@ -1,23 +1,28 @@
 #!/usr/bin/env bash
 # engines:summary=Run vllm serve on the default row or VLLM_MODEL's, at the pinned or given release
-# Starts the vllm container (vllm.sh) from the pinned release's image, or from the release given,
+# Starts the row's container (vllm.sh) from the pinned release's image, or from the release given,
 # such as v0.31.0, serving the flavor's default row (vllm-rows), or the row VLLM_MODEL names for
-# this run. The image's flavor, its devices, and its default row are VLLM_FLAVOR's, cuda or rocm,
-# or with none given the host's GPU's: rocm on an AMD GPU, cuda otherwise (vllm_flavor). When the
-# container already serves exactly that (image, model, and server flags) it changes nothing,
-# saying docker start starts it when it is stopped (it never starts it itself); when it serves
-# anything else, another release's, another flavor's, or another row's, it refuses, saying what
-# it runs, and points at update. It refuses an unknown flavor before it reads Docker, a
-# VLLM_MODEL with no row, listing the rows, and refuses while the llama container runs, or any
-# llama-router unit (native llama.cpp's, or another project's of that name) or native vLLM's
-# vllm-server unit is active, since one engine serves per host at a time.
+# this run. The container and its port are the row's, vllm on 8000 unless the row names others, so
+# a host runs one container per row, and install touches no other row's. The image is the
+# flavor's official one, or the row's own when it names one, which the host builds and install
+# never pulls (vllm_pull); on rocm, VLLM_ROCM_BUILD=rocm72 chooses the release's ROCm 7.2 build
+# for this run (vllm_flavor). The image's flavor, its devices, and its default row are
+# VLLM_FLAVOR's, cuda or rocm, or with none given the host's GPU's: rocm on an AMD GPU, cuda
+# otherwise (vllm_flavor). When the row's container already serves exactly that (image, model,
+# port, and server flags) it changes nothing, saying docker start starts it when it is stopped (it
+# never starts it itself); when it serves anything else, another release's, another flavor's, or
+# another row's, it refuses, saying what it runs, and points at update. It refuses an unknown
+# flavor or ROCm build before it reads Docker, a VLLM_MODEL with no row, listing the rows, and
+# refuses while the llama container runs, or any llama-router unit (native llama.cpp's, or another
+# project's of that name) or native vLLM's vllm-server unit is active, since llama.cpp and vLLM
+# never serve on a host at once.
 set -euo pipefail
 # shellcheck source=host/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 
-# The flavor and the row given, read before vllm_flavor resolves them, so the update install
-# points at names them.
-given=${VLLM_FLAVOR:+VLLM_FLAVOR=$VLLM_FLAVOR }${VLLM_MODEL:+VLLM_MODEL=$VLLM_MODEL }
+# The settings given, read before vllm_flavor resolves them, so the update install points at
+# names them.
+given=$(vllm_given)
 vllm_flavor
 engines_refuse_running llama
 engines_refuse_unit llama-router
@@ -33,24 +38,25 @@ running=$(vllm_running)
 if [[ $running == "$served" ]]; then
   stopped=$(engines_stopped "$VLLM_CONTAINER")
   if [[ -n $stopped ]]; then
-    echo "vllm is installed with $image and $serves but stopped; docker start vllm starts it"
+    echo "$VLLM_CONTAINER is installed with $image and $serves but stopped;" \
+      "docker start $VLLM_CONTAINER starts it"
   else
-    echo "vllm already runs $image with $serves; nothing changed"
+    echo "$VLLM_CONTAINER already runs $image with $serves; nothing changed"
   fi
   exit 0
 elif [[ -n $running ]]; then
   if [[ $(vllm_describe "$running") == "$(vllm_describe "$served")" ]]; then
-    echo "vllm runs $(vllm_describe "$running") under server flags other than those of $serves;" \
-      "$update" >&2
+    echo "$VLLM_CONTAINER runs $(vllm_describe "$running") under server flags other than those" \
+      "of $serves; $update" >&2
   else
-    echo "vllm runs $(vllm_describe "$running"), not $image with $serves;" \
+    echo "$VLLM_CONTAINER runs $(vllm_describe "$running"), not $image with $serves;" \
       "$update" >&2
   fi
   exit 1
 fi
 
 vllm_preflight
-docker pull "$image"
+vllm_pull "$image"
 vllm_run "$image" >/dev/null
-echo "vllm runs $image with $serves on port 8000 of the tailnet address;" \
-  "docker logs -f vllm shows its start"
+echo "$VLLM_CONTAINER runs $image with $serves on port $VLLM_PORT of the tailnet address;" \
+  "docker logs -f $VLLM_CONTAINER shows its start"

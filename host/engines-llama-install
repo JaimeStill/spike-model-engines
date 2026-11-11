@@ -10,19 +10,22 @@
 # starts it when it is stopped (it never starts it itself); a container started by hand from that
 # image with that mount counts as installed. When the container runs another image, another build's
 # or another flavor's, or mounts the preset from anywhere else (as after the clone's scripts move),
-# it refuses, saying what it runs or mounts, and points at update. It refuses while the vllm
-# container runs, or native llama.cpp's llama-router unit or native vLLM's vllm-server unit is
-# active, since one engine serves per host at a time. It refuses an unknown flavor, a version that
+# it refuses, saying what it runs or mounts, and points at update. It refuses while any vLLM
+# container runs, the container of any row in vllm-rows (vllm_refuse_running), or native
+# llama.cpp's llama-router unit or native vLLM's vllm-server unit is active, since one engine
+# serves per host at a time. It refuses an unknown flavor, a version that
 # is neither, or a release whose notes it can't read, before it reads Docker.
 set -euo pipefail
 # shellcheck source=host/llama.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
+# shellcheck source=host/vllm.sh
+source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 
 # The flavor given, read before llama_flavor resolves it, so the update install points at names it.
 given=${LLAMA_FLAVOR:-}
 llama_flavor
 build=$(llama_build "${1:-}")
-engines_refuse_running vllm
+vllm_refuse_running
 engines_refuse_unit llama-router
 engines_refuse_unit vllm-server
 # The update that moves it to what install was asked for: the pin, or the version given.
