@@ -244,7 +244,9 @@ vllm_run() {
 
 # Removes every vLLM image, in both flavors' official repositories, but the one given (none when
 # given nothing) and any a container on the host was created from, such as another row's, printing
-# each. A row's own image, built on the host, is never removed. Needs no flavor. Stops at the first
+# each. A row's own image, built on the host, is never removed. An official image no container was
+# created from goes, the ROCm fallback build (VLLM_ROCM_FALLBACK) pulled ahead of need among them:
+# an install or update with VLLM_ROCM_BUILD set pulls it again. Needs no flavor. Stops at the first
 # failure, so it never reports an image it did not remove.
 vllm_remove_images() {
   local repository listed refs='' ref used id
