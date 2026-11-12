@@ -126,21 +126,25 @@ openai/gpt-oss-120b
 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai
 
 # gpt-oss-120b for the agent (spike-model-layout's agent-vllm task, docs/findings/agent-vllm.md
-# there): the gpt-oss-120b row at the agent's sessions, 131,072 tokens each, 16 at once, as
-# llama.cpp's agent-only section serves them. Its KV cache stays the checkpoint's (BF16), sized
-# by the 0.80, and no attention or MoE backend is named, so vLLM chooses its own.
+# there): the gpt-oss-120b row at the agent's sessions, 131,072 tokens each. Its KV cache stays
+# the checkpoint's (BF16), sized by the 0.80, and no attention or MoE backend is named, so vLLM
+# chooses its own. It holds 8 at once, the highest level of the agent sweep at which it met the
+# agent's floor (an ITL median of at most 100 ms; agent-vllm F, "Meets the floor through"), set by
+# spike-model-layout's vllm-layout task: past 8 a session queues rather than slowing the others.
 [gpt-oss-120b-agent]
 openai/gpt-oss-120b
---max-num-seqs 16 --max-model-len 131072 --gpu-memory-utilization 0.80
+--max-num-seqs 8 --max-model-len 131072 --gpu-memory-utilization 0.80
 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai
 
 # The agent row on an FP8 KV cache (fp8, which vLLM reads as e4m3 on CUDA), sized in bytes to hold
 # llama.cpp's agent-only pool of 1,179,648 tokens: 32993476982 bytes, about 30.73 GiB. The bytes
 # size the cache in place of the 0.80, which the row keeps for the rest. No backend is named, so
 # the start log records the attention backend vLLM chooses for gpt-oss's sinks on an FP8 cache.
+# It holds 12 at once, the highest level at which it met the agent's floor (agent-vllm F), set by
+# vllm-layout as the BF16 row's cap is.
 [gpt-oss-120b-agent-fp8]
 openai/gpt-oss-120b
---max-num-seqs 16 --max-model-len 131072 --gpu-memory-utilization 0.80
+--max-num-seqs 12 --max-model-len 131072 --gpu-memory-utilization 0.80
 --kv-cache-dtype fp8 --kv-cache-memory-bytes 32993476982
 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai
 
