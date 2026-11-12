@@ -26,12 +26,12 @@
 # fraction would leave the cache. Every row serves sequences of 8192 tokens, as each of llama.cpp's
 # slots, but the agent rows, which serve the agent's 131,072. The model's own generation config sets
 # its sampling (vLLM's default, --generation-config auto). Gemma 4's rows hold 4 sequences,
-# mirroring llama.cpp's 4 slots, but the capability rows, which hold 16; keep a BF16 KV cache, since
-# the NVFP4 checkpoints declare a static FP8 one but ship no calibrated k/v scales, so vLLM would
-# quantize it with a scale of 1.0, and every Gemma 4 row matches them; and use Gemma 4's own
-# reasoning and tool-call parsers. Their vision encoder loads (no --language-model-only), and E4B's
-# and 12B's audio encoder too: vLLM allows every modality the model has without
-# --limit-mm-per-prompt.
+# mirroring llama.cpp's 4 slots, but the capability rows, which hold what their cells met the
+# floors at; keep a BF16 KV cache, since the NVFP4 checkpoints declare a static FP8 one but ship no
+# calibrated k/v scales, so vLLM would quantize it with a scale of 1.0, and every Gemma 4 row
+# matches them; and use Gemma 4's own reasoning and tool-call parsers. Their vision encoder loads
+# (no --language-model-only), and E4B's and 12B's audio encoder too: vLLM allows every modality the
+# model has without --limit-mm-per-prompt.
 
 # The cuda flavor's default: Gemma 4 26B-A4B, MoE, NVIDIA's NVFP4. The anchors A' and B', and
 # vision.
@@ -126,33 +126,45 @@ openai/gpt-oss-120b
 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai
 
 # gpt-oss-120b for the agent (spike-model-layout's agent-vllm task, docs/findings/agent-vllm.md
-# there): the gpt-oss-120b row at the agent's sessions, 131,072 tokens each, 16 at once, as
-# llama.cpp's agent-only section serves them. Its KV cache stays the checkpoint's (BF16), sized
-# by the 0.80, and no attention or MoE backend is named, so vLLM chooses its own.
+# there): the gpt-oss-120b row at the agent's sessions, 131,072 tokens each. Its KV cache stays
+# the checkpoint's (BF16), sized by the 0.80, and no attention or MoE backend is named, so vLLM
+# chooses its own. It holds 8 at once, the highest level of the agent sweep at which it met the
+# agent's floor (an ITL median of at most 100 ms; agent-vllm F, "Meets the floor through"), set by
+# spike-model-layout's vllm-layout task: past 8 a session queues rather than slowing the others.
 [gpt-oss-120b-agent]
 openai/gpt-oss-120b
---max-num-seqs 16 --max-model-len 131072 --gpu-memory-utilization 0.80
+--max-num-seqs 8 --max-model-len 131072 --gpu-memory-utilization 0.80
 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai
 
 # The agent row on an FP8 KV cache (fp8, which vLLM reads as e4m3 on CUDA), sized in bytes to hold
 # llama.cpp's agent-only pool of 1,179,648 tokens: 32993476982 bytes, about 30.73 GiB. The bytes
 # size the cache in place of the 0.80, which the row keeps for the rest. No backend is named, so
 # the start log records the attention backend vLLM chooses for gpt-oss's sinks on an FP8 cache.
+# It holds 12 at once, the highest level at which it met the agent's floor (agent-vllm F), set by
+# vllm-layout as the BF16 row's cap is.
 [gpt-oss-120b-agent-fp8]
 openai/gpt-oss-120b
---max-num-seqs 16 --max-model-len 131072 --gpu-memory-utilization 0.80
+--max-num-seqs 12 --max-model-len 131072 --gpu-memory-utilization 0.80
 --kv-cache-dtype fp8 --kv-cache-memory-bytes 32993476982
 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai
 
 # The capability rows (spike-model-layout's capability-vllm task, docs/findings/capability-vllm.md
-# there): vision, audio, and embedding on one host at once, each in its own container on its own
-# port, vision on 8000, audio on 8001, embedding on 8002, each at its own fraction. Each serves 16
-# sequences of 8192 tokens, and names no attention or MoE backend, so vLLM chooses its own and the
-# start log records it. The -gb10 rows are gb10-2's (cuda), 0.65 in all of its 121.63 GiB; the
-# -framework rows are the Framework's (rocm), 0.81 in all of its 112 GiB GTT ceiling. Neither set
-# serves beside any other row.
+# there), placed by its vllm-layout task: vision on 8000, audio on 8001, embedding on 8002, each in
+# its own container on its own port at its own fraction. Each serves sequences of 8192 tokens, and
+# names no attention or MoE backend, so vLLM chooses its own and the start log records it.
+#
+# vllm-layout keeps the purposes apart by placement. The standing layout: gb10-1 serves the agent
+# (gpt-oss-120b-agent-fp8, above) alone; gb10-2 serves vision alone; the Framework serves audio and
+# embedding, the embedding rate-limited by the gateway. On gb10-2 audio missed its floor beside
+# vision at every pair level, 2 to 8 streams each (an RTFx median of 2.86 to 3.36 against 5), while
+# vision met its own at every pair but 8 + 8; on the Framework audio held beside embedding sent at
+# a constant 8.4 and 34 requests a second (RTFx 6.43 and 5.84), and missed beside it run flat out
+# at 16 streams (2.44). The rows file has no list of a host's standing rows: these are the rows
+# each host stands on.
 
-# gb10-2's vision: Gemma 4 26B-A4B in NVIDIA's NVFP4, 0.40.
+# gb10-2's vision: Gemma 4 26B-A4B in NVIDIA's NVFP4, 0.40, gb10-2's one row. It holds 16 at once:
+# alone on gb10-2 it met vision's floor (a request latency median of at most 10 s) at 16 streams
+# (9.64 s; vllm-layout's cell vllm-layout-g2-vision-capacity), the row's cap.
 [gemma-4-26B-A4B-NVFP4-vision-gb10]
 nvidia/Gemma-4-26B-A4B-NVFP4
 container=vllm-vision port=8000
@@ -160,43 +172,28 @@ container=vllm-vision port=8000
 --kv-cache-dtype bfloat16
 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
 
-# gb10-2's audio: Gemma 4 E4B, BF16, 0.20, on the official image.
-[gemma-4-E4B-it-audio-gb10]
-google/gemma-4-E4B-it
-container=vllm-audio port=8001
---max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.20
---kv-cache-dtype bfloat16
---reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
-
-# gb10-2's embedding: granite-embedding-english-r2, on vLLM's pooling runner, 0.05.
-[granite-embedding-english-r2-gb10]
-ibm-granite/granite-embedding-english-r2
-container=vllm-embed port=8002
---runner pooling
---max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.05
-
-# The Framework's vision: Gemma 4 26B-A4B in Google's BF16, the only format vLLM has served on
-# gfx1151, 0.60.
-[gemma-4-26B-A4B-it-vision-framework]
-google/gemma-4-26B-A4B-it
-container=vllm-vision port=8000
---max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.60
---kv-cache-dtype bfloat16
---reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
-
-# The Framework's audio: Gemma 4 E4B, BF16, 0.18, from the audio image (vllm-rocm-audio), since
-# the official ROCm image ships none of the audio extra's decoders, and every audio request on it
-# returns 500. The host builds the image, at the tag of the ROCm build it serves.
+# The Framework's audio: Gemma 4 E4B, BF16, 0.18, from the audio image (vllm-rocm-audio), since the
+# official ROCm image ships none of the audio extra's decoders, and every audio request on it
+# returns 500. The host builds the image, at the tag of the ROCm build it serves. It holds 4 at
+# once: beside granite at 34 requests a second it met audio's floor (an RTFx median of at least 5)
+# at 4 streams (5.84; vllm-layout-fw-pair-a4r34) and missed at 8 (4.94;
+# vllm-layout-fw-stress-a8r34).
 [gemma-4-E4B-it-audio-framework]
 google/gemma-4-E4B-it
 container=vllm-audio port=8001 image=spike-model-engines/vllm-openai-rocm-audio
---max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.18
+--max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.18
 --kv-cache-dtype bfloat16
 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
 
-# The Framework's embedding: granite-embedding-english-r2, on vLLM's pooling runner, 0.03.
+# The Framework's embedding: granite-embedding-english-r2, on vLLM's pooling runner, 0.03. 128
+# sequences and 65,536 batched tokens a step: vLLM's default of 8,192 tokens batches only 16 of the
+# embedding cells' 512-token inputs a step (capability-vllm G), and a document pipeline sends more.
+# Alone, its throughput stops rising at 16 streams of 512 tokens (98,325 prompt tok/s) and holds to
+# 128 (vllm-layout-fw-embed-sweep); beside audio, the gateway holds it to at most 34 requests a
+# second, the rate audio was measured to hold beside.
 [granite-embedding-english-r2-framework]
 ibm-granite/granite-embedding-english-r2
 container=vllm-embed port=8002
 --runner pooling
---max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.03
+--max-num-seqs 128 --max-model-len 8192 --gpu-memory-utilization 0.03
+--max-num-batched-tokens 65536
