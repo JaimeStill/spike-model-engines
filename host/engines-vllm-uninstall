@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
-# engines:summary=Remove vllm, every vLLM image, and the compile cache, keeping /srv/models
-# The model store stays; deleting models is a typed command (docs/engines/vllm/uninstall.md).
+# engines:summary=Remove a row's container; with none left, every vLLM image and the compile cache
+# Removes the container of the flavor's default row (vllm-rows), or of the row VLLM_MODEL names
+# (vllm unless the row names another), and touches no other row's. Once no vLLM container is left
+# on the host (vllm_containers), it removes every official vLLM image and the compile cache too,
+# which the rows' containers share; while another is left, it keeps them, naming it. A row's own
+# image, built on the host, stays, as the model store does; deleting models is a typed command
+# (docs/engines/vllm/uninstall.md). It refuses an unknown flavor or ROCm build, and a VLLM_MODEL
+# with no row, listing the rows.
 set -euo pipefail
 # shellcheck source=host/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
+
+vllm_flavor
+vllm_row
 
 changed=
 running=$(vllm_running)
@@ -12,6 +21,18 @@ if [[ -n $running ]]; then
   echo "removed container $VLLM_CONTAINER"
   changed=yes
 fi
+
+left=
+for name in $(vllm_containers); do
+  id=$(docker container ls --all --quiet --filter "name=^$name\$")
+  [[ -z $id ]] || left+=" $name"
+done
+if [[ -n $left ]]; then
+  [[ -n $changed ]] || echo "$VLLM_CONTAINER is not installed; nothing changed"
+  echo "the vLLM images and the compile cache stay, since containers${left} are left"
+  exit 0
+fi
+
 removed=$(vllm_remove_images)
 [[ -n $removed ]] && echo "$removed"
 if [[ -d $VLLM_CACHE_DIR ]]; then
