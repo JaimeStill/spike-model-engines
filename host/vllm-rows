@@ -153,14 +153,14 @@ openai/gpt-oss-120b
 # its own container on its own port at its own fraction. Each serves sequences of 8192 tokens, and
 # names no attention or MoE backend, so vLLM chooses its own and the start log records it.
 #
-# vllm-layout keeps the purposes apart by placement. The standing layout:
-# gb10-1 serves the agent (gpt-oss-120b-agent-fp8, above) alone; gb10-2 serves vision alone; the
-# Framework serves audio and embedding, the embedding rate-limited by the gateway. On gb10-2 audio
-# missed its floor beside vision at every pair level, 2 to 8 streams each (an RTFx median of 2.86
-# to 3.36 against 5), while vision met its own; on the Framework audio held beside embedding sent
-# at a constant 8.4 and 34 requests a second (RTFx 6.43 and 5.84), and missed beside it run flat
-# out at 16 streams (2.44). The rows file has no list of a host's standing rows: these are the
-# rows each host stands on.
+# vllm-layout keeps the purposes apart by placement. The standing layout: gb10-1 serves the agent
+# (gpt-oss-120b-agent-fp8, above) alone; gb10-2 serves vision alone; the Framework serves audio and
+# embedding, the embedding rate-limited by the gateway. On gb10-2 audio missed its floor beside
+# vision at every pair level, 2 to 8 streams each (an RTFx median of 2.86 to 3.36 against 5), while
+# vision met its own at every pair but 8 + 8; on the Framework audio held beside embedding sent at
+# a constant 8.4 and 34 requests a second (RTFx 6.43 and 5.84), and missed beside it run flat out
+# at 16 streams (2.44). The rows file has no list of a host's standing rows: these are the rows
+# each host stands on.
 
 # gb10-2's vision: Gemma 4 26B-A4B in NVIDIA's NVFP4, 0.40, gb10-2's one row. It holds 16 at once:
 # alone on gb10-2 it met vision's floor (a request latency median of at most 10 s) at 16 streams
@@ -176,7 +176,8 @@ container=vllm-vision port=8000
 # official ROCm image ships none of the audio extra's decoders, and every audio request on it
 # returns 500. The host builds the image, at the tag of the ROCm build it serves. It holds 4 at
 # once: beside granite at 34 requests a second it met audio's floor (an RTFx median of at least 5)
-# at 4 streams (5.84; vllm-layout-fw-pair-a4r34) and missed at 8 (4.94; vllm-layout-fw-stress-a8r34).
+# at 4 streams (5.84; vllm-layout-fw-pair-a4r34) and missed at 8 (4.94;
+# vllm-layout-fw-stress-a8r34).
 [gemma-4-E4B-it-audio-framework]
 google/gemma-4-E4B-it
 container=vllm-audio port=8001 image=spike-model-engines/vllm-openai-rocm-audio
