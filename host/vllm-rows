@@ -149,14 +149,20 @@ openai/gpt-oss-120b
 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai
 
 # The capability rows (spike-model-layout's capability-vllm task, docs/findings/capability-vllm.md
-# there): vision, audio, and embedding on one host at once, each in its own container on its own
-# port, vision on 8000, audio on 8001, embedding on 8002, each at its own fraction. Each serves 16
-# sequences of 8192 tokens, and names no attention or MoE backend, so vLLM chooses its own and the
-# start log records it. The -gb10 rows are gb10-2's (cuda), 0.65 in all of its 121.63 GiB; the
-# -framework rows are the Framework's (rocm), 0.81 in all of its 112 GiB GTT ceiling. Neither set
-# serves beside any other row.
+# there), placed by its vllm-layout task: vision on 8000, audio on 8001, embedding on 8002, each in
+# its own container on its own port at its own fraction. Each serves sequences of 8192 tokens, and
+# names no attention or MoE backend, so vLLM chooses its own and the start log records it.
+#
+# vllm-layout keeps the purposes apart by placement. Beside each other and granite on one GPU,
+# vision and audio missed their floors on both hosts while granite met its own, with memory far
+# from gb10-2's floor (capability-vllm H, I, N.1); so gb10-2 serves vision and audio alone, with no
+# embedding row, 0.60 in all of its 121.63 GiB, and the Framework serves granite alone. Its other
+# rows stay out of its standing set, which the rows file has no list for, so their comments say it:
+# the 12B and E4B rows are a manual failover for gb10-2's two, staged and stopped, and the BF16
+# 26B-A4B row is vllm-layout's comparison and accuracy reference, started only for its checks. The
+# 12B and the BF16 26B-A4B share the vllm-vision container, so either replaces the other in it.
 
-# gb10-2's vision: Gemma 4 26B-A4B in NVIDIA's NVFP4, 0.40.
+# gb10-2's vision: Gemma 4 26B-A4B in NVIDIA's NVFP4, 0.40, beside gb10-2's audio row alone.
 [gemma-4-26B-A4B-NVFP4-vision-gb10]
 nvidia/Gemma-4-26B-A4B-NVFP4
 container=vllm-vision port=8000
@@ -164,7 +170,7 @@ container=vllm-vision port=8000
 --kv-cache-dtype bfloat16
 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
 
-# gb10-2's audio: Gemma 4 E4B, BF16, 0.20, on the official image.
+# gb10-2's audio: Gemma 4 E4B, BF16, 0.20, on the official image, beside gb10-2's vision row alone.
 [gemma-4-E4B-it-audio-gb10]
 google/gemma-4-E4B-it
 container=vllm-audio port=8001
@@ -172,15 +178,22 @@ container=vllm-audio port=8001
 --kv-cache-dtype bfloat16
 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
 
-# gb10-2's embedding: granite-embedding-english-r2, on vLLM's pooling runner, 0.05.
-[granite-embedding-english-r2-gb10]
-ibm-granite/granite-embedding-english-r2
-container=vllm-embed port=8002
---runner pooling
---max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.05
+# The Framework's vision failover: Gemma 4 12B in Google's quantization-aware trained w4a16
+# (compressed-tensors, Apache 2.0, google/gemma-4-12B-it-qat-w4a16-ct, 9.56 GiB), 0.20, in place of
+# gb10-2's vision row when it is down; staged and stopped. vllm-layout chose it as the lighter
+# Gemma 4 vision model for the Framework's ROCm engine: its three rows at 0.60 (the BF16 26B-A4B),
+# 0.18 and 0.03 took its system memory to 0.76 GiB above its floor (capability-vllm K, N.2).
+[gemma-4-12B-it-qat-w4a16-ct-vision-framework]
+google/gemma-4-12B-it-qat-w4a16-ct
+container=vllm-vision port=8000
+--max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.20
+--kv-cache-dtype bfloat16
+--reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
 
-# The Framework's vision: Gemma 4 26B-A4B in Google's BF16, the only format vLLM has served on
-# gfx1151, 0.60.
+# The Framework's BF16 reference: Gemma 4 26B-A4B in Google's BF16, the only 26B-A4B format vLLM
+# has served on gfx1151, 0.60. Not a standing row: vllm-layout starts it beside granite for the
+# Framework's vision sweep against the 12B and as the BF16 reference its accuracy checks score
+# NVFP4 and the 12B against, then removes its weights from the store.
 [gemma-4-26B-A4B-it-vision-framework]
 google/gemma-4-26B-A4B-it
 container=vllm-vision port=8000
@@ -188,9 +201,10 @@ container=vllm-vision port=8000
 --kv-cache-dtype bfloat16
 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
 
-# The Framework's audio: Gemma 4 E4B, BF16, 0.18, from the audio image (vllm-rocm-audio), since
-# the official ROCm image ships none of the audio extra's decoders, and every audio request on it
-# returns 500. The host builds the image, at the tag of the ROCm build it serves.
+# The Framework's audio failover: Gemma 4 E4B, BF16, 0.18, from the audio image (vllm-rocm-audio),
+# since the official ROCm image ships none of the audio extra's decoders, and every audio request
+# on it returns 500. The host builds the image, at the tag of the ROCm build it serves. In place of
+# gb10-2's audio row when it is down; staged and stopped.
 [gemma-4-E4B-it-audio-framework]
 google/gemma-4-E4B-it
 container=vllm-audio port=8001 image=spike-model-engines/vllm-openai-rocm-audio
@@ -198,9 +212,13 @@ container=vllm-audio port=8001 image=spike-model-engines/vllm-openai-rocm-audio
 --kv-cache-dtype bfloat16
 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
 
-# The Framework's embedding: granite-embedding-english-r2, on vLLM's pooling runner, 0.03.
+# The Framework's embedding, its standing row: granite-embedding-english-r2, on vLLM's pooling
+# runner, 0.03. 128 sequences and 65,536 batched tokens a step: vLLM's default of 8,192 tokens
+# batches only 16 of the embedding cells' 512-token inputs a step (capability-vllm G), and a
+# document pipeline sends more; the sweep vllm-layout runs to 128 streams reads the knee.
 [granite-embedding-english-r2-framework]
 ibm-granite/granite-embedding-english-r2
 container=vllm-embed port=8002
 --runner pooling
---max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.03
+--max-num-seqs 128 --max-model-len 8192 --gpu-memory-utilization 0.03
+--max-num-batched-tokens 65536
