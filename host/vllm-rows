@@ -8,7 +8,9 @@
 # server flags, over as many lines as read well. vllm.sh puts --host and --port after the model, so
 # a row never names them. An id is the repository's name without its organization, with a suffix
 # for a second row of the same model; each is unique. No flag or value holds a space or a #, since
-# the served command is compared joined with spaces and # starts a comment.
+# the served command is compared joined with spaces and # starts a comment. A row serves under its
+# repository, which /v1/models lists and requests name in "model", unless it names one other name
+# with --served-model-name; it names exactly one, since vLLM lists every name it is given.
 #
 # A row's settings are the suite's, which vllm serve never sees (vllm.sh, vllm_row), each a word
 # <key>=<value>: container=<name>, the container it serves from, vllm when it names none;
@@ -141,9 +143,12 @@ openai/gpt-oss-120b
 # size the cache in place of the 0.80, which the row keeps for the rest. No backend is named, so
 # the start log records the attention backend vLLM chooses for gpt-oss's sinks on an FP8 cache.
 # It holds 12 at once, the highest level at which it met the agent's floor (agent-vllm F), set by
-# vllm-layout as the BF16 row's cap is.
+# vllm-layout as the BF16 row's cap is. It serves under its purpose alias, agent, its one name, for
+# spike-model-gateway's agentgateway, whose per-purpose routes pass requests through unchanged
+# (spike-model-gateway's docs/findings/agentgateway.md), so a request names agent in "model".
 [gpt-oss-120b-agent-fp8]
 openai/gpt-oss-120b
+--served-model-name agent
 --max-num-seqs 12 --max-model-len 131072 --gpu-memory-utilization 0.80
 --kv-cache-dtype fp8 --kv-cache-memory-bytes 32993476982
 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai
@@ -164,10 +169,13 @@ openai/gpt-oss-120b
 
 # gb10-2's vision: Gemma 4 26B-A4B in NVIDIA's NVFP4, 0.40, gb10-2's one row. It holds 16 at once:
 # alone on gb10-2 it met vision's floor (a request latency median of at most 10 s) at 16 streams
-# (9.64 s; vllm-layout's cell vllm-layout-g2-vision-capacity), the row's cap.
+# (9.64 s; vllm-layout's cell vllm-layout-g2-vision-capacity), the row's cap. It serves under its
+# purpose alias, vision, its one name, for spike-model-gateway's agentgateway, whose per-purpose
+# routes pass requests through unchanged (spike-model-gateway's docs/findings/agentgateway.md).
 [gemma-4-26B-A4B-NVFP4-vision-gb10]
 nvidia/Gemma-4-26B-A4B-NVFP4
 container=vllm-vision port=8000
+--served-model-name vision
 --max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.40
 --kv-cache-dtype bfloat16
 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
@@ -177,10 +185,13 @@ container=vllm-vision port=8000
 # returns 500. The host builds the image, at the tag of the ROCm build it serves. It holds 4 at
 # once: beside granite at 34 requests a second it met audio's floor (an RTFx median of at least 5)
 # at 4 streams (5.84; vllm-layout-fw-pair-a4r34) and missed at 8 (4.94;
-# vllm-layout-fw-stress-a8r34).
+# vllm-layout-fw-stress-a8r34). It serves under its purpose alias, audio, its one name, for
+# spike-model-gateway's agentgateway, whose per-purpose routes pass requests through unchanged
+# (spike-model-gateway's docs/findings/agentgateway.md).
 [gemma-4-E4B-it-audio-framework]
 google/gemma-4-E4B-it
 container=vllm-audio port=8001 image=spike-model-engines/vllm-openai-rocm-audio
+--served-model-name audio
 --max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.18
 --kv-cache-dtype bfloat16
 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
@@ -190,10 +201,13 @@ container=vllm-audio port=8001 image=spike-model-engines/vllm-openai-rocm-audio
 # embedding cells' 512-token inputs a step (capability-vllm G), and a document pipeline sends more.
 # Alone, its throughput stops rising at 16 streams of 512 tokens (98,325 prompt tok/s) and holds to
 # 128 (vllm-layout-fw-embed-sweep); beside audio, the gateway holds it to at most 34 requests a
-# second, the rate audio was measured to hold beside.
+# second, the rate audio was measured to hold beside. It serves under its purpose alias, embedding,
+# its one name, for spike-model-gateway's agentgateway, whose per-purpose routes pass requests
+# through unchanged (spike-model-gateway's docs/findings/agentgateway.md).
 [granite-embedding-english-r2-framework]
 ibm-granite/granite-embedding-english-r2
 container=vllm-embed port=8002
+--served-model-name embedding
 --runner pooling
 --max-num-seqs 128 --max-model-len 8192 --gpu-memory-utilization 0.03
 --max-num-batched-tokens 65536
