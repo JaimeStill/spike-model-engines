@@ -146,10 +146,16 @@ openai/gpt-oss-120b
 # vllm-layout as the BF16 row's cap is. It serves under its purpose alias, agent, its one name, for
 # spike-model-gateway's agentgateway, whose per-purpose routes pass requests through unchanged
 # (spike-model-gateway's docs/findings/agentgateway.md), so a request names agent in "model".
+# It admits 24 in flight, running and waiting, twice its cap, and answers 503 past that
+# (--max-num-queued-reqs, counted in the API server), so the gateway can send what a full row
+# refuses to its overflow where vLLM would otherwise queue without bound; and it schedules by each
+# request's priority, lower first, arrival breaking ties, so the gateway can rank its keys' work
+# (spike-model-gateway's docs/findings/priority.md).
 [gpt-oss-120b-agent-fp8]
 openai/gpt-oss-120b
 --served-model-name agent
 --max-num-seqs 12 --max-model-len 131072 --gpu-memory-utilization 0.80
+--max-num-queued-reqs 24 --scheduling-policy priority
 --kv-cache-dtype fp8 --kv-cache-memory-bytes 32993476982
 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai
 
@@ -172,11 +178,14 @@ openai/gpt-oss-120b
 # (9.64 s; vllm-layout's cell vllm-layout-g2-vision-capacity), the row's cap. It serves under its
 # purpose alias, vision, its one name, for spike-model-gateway's agentgateway, whose per-purpose
 # routes pass requests through unchanged (spike-model-gateway's docs/findings/agentgateway.md).
+# It admits 32 in flight, twice its cap, answers 503 past that, and schedules by priority, as
+# the agent row does (spike-model-gateway's docs/findings/priority.md).
 [gemma-4-26B-A4B-NVFP4-vision-gb10]
 nvidia/Gemma-4-26B-A4B-NVFP4
 container=vllm-vision port=8000
 --served-model-name vision
 --max-num-seqs 16 --max-model-len 8192 --gpu-memory-utilization 0.40
+--max-num-queued-reqs 32 --scheduling-policy priority
 --kv-cache-dtype bfloat16
 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
 
@@ -188,11 +197,14 @@ container=vllm-vision port=8000
 # vllm-layout-fw-stress-a8r34). It serves under its purpose alias, audio, its one name, for
 # spike-model-gateway's agentgateway, whose per-purpose routes pass requests through unchanged
 # (spike-model-gateway's docs/findings/agentgateway.md).
+# It admits 8 in flight, twice its cap, and answers 503 past that, as the agent row does; it
+# schedules first come, first served (spike-model-gateway's docs/findings/priority.md).
 [gemma-4-E4B-it-audio-framework]
 google/gemma-4-E4B-it
 container=vllm-audio port=8001 image=spike-model-engines/vllm-openai-rocm-audio
 --served-model-name audio
 --max-num-seqs 4 --max-model-len 8192 --gpu-memory-utilization 0.18
+--max-num-queued-reqs 8
 --kv-cache-dtype bfloat16
 --reasoning-parser gemma4 --enable-auto-tool-choice --tool-call-parser gemma4
 
@@ -204,6 +216,8 @@ container=vllm-audio port=8001 image=spike-model-engines/vllm-openai-rocm-audio
 # second, the rate audio was measured to hold beside. It serves under its purpose alias, embedding,
 # its one name, for spike-model-gateway's agentgateway, whose per-purpose routes pass requests
 # through unchanged (spike-model-gateway's docs/findings/agentgateway.md).
+# It admits any number in flight: the gateway's rate limit is what holds it back, so it has no
+# --max-num-queued-reqs (spike-model-gateway's docs/findings/priority.md).
 [granite-embedding-english-r2-framework]
 ibm-granite/granite-embedding-english-r2
 container=vllm-embed port=8002
