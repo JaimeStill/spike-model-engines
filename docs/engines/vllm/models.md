@@ -175,9 +175,10 @@ the load and the compile alone; record it.
 
 Every model the server serves is a row of `host/vllm-rows`: an id in brackets, the model's Hugging
 Face repository, then its server flags. The file's comments give each flag's reason. The rows are
-one set for both flavors. Every row serves sequences of 8192 tokens and reserves 0.80 of the host's
-GPU memory, on every host (`--max-model-len 8192 --gpu-memory-utilization 0.80`), and the model's
-own generation config sets its sampling. Beyond those:
+one set for both flavors. Every row but the standing rows serves sequences of 8192 tokens and
+reserves 0.80 of the host's GPU memory, on every host (`--max-model-len 8192
+--gpu-memory-utilization 0.80`), and the model's own generation config sets its sampling. Beyond
+those:
 
 | Row id | Model | Flags | Serves |
 |---|---|---|---|
@@ -197,6 +198,24 @@ granite-embedding-english-r2, a ModernBERT encoder with heads of 64, runs its en
 attention on `FLASH_ATTN` on the GB10's SM121.
 
 "The default's" is the `gemma-4-26B-A4B-NVFP4` row's flags.
+
+The standing rows are the ones each host stands on, served under their purpose alias for
+spike-model-gateway's agentgateway, and each names its own sequence length and fraction. All but
+the embedding row cap what they admit in flight, running and waiting, at twice their sequences,
+and answer 503 past that (`--max-num-queued-reqs`); the agent and vision rows schedule by each
+request's priority, lower first (`--scheduling-policy priority`), and the others first come, first
+served:
+
+| Row id | Model | Flags | Serves |
+|---|---|---|---|
+| `gpt-oss-120b-agent-fp8` | `openai/gpt-oss-120b` | `--served-model-name agent --max-num-seqs 12 --max-model-len 131072 --gpu-memory-utilization 0.80 --max-num-queued-reqs 24 --scheduling-policy priority --kv-cache-dtype fp8 --kv-cache-memory-bytes 32993476982`, and `gpt-oss-120b`'s parsers | `agent` on gb10-1, alone; 12 sessions of 131,072 tokens on an FP8 KV cache |
+| `gemma-4-26B-A4B-NVFP4-vision-gb10` | `nvidia/Gemma-4-26B-A4B-NVFP4` | `container=vllm-vision port=8000`, then `--served-model-name vision --max-num-seqs 16 --gpu-memory-utilization 0.40 --max-num-queued-reqs 32 --scheduling-policy priority`, and the default's KV cache and parsers | `vision` on gb10-2, alone |
+| `gemma-4-E4B-it-audio-framework` | `google/gemma-4-E4B-it` | `container=vllm-audio port=8001 image=spike-model-engines/vllm-openai-rocm-audio`, then `--served-model-name audio --max-num-seqs 4 --gpu-memory-utilization 0.18 --max-num-queued-reqs 8`, and the default's KV cache and parsers | `audio` on the Framework, from the audio image the host builds |
+| `granite-embedding-english-r2-framework` | `ibm-granite/granite-embedding-english-r2` | `container=vllm-embed port=8002`, then `--served-model-name embedding --runner pooling --max-num-seqs 128 --gpu-memory-utilization 0.03 --max-num-batched-tokens 65536` | `embedding` on the Framework, beside audio; no queue limit, since the gateway's rate limit holds it |
+
+A standing row's `container=`, `port=` and `image=` are the suite's settings, which `vllm serve`
+never sees: the container it serves from, its host port, and an image the host builds. The
+vision, audio and embedding rows serve sequences of 8192 tokens.
 
 A row's id is its repository's name without the organization, with a suffix for a second row of
 the same model. The container's command is the row's model, `--host 0.0.0.0 --port 8000`, then
