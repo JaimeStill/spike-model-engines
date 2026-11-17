@@ -78,7 +78,7 @@ fetches nothing:
 
 ```sh
 stage openai/gpt-oss-120b --exclude "original/*.safetensors" --exclude "metal/*"
-setsid nohup bash -c 'docker pull vllm/vllm-openai-rocm:v0.32.0; echo "exit $?"' > ~/prestage/vllm-rocm-image.log 2>&1 < /dev/null &
+setsid nohup bash -c 'docker pull vllm/vllm-openai-rocm:v0.34.0; echo "exit $?"' > ~/prestage/vllm-rocm-image.log 2>&1 < /dev/null &
 ```
 
 Before any comparison cell or timed start, the rest, together, with the same exports and
@@ -107,7 +107,7 @@ du -shL /srv/models/models--openai--gpt-oss-120b /srv/models/models--google--gem
 docker image ls vllm/vllm-openai-rocm
 ```
 
-The last lists `v0.32.0`. `rm -r ~/prestage` then removes the logs.
+The last lists `v0.34.0`. `rm -r ~/prestage` then removes the logs.
 
 ## The first download
 
@@ -242,7 +242,7 @@ decoder, so an audio request returns 500
 Every model is staged through hf before its row starts ([On the Framework](#on-the-framework)).
 A row serves on the Framework as on the GB10, named in `VLLM_MODEL` before `update`
 ([Serving another row for one run](#serving-another-row-for-one-run)); the flavor is the host's
-own, so the image stays `vllm/vllm-openai-rocm:v0.32.0` and only the row changes.
+own, so the image stays `vllm/vllm-openai-rocm:v0.34.0` and only the row changes.
 
 ### Serving another row for one run
 
@@ -284,8 +284,8 @@ command, and restart `vllm-server` on the row when they differ
 host/engines vllm update
 ```
 
-On gb10-1 it prints `vllm moved from ... to vllm/vllm-openai:v0.32.0 with row gemma-4-26B-A4B-NVFP4
-(nvidia/Gemma-4-26B-A4B-NVFP4)`, and on the Framework `... to vllm/vllm-openai-rocm:v0.32.0 with row
+On gb10-1 it prints `vllm moved from ... to vllm/vllm-openai:v0.34.0 with row gemma-4-26B-A4B-NVFP4
+(nvidia/Gemma-4-26B-A4B-NVFP4)`, and on the Framework `... to vllm/vllm-openai-rocm:v0.34.0 with row
 gpt-oss-120b (openai/gpt-oss-120b)`, another cold start to record. Leave every host on the default
 row when a session ends. Use `VLLM_MODEL=...` only as the command's prefix, never `export` it: an
 exported one would keep naming its row for every later command in that shell.

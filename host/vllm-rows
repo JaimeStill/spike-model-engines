@@ -191,7 +191,7 @@ container=vllm-vision port=8000
 
 # The Framework's audio: Gemma 4 E4B, BF16, 0.18, from the audio image (vllm-rocm-audio), since the
 # official ROCm image ships none of the audio extra's decoders, and every audio request on it
-# returns 500. The host builds the image, at the tag of the ROCm build it serves. It holds 4 at
+# returns 500. The host builds the image, at the pinned release's tag. It holds 4 at
 # once: beside granite at 34 requests a second it met audio's floor (an RTFx median of at least 5)
 # at 4 streams (5.84; vllm-layout-fw-pair-a4r34) and missed at 8 (4.94;
 # vllm-layout-fw-stress-a8r34). It serves under its purpose alias, audio, its one name, for

@@ -5,14 +5,13 @@
 # this run. The container and its port are the row's, vllm on 8000 unless the row names others, so
 # a host runs one container per row, and install touches no other row's. The image is the
 # flavor's official one, or the row's own when it names one, which the host builds and install
-# never pulls (vllm_pull); on rocm, VLLM_ROCM_BUILD=rocm72 chooses the release's ROCm 7.2 build
-# for this run (vllm_flavor). The image's flavor, its devices, and its default row are
+# never pulls (vllm_pull). The image's flavor, its devices, and its default row are
 # VLLM_FLAVOR's, cuda or rocm, or with none given the host's GPU's: rocm on an AMD GPU, cuda
 # otherwise (vllm_flavor). When the row's container already serves exactly that (image, model,
 # port, and server flags) it changes nothing, saying docker start starts it when it is stopped (it
 # never starts it itself); when it serves anything else, another release's, another flavor's, or
 # another row's, it refuses, saying what it runs, and points at update. It refuses an unknown
-# flavor or ROCm build before it reads Docker, a VLLM_MODEL with no row, listing the rows, and
+# flavor before it reads Docker, a VLLM_MODEL with no row, listing the rows, and
 # refuses while the llama container runs, or any llama-router unit (native llama.cpp's, or another
 # project's of that name) or native vLLM's vllm-server unit is active, since llama.cpp and vLLM
 # never serve on a host at once.

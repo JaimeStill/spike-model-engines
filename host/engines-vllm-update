@@ -3,17 +3,16 @@
 # Serves the flavor's default row (vllm-rows), or the row VLLM_MODEL names for this run, so a plain
 # update returns to the default, in the row's container (vllm unless the row names another), and
 # touches no other row's. The image's flavor, its devices, and its default row are install's:
-# VLLM_FLAVOR's, cuda or rocm, or with none given the host's GPU's (vllm_flavor), and on rocm
-# VLLM_ROCM_BUILD=rocm72 moves the row to the release's ROCm 7.2 build for this run. Pulls the
+# VLLM_FLAVOR's, cuda or rocm, or with none given the host's GPU's (vllm_flavor). Pulls the
 # pinned image before replacing the container, so a failed pull leaves the old release serving; a
 # row's own image is never pulled, only checked for (vllm_pull). The container moves when anything
-# it serves differs from the row's: its image (another release's, flavor's, or build's), its model,
+# it serves differs from the row's: its image (another release's or flavor's), its model,
 # its port, or a server flag. When the image is already the pin's, as when only the row changes, it
 # replaces the container without pulling. Then it removes every official vLLM image no container
 # on the host was created from (vllm_remove_images), so the other rows' images stay. When it
 # already serves the row exactly and no unused image is left, it changes nothing; when that
 # container is stopped, it says docker start starts it, and never starts it itself. It refuses an
-# unknown flavor or ROCm build before it reads Docker, a VLLM_MODEL with no row, listing the rows,
+# unknown flavor before it reads Docker, a VLLM_MODEL with no row, listing the rows,
 # and refuses while the llama container runs, or any llama-router unit (native llama.cpp's, or
 # another project's of that name) or native vLLM's vllm-server unit is active, since llama.cpp and
 # vLLM never serve on a host at once.
