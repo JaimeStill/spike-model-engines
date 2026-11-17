@@ -47,7 +47,7 @@ server serves now.
 curl -s "http://gb10-1:8000/version"
 ```
 
-The vLLM version the server runs, `{"version":"0.32.0"}` at the pin; it matches `VLLM_RELEASE` in
+The vLLM version the server runs, `{"version":"0.34.0"}` at the pin; it matches `VLLM_RELEASE` in
 `host/vllm.env`, without the `v`.
 
 ## Metrics

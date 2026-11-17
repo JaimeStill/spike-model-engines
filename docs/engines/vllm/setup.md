@@ -21,15 +21,15 @@ below replaces it with `--entrypoint`: first ask `vllm` for its version, then as
 image's Python, for the GPU it finds:
 
 ```sh
-docker pull vllm/vllm-openai:v0.32.0
-docker run --rm --gpus all --entrypoint vllm vllm/vllm-openai:v0.32.0 --version
-docker run --rm --gpus all --entrypoint python3 vllm/vllm-openai:v0.32.0 -c \
+docker pull vllm/vllm-openai:v0.34.0
+docker run --rm --gpus all --entrypoint vllm vllm/vllm-openai:v0.34.0 --version
+docker run --rm --gpus all --entrypoint python3 vllm/vllm-openai:v0.34.0 -c \
   "import torch; p = torch.cuda.get_device_properties(0); print(torch.cuda.get_device_name(0), p.total_memory // 2**20, 'MiB')"
 ```
 
-`--version` prints `0.32.0`. The second command prints the GB10's name and the memory CUDA sees
-on it, in MiB; an error that no CUDA device is available means the container didn't reach the
-GPU.
+`--version` prints the release without its `v`, `0.32.0` when the pin was v0.32.0. The second
+command prints the GB10's name and the memory CUDA sees on it, in MiB; an error that no CUDA
+device is available means the container didn't reach the GPU.
 
 ### 3. Get the clone onto the host
 
@@ -497,7 +497,7 @@ runs](#what-the-native-install-runs)), writes the pin's default row, `gemma-4-26
 the release, the row, and the port it serves on, then what the server reports: its `/version`, and
 torch's version with the CUDA version it was built for, which reads 13.0; [What the native install
 runs](#what-the-native-install-runs) shows each phase's output. With no release, it
-installs the pin, v0.32.0; given `VLLM_MODEL=<row id>` before it, it serves that row instead of the
+installs the pin, v0.34.0; given `VLLM_MODEL=<row id>` before it, it serves that row instead of the
 default ([Models](models.md#serving-another-row-for-one-run)).
 
 A second run changes nothing and says `vllm-server already serves v0.31.0 with row
@@ -556,7 +556,7 @@ From the laptop, the server answers on the host's tailnet name ([API](api.md#ver
 curl -s -m5 http://gb10-1:8000/version
 ```
 
-It prints `{"version":"0.32.0"}` at the pin.
+It printed `{"version":"0.32.0"}` when the pin was v0.32.0.
 
 A cold start is timed from the unit's start to the `Application startup complete.` line, as the
 container's is from its start ([6. Watch the cold start](#6-watch-the-cold-start-and-record-it)):
@@ -587,7 +587,7 @@ pin, or `host/engines vllm-native install v0.31.0` at v0.31.0.
 
 Run these steps on the Framework, `framework`: Omarchy on an AMD Strix Halo whose GPU is gfx1151
 ([llama.cpp's Setup](../llama.cpp/setup.md#framework-in-a-container)). vLLM runs there in its
-official ROCm image, `vllm/vllm-openai-rocm:v0.32.0`, the same release as the GB10's CUDA image.
+official ROCm image, `vllm/vllm-openai-rocm:v0.34.0`, the same release as the GB10's CUDA image.
 The image brings its own ROCm runtime; the host gives it only the kernel's GPU driver, through
 two device files, `/dev/kfd` and `/dev/dri`, in place of the NVIDIA Container Toolkit's `--gpus
 all`, with no `--group-add`, seccomp, or ptrace options, since the device files are open to every
@@ -644,9 +644,9 @@ it with `--entrypoint`, as on the GB10
 ([2. Prove the pinned image runs on the GPU](#2-prove-the-pinned-image-runs-on-the-gpu)):
 
 ```sh
-docker pull vllm/vllm-openai-rocm:v0.32.0
-docker run --rm --device /dev/kfd --device /dev/dri --entrypoint vllm vllm/vllm-openai-rocm:v0.32.0 --version
-docker run --rm --device /dev/kfd --device /dev/dri --entrypoint rocminfo vllm/vllm-openai-rocm:v0.32.0 | awk '/^Agent [0-9]+/ { gpu = 0 } /Name: +gfx1151/ { gpu = 1 } gpu && /Name:|Segment:|Size:/'
+docker pull vllm/vllm-openai-rocm:v0.34.0
+docker run --rm --device /dev/kfd --device /dev/dri --entrypoint vllm vllm/vllm-openai-rocm:v0.34.0 --version
+docker run --rm --device /dev/kfd --device /dev/dri --entrypoint rocminfo vllm/vllm-openai-rocm:v0.34.0 | awk '/^Agent [0-9]+/ { gpu = 0 } /Name: +gfx1151/ { gpu = 1 } gpu && /Name:|Segment:|Size:/'
 cat /sys/class/drm/card*/device/mem_info_gtt_total
 ```
 
@@ -715,12 +715,12 @@ host/engines vllm install
 ```
 
 `install` runs as on gb10-1 ([5. Install](#5-install)), with the `rocm` flavor, which it picks
-on a host with an AMD GPU: it pulls `vllm/vllm-openai-rocm:v0.32.0` and starts `vllm` with
+on a host with an AMD GPU: it pulls `vllm/vllm-openai-rocm:v0.34.0` and starts `vllm` with
 `--device /dev/kfd --device /dev/dri` in place of `--gpus all`, keeping `--ipc host` and every
 other option, on the flavor's default row, `gpt-oss-120b`. It prints
 
 ```text
-vllm runs vllm/vllm-openai-rocm:v0.32.0 with row gpt-oss-120b (openai/gpt-oss-120b) on port 8000 of the tailnet address; docker logs -f vllm shows its start
+vllm runs vllm/vllm-openai-rocm:v0.34.0 with row gpt-oss-120b (openai/gpt-oss-120b) on port 8000 of the tailnet address; docker logs -f vllm shows its start
 ```
 
 The row's flags are in `host/vllm-rows` ([Models](models.md#the-rows)):

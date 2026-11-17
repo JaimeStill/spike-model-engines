@@ -5,7 +5,7 @@
 # on the host (vllm_containers), it removes every official vLLM image and the compile cache too,
 # which the rows' containers share; while another is left, it keeps them, naming it. A row's own
 # image, built on the host, stays, as the model store does; deleting models is a typed command
-# (docs/engines/vllm/uninstall.md). It refuses an unknown flavor or ROCm build, and a VLLM_MODEL
+# (docs/engines/vllm/uninstall.md). It refuses an unknown flavor, and a VLLM_MODEL
 # with no row, listing the rows.
 set -euo pipefail
 # shellcheck source=host/vllm.sh

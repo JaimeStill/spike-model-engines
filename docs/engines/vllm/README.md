@@ -7,10 +7,10 @@ vLLM's ROCm image of the same release. Unlike llama.cpp's router, a vLLM server 
 named on its command line when it starts, and loads no other on demand: changing the model means
 starting the server again, with `update`, on another row of model and flags.
 
-The spike follows vLLM's GitHub releases. The pin lives in `host/vllm.env`: release v0.32.0, and for
+The spike follows vLLM's GitHub releases. The pin lives in `host/vllm.env`: release v0.34.0, and for
 each flavor its image and the row it serves by default. The `cuda` flavor, on the GB10s, runs
-`vllm/vllm-openai:v0.32.0` on `gemma-4-26B-A4B-NVFP4`, `nvidia/Gemma-4-26B-A4B-NVFP4` with its
-server flags; the `rocm` flavor, on the Framework, runs `vllm/vllm-openai-rocm:v0.32.0` on
+`vllm/vllm-openai:v0.34.0` on `gemma-4-26B-A4B-NVFP4`, `nvidia/Gemma-4-26B-A4B-NVFP4` with its
+server flags; the `rocm` flavor, on the Framework, runs `vllm/vllm-openai-rocm:v0.34.0` on
 `gpt-oss-120b`. The commands pick the flavor from the host's GPU ([Update](update.md#the-flavor)).
 Every model the server can serve is a row in `host/vllm-rows`, its model and its flags, and
 `VLLM_MODEL=<row id>` before `install` or `update` serves another row for one run

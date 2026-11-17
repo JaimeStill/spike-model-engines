@@ -43,7 +43,7 @@ docker image ls vllm/vllm-openai-rocm
 The first prints the pinned image, then the row's model and server flags the container serves;
 the other two, one a flavor's repository, list the pinned image alone, and nothing for the other
 flavor. The laptop confirms the version the server itself runs
-([API](api.md#version)), which reads `0.32.0` at the pin.
+([API](api.md#version)), which reads `0.34.0` at the pin.
 
 ## The flavor
 
@@ -75,7 +75,7 @@ release move. `install` refuses it, as it refuses another release, and names the
 moves it, with the flavor given:
 
 ```text
-vllm runs vllm/vllm-openai-rocm:v0.32.0 with openai/gpt-oss-120b, not vllm/vllm-openai:v0.32.0 with row gemma-4-26B-A4B-NVFP4 (nvidia/Gemma-4-26B-A4B-NVFP4); VLLM_FLAVOR=cuda engines vllm update moves it to the row
+vllm runs vllm/vllm-openai-rocm:v0.34.0 with openai/gpt-oss-120b, not vllm/vllm-openai:v0.34.0 with row gemma-4-26B-A4B-NVFP4 (nvidia/Gemma-4-26B-A4B-NVFP4); VLLM_FLAVOR=cuda engines vllm update moves it to the row
 ```
 
 Each host serves its own flavor, so `VLLM_FLAVOR` is only for a host that runs both, which none
@@ -140,7 +140,7 @@ serves ([Native](#native)).
 ## Native
 
 Native vLLM ([Setup](setup.md#gb10-native)) updates with its own command, from the clone, after
-`git pull`; with no release it moves to the pin, v0.32.0, on the `cuda` flavor's default row, since
+`git pull`; with no release it moves to the pin, v0.34.0, on the `cuda` flavor's default row, since
 native vLLM is CUDA's alone:
 
 ```sh

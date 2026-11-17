@@ -44,11 +44,9 @@ VLLM_ROWS_FILE=$(dirname "${BASH_SOURCE[0]}")/$VLLM_ROWS
 # otherwise, as on the GB10s. Reading the vendor ID needs no root and no Docker. Refuses any other
 # flavor, before Docker is read.
 #
-# The rocm flavor's image is the release's default tag, which on v0.33.0 is its ROCm 10.0 build
-# (the same image as its -rocm100 tag). VLLM_ROCM_BUILD, set for one run to the pin's fallback,
-# VLLM_ROCM_FALLBACK (rocm72), names that build instead, and vllm_image then names the tag
-# <release>-<build>, for the row's own image too. It refuses any other VLLM_ROCM_BUILD, and any on
-# the cuda flavor, whose images have no such builds.
+# The rocm flavor's image is the release's default tag, which on v0.34.0 is its only ROCm build,
+# ROCm 10.0 (the same image as its -rocm100 tag): v0.34.0 publishes no ROCm 7.2 build, so the pin
+# names no fallback (host/vllm.env).
 vllm_flavor() {
   if [[ -z ${VLLM_FLAVOR:-} ]]; then
     VLLM_FLAVOR=cuda
@@ -58,21 +56,11 @@ vllm_flavor() {
   fi
   case $VLLM_FLAVOR in
     cuda)
-      if [[ -n ${VLLM_ROCM_BUILD:-} ]]; then
-        echo "VLLM_ROCM_BUILD is $VLLM_ROCM_BUILD, but the flavor is cuda, which has no ROCm" \
-          "builds" >&2
-        return 1
-      fi
       VLLM_REPOSITORY=$VLLM_REPOSITORY_CUDA
       VLLM_DEVICES=(--gpus all)
       VLLM_MODEL=${VLLM_MODEL:-$VLLM_MODEL_CUDA}
       ;;
     rocm)
-      if [[ -n ${VLLM_ROCM_BUILD:-} && $VLLM_ROCM_BUILD != "$VLLM_ROCM_FALLBACK" ]]; then
-        echo "VLLM_ROCM_BUILD is $VLLM_ROCM_BUILD; the only ROCm build the pin names besides" \
-          "the default is $VLLM_ROCM_FALLBACK" >&2
-        return 1
-      fi
       VLLM_REPOSITORY=$VLLM_REPOSITORY_ROCM
       VLLM_DEVICES=(--device /dev/kfd --device /dev/dri)
       VLLM_MODEL=${VLLM_MODEL:-$VLLM_MODEL_ROCM}
@@ -170,12 +158,11 @@ vllm_serves() {
   echo "row $VLLM_MODEL (${VLLM_ARGS[0]})"
 }
 
-# The settings the run was given in the environment, VLLM_FLAVOR, VLLM_MODEL, and
-# VLLM_ROCM_BUILD, as "NAME=value " each, read before vllm_flavor resolves them, so a message can
-# name the command that repeats the run.
+# The settings the run was given in the environment, VLLM_FLAVOR and VLLM_MODEL, as
+# "NAME=value " each, read before vllm_flavor resolves them, so a message can name the command
+# that repeats the run.
 vllm_given() {
-  local given=${VLLM_FLAVOR:+VLLM_FLAVOR=$VLLM_FLAVOR }${VLLM_MODEL:+VLLM_MODEL=$VLLM_MODEL }
-  echo "$given${VLLM_ROCM_BUILD:+VLLM_ROCM_BUILD=$VLLM_ROCM_BUILD }"
+  echo "${VLLM_FLAVOR:+VLLM_FLAVOR=$VLLM_FLAVOR }${VLLM_MODEL:+VLLM_MODEL=$VLLM_MODEL }"
 }
 
 # What a container serves the row as (after vllm_row), from the image given:
@@ -186,9 +173,9 @@ vllm_served() {
 }
 
 # The image for a release, in the repository vllm_flavor resolved, or the row's own (vllm_row):
-# <repository>:<release>, or <repository>:<release>-<build> when VLLM_ROCM_BUILD names a build.
+# <repository>:<release>.
 vllm_image() {
-  echo "$VLLM_REPOSITORY:$1${VLLM_ROCM_BUILD:+-$VLLM_ROCM_BUILD}"
+  echo "$VLLM_REPOSITORY:$1"
 }
 
 # Fetches the image given before the container is started: docker pull for an official image, and
@@ -245,9 +232,8 @@ vllm_run() {
 # Removes every vLLM image, in both flavors' official repositories, but the one given (none when
 # given nothing) and any a container on the host was created from, such as another row's, printing
 # each. A row's own image, built on the host, is never removed. An official image no container was
-# created from goes, the ROCm fallback build (VLLM_ROCM_FALLBACK) pulled ahead of need among them:
-# an install or update with VLLM_ROCM_BUILD set pulls it again. Needs no flavor. Stops at the first
-# failure, so it never reports an image it did not remove.
+# created from goes. Needs no flavor. Stops at the first failure, so it never reports an image it
+# did not remove.
 vllm_remove_images() {
   local repository listed refs='' ref used id
   used=$(docker container ls --all --quiet |
