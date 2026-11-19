@@ -15,6 +15,8 @@
 # refuses while the llama container runs, or any llama-router unit (native llama.cpp's, or another
 # project's of that name) or native vLLM's vllm-server unit is active, since llama.cpp and vLLM
 # never serve on a host at once.
+# With VLLM_TRACE=on before it, the row is traced: it exports its spans to the trace collector under
+# the service name vllm-<alias> (host/vllm.env).
 set -euo pipefail
 # shellcheck source=host/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"

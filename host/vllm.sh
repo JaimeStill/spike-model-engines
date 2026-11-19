@@ -17,6 +17,10 @@
 # passwd entry. This is what the image's own non-root variant does in its entrypoint. Every
 # container on the host shares the one directory: vLLM keys its compile cache by the model and its
 # configuration, so the rows don't overwrite each other's.
+#
+# A run given VLLM_TRACE=on (host/vllm.env) traces the row: its container exports a span per
+# request to the OpenTelemetry Collector VLLM_TRACE_COLLECTOR names, under the service name
+# vllm-<alias>. It is the same on both flavors and on a row's own image, which all run here.
 
 # shellcheck source=host/engines.sh
 source "$(dirname "${BASH_SOURCE[0]}")/engines.sh"
@@ -130,8 +134,12 @@ vllm_refuse_running() {
 # command joined with spaces reads back unambiguously. Reads the row's settings too: its container
 # into VLLM_CONTAINER and its port into VLLM_PORT, each the default when the row names none; and,
 # when it names an image, that repository into VLLM_REPOSITORY in place of the flavor's, with
-# VLLM_LOCAL set, since such an image is built on the host and never pulled (vllm_pull). Refuses an
-# id with no row, listing the rows.
+# VLLM_LOCAL set, since such an image is built on the host and never pulled (vllm_pull). When the
+# run is traced (VLLM_TRACE=on), the collector's endpoint ends VLLM_ARGS as --otlp-traces-endpoint,
+# grpc:// over the collector's host and port, so tracing on or off reads back from the command and
+# update moves a row between the two; and VLLM_ALIAS holds the row's alias, its
+# --served-model-name, or its id when it names none, which the service name is built from. Refuses
+# an id with no row, listing the rows, and a VLLM_TRACE other than on or empty.
 vllm_row() {
   local words image
   mapfile -t words < <(vllm_row_words "$VLLM_MODEL")
@@ -151,6 +159,18 @@ vllm_row() {
     VLLM_LOCAL=yes
   fi
   VLLM_ARGS=("${words[0]}" --host 0.0.0.0 --port "$VLLM_PORT" "${words[@]:1}")
+  case ${VLLM_TRACE:-} in
+    '') ;;
+    on)
+      VLLM_ALIAS=$(printf '%s\n' "${words[@]}" | grep -A1 -x -- --served-model-name | tail -n +2)
+      VLLM_ALIAS=${VLLM_ALIAS:-$VLLM_MODEL}
+      VLLM_ARGS+=(--otlp-traces-endpoint "grpc://$VLLM_TRACE_COLLECTOR")
+      ;;
+    *)
+      echo "VLLM_TRACE is $VLLM_TRACE, which is neither on nor empty" >&2
+      return 1
+      ;;
+  esac
 }
 
 # The row, as "row <id> (<model>)", for messages, after vllm_row.
@@ -158,11 +178,12 @@ vllm_serves() {
   echo "row $VLLM_MODEL (${VLLM_ARGS[0]})"
 }
 
-# The settings the run was given in the environment, VLLM_FLAVOR and VLLM_MODEL, as
+# The settings the run was given in the environment, VLLM_FLAVOR, VLLM_MODEL, and VLLM_TRACE, as
 # "NAME=value " each, read before vllm_flavor resolves them, so a message can name the command
 # that repeats the run.
 vllm_given() {
-  echo "${VLLM_FLAVOR:+VLLM_FLAVOR=$VLLM_FLAVOR }${VLLM_MODEL:+VLLM_MODEL=$VLLM_MODEL }"
+  local given=${VLLM_FLAVOR:+VLLM_FLAVOR=$VLLM_FLAVOR }${VLLM_MODEL:+VLLM_MODEL=$VLLM_MODEL }
+  echo "$given${VLLM_TRACE:+VLLM_TRACE=$VLLM_TRACE }"
 }
 
 # What a container serves the row as (after vllm_row), from the image given:
@@ -210,15 +231,31 @@ vllm_describe() {
 }
 
 # Checks what vllm_run needs before anything is pulled or removed (engines_preflight), and sets
-# VLLM_ADDR to the tailnet address it publishes the row's port on, after vllm_row.
+# VLLM_ADDR to the tailnet address it publishes the row's port on, after vllm_row. Sets
+# VLLM_TRACE_OPTS to the docker run options a traced run (VLLM_TRACE=on) adds, and to none
+# otherwise: the collector's host added to the container's hosts file at its tailnet IPv4 address,
+# since the resolver docker gives a container doesn't know the tailnet's short names, and the
+# service name. The address is looked up here, before update removes the running container, so a
+# collector's host the tailnet doesn't know refuses with the row still serving.
 vllm_preflight() {
-  engines_preflight "$VLLM_PORT" && VLLM_ADDR=$ENGINES_ADDR
+  local host addr
+  engines_preflight "$VLLM_PORT" && VLLM_ADDR=$ENGINES_ADDR || return
+  VLLM_TRACE_OPTS=()
+  [[ -n ${VLLM_TRACE:-} ]] || return 0
+  host=${VLLM_TRACE_COLLECTOR%:*}
+  if ! addr=$(tailscale ip -4 "$host") || [[ -z $addr ]]; then
+    echo "the tailnet has no IPv4 address for $host, the trace collector's host" \
+      "(VLLM_TRACE_COLLECTOR); is it up?" >&2
+    return 1
+  fi
+  VLLM_TRACE_OPTS=(--add-host "$host:$addr" --env "OTEL_SERVICE_NAME=vllm-$VLLM_ALIAS")
 }
 
 # Starts the row's container from the image given, with the flavor's devices, serving the row on
-# its port, after vllm_flavor, vllm_row, and vllm_preflight. The server listens on the row's port
-# inside the container too, so the port reads back from its command. It creates the compile cache
-# directory first, so Docker doesn't create it as root.
+# its port, after vllm_flavor, vllm_row, and vllm_preflight, with a traced run's options
+# (VLLM_TRACE_OPTS). The server listens on the row's port inside the container too, so the port
+# reads back from its command. It creates the compile cache directory first, so Docker doesn't
+# create it as root.
 vllm_run() {
   mkdir -p "$VLLM_CACHE_DIR"
   docker run --detach --name "$VLLM_CONTAINER" --restart unless-stopped "${VLLM_DEVICES[@]}" \
@@ -226,7 +263,7 @@ vllm_run() {
     --publish "$VLLM_ADDR:$VLLM_PORT:$VLLM_PORT" \
     --volume "$VLLM_STORE:$VLLM_STORE" --env "HF_HUB_CACHE=$VLLM_STORE" \
     --volume "$VLLM_CACHE_DIR:$VLLM_HOME" --env "HOME=$VLLM_HOME" --env "USER=$(id -un)" \
-    "$1" "${VLLM_ARGS[@]}"
+    "${VLLM_TRACE_OPTS[@]}" "$1" "${VLLM_ARGS[@]}"
 }
 
 # Removes every vLLM image, in both flavors' official repositories, but the one given (none when
