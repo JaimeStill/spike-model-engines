@@ -1,11 +1,9 @@
 # Host practices
 
 The practices every task follows on the hosts, each with its reason: on every host, then on the
-GB10s and on the Framework, for the map in [`context/README.md`](../context/README.md).
+GB10s, then on the Framework.
 
 ## Running on every host
-
-The practices every task follows, on the GB10s and the Framework, each with its reason:
 
 - **Pre-staging.** Every model a task serves is downloaded, and both engines' images pulled,
   first, all in parallel, before any start, cell, or timed load. A download loads the host's
@@ -77,9 +75,8 @@ The practices every task follows, on the GB10s and the Framework, each with its 
   why it is held. Two are held: `mise.bench.toml` holds GuideLLM's Python at 3.14, because
   torchcodec 0.17.0, which GuideLLM's audio extra needs, publishes no 3.15 wheel; and
   `host/vllm.env` holds native vLLM's Python at 3.12, because native vLLM is retired on both hosts.
-  spike-model-gateway's priority task ended the llama.cpp hold on b12098 (both classes moved to
-  b12464, now b12602, inert and unverified there, and Google's QAT sections may still not resolve:
-  llama.cpp #31620 and #31639) and moved vLLM to v0.34.0.
+  llama.cpp's builds are not held
+  ([Where the pins stand](engines/llama.cpp/update.md#where-the-pins-stand)).
 - **GuideLLM's client faults.** GuideLLM 0.8.1 has failed on the client while the server served:
   it stalled between an embedding cell's 1- and 16-stream levels, and it dropped a request's
   stream before the request finished, which llama.cpp logged as the client's read error. When the
@@ -92,8 +89,6 @@ The practices every task follows, on the GB10s and the Framework, each with its 
   `MISE_ENV=bench mise install --force pipx:guidellm`.
 
 ## Running on the GB10s
-
-The practices every task on the GB10s follows, each with its reason:
 
 - **CDI spec.** An `apt upgrade` without a reboot can leave the NVIDIA Container Toolkit's CDI spec
   naming a library that is gone, and every GPU container then fails to start. Regenerate it after
@@ -108,8 +103,6 @@ The practices every task on the GB10s follows, each with its reason:
 
 ## Running on the Framework
 
-The practices every task on the Framework follows, each with its reason:
-
 - **A measuring session owns the Framework.** Nothing else serves on it while a session measures,
   so no other server holds port 8080 or the GTT during a measurement.
 - **Set A between tasks.** The Framework serves set A from the `llama` container between tasks
@@ -119,7 +112,8 @@ The practices every task on the Framework follows, each with its reason:
 - **The GTT ceiling.** The GPU reaches up to 112 GiB of RAM as GTT, set by TTM's `pages_limit`
   and amdgpu's `gttsize`, built into the boot image. Above 90% of RAM, `amd-ttm` warns that a GPU
   filling memory can starve the host; clearing the options drops the ceiling to the kernel's
-  default of half of RAM, about 62.5 GiB ([setup](engines/llama.cpp/setup.md#2-set-the-gtt-ceiling)).
+  default of half of RAM, about 62.5 GiB
+  ([setup](engines/llama.cpp/setup.md#2-set-the-gtt-ceiling)).
 - **The store and its snapshots.** `/srv/models` is on the root drive, a btrfs subvolume Snapper
   snapshots before each `omarchy update`, so a deleted model frees its space only once the last
   snapshot holding it ages out
@@ -141,7 +135,8 @@ The practices every task on the Framework follows, each with its reason:
 - **vLLM's reservation.** vLLM counts the whole 112 GiB GTT ceiling as the GPU's memory and
   reserves 0.80 of it, 89.6 GiB, at every generative row, so MemAvailable falls to about 21 to 24
   GiB whatever the model; the KV cache takes what the weights leave. The embedding row logs no
-  reservation and leaves about 114 GiB ([vllm-strix](findings/vllm-strix.md#cold-start-and-footprint)).
+  reservation and leaves about 114 GiB
+  ([vllm-strix](findings/vllm-strix.md#cold-start-and-footprint)).
 - **vLLM's audio.** vLLM's official ROCm image ships no audio decoder, so an audio request returns
   500. The probe image that `host/vllm-rocm-audio/Dockerfile` builds adds the audio extra's
   missing packages and serves audio; the `engines` suite doesn't build it

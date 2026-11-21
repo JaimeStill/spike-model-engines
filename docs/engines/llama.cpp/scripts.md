@@ -1,10 +1,10 @@
 # How the scripts work
 
-The `engines` commands' libraries, and what their code leaves unsaid: why each function reads,
-refuses, or waits as it does. Each library's header points at its section here. The libraries
-shared with vLLM, the model store and the one-engine-per-host refusals, live in this guide, since
-llama.cpp's [Setup](setup.md#5-create-the-model-store) creates the store; vLLM's libraries are in
-[vLLM's scripts](../vllm/scripts.md).
+This page explains what the `engines` commands' libraries leave unsaid in their code: why each
+function reads, refuses, or waits as it does. Each library's header points at its section here.
+The libraries shared with vLLM, the model store and the one-engine-per-host refusals, live in
+this guide, since llama.cpp's [Setup](setup.md#5-create-the-model-store) creates the store; vLLM's
+libraries are in [vLLM's scripts](../vllm/scripts.md).
 
 ## What every engine shares
 

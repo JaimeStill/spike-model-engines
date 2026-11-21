@@ -1,8 +1,8 @@
 # Tools
 
-The reasoning behind the repository's tool configuration and its scripts: the mise environments,
-the check and currency scripts, marathon's settings, the untracked files, and shellcheck's. Each
-file's header points at its section with a `See` line.
+This page gives the reasoning behind the repository's tool configuration and scripts: the mise
+environments, the check and currency scripts, marathon's settings, the untracked files, and
+shellcheck's settings. Each file's header points at its section with a `See` line.
 
 ## The check and currency
 
@@ -25,15 +25,15 @@ and one would hide the other's pin; `mise.toml`'s tools, which both read, are li
 lists a tool not installed here, such as hf on the laptop, with no bump, so its pin is compared
 with its latest instead. A failed read stops the script.
 
-A host class's llama.cpp latest is the newest b-build with that class's server image on ghcr.io,
-not the newest release, since llama.cpp publishes images only nightly and on manual runs, so its
-newest release often has none and `engines llama update` couldn't pull it. One flavor's image
-stands for each class's: gb10's `server-cuda13-<build>`, and strix-halo's `server-vulkan-<build>`.
-The builds are read newest first, stopping at the first whose image exists (200); a 404 means none
-yet, and any other answer is a failed read. A class is reported only when its pin is lower. Native
-vLLM's Python is a minor version, whose latest is the minor version of CPython's latest release, as
-mise reads it. A pin held on purpose, as GuideLLM's Python and native vLLM's Python are, is
-reported like any other, and the comment beside the pin says why it is held.
+llama.cpp's latest is not its newest release, since llama.cpp publishes images only nightly and on
+manual runs, so its newest release often has none and `engines llama update` couldn't pull it. One
+flavor's image stands for each class's: gb10's `server-cuda13-<build>`, and strix-halo's
+`server-vulkan-<build>`. The builds are read newest first, stopping at the first whose image
+exists (200); a 404 means none yet, and any other answer is a failed read. A class is reported
+only when its pin is lower. Native vLLM's Python is a minor version, whose latest is the minor
+version of CPython's latest release, as mise reads it. A pin held on purpose, as GuideLLM's Python
+and native vLLM's Python are, is reported like any other, and the comment beside the pin says why
+it is held.
 
 ## The bench environment
 

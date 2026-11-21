@@ -255,14 +255,15 @@ Rows that serve together on one host each reserve a share, and their fractions' 
 takes of the host, so each set of them is sized for its host. A row that sizes its KV cache in
 bytes (`--kv-cache-memory-bytes`) keeps its fraction, and vLLM takes the bytes in place of what the
 fraction would leave the cache. Every row serves sequences of 8192 tokens, as each of llama.cpp's
-slots, but the agent rows, which serve the agent's 131,072. The model's own generation config sets
-its sampling (vLLM's default, `--generation-config auto`). Gemma 4's rows hold 4 sequences,
-mirroring llama.cpp's 4 slots, but the capability rows, which hold what their cells met the floors
-at; keep a BF16 KV cache, since the NVFP4 checkpoints declare a static FP8 one but ship no
-calibrated k/v scales, so vLLM would quantize it with a scale of 1.0, and every Gemma 4 row matches
-them; and use Gemma 4's own reasoning and tool-call parsers. Their vision encoder loads (no
-`--language-model-only`), and E4B's and 12B's audio encoder too: vLLM allows every modality the
-model has without `--limit-mm-per-prompt`.
+slots does, except the agent rows, which serve the agent's 131,072. The model's own generation config sets
+its sampling (vLLM's default, `--generation-config auto`).
+
+Gemma 4's rows hold 4 sequences, mirroring llama.cpp's 4 slots, except the capability rows, which
+hold the count their cells met the floors at. They keep a BF16 KV cache: the NVFP4 checkpoints
+declare a static FP8 one but ship no calibrated k/v scales, so vLLM would quantize it with a scale
+of 1.0, and every Gemma 4 row matches the NVFP4 rows. They use Gemma 4's own reasoning and
+tool-call parsers. Their vision encoder loads (no `--language-model-only`), and E4B's and 12B's
+audio encoder too: vLLM allows every modality the model has without `--limit-mm-per-prompt`.
 
 ### Each row's reasons
 

@@ -1,16 +1,16 @@
 # The benchmark cells
 
-The load, sizing, and requests of each GuideLLM scenario in [`bench/`](../bench/), one section per
-file; each file's header points at its section with a `See` line, and its inline `See` lines at the
-shared sections. GuideLLM runs from the bench environment ([Tools](tools.md#the-bench-environment)).
+This page gives the load, sizing, and requests of each GuideLLM scenario in
+[`bench/`](../bench/), one section per file. Each file's header points at its section with a `See`
+line, and its inline `See` lines point at the shared sections. GuideLLM runs from the bench
+environment ([Tools](tools.md#the-bench-environment)).
 
 ## How a cell is run
 
 Every cell runs from the repository root. The target is the server's URL, which the architect sets
 in `GUIDELLM__SPEC__BACKEND__TARGET`, so no address is committed. The anchor cells name their model
 and tokenizer in the file. The engine-neutral cells name neither: the model, its tokenizer, and the
-JSON's path are given on the command line, and the target in `GUIDELLM__SPEC__BACKEND__TARGET`, so
-one file serves both engines and every model it fits
+JSON's path are given on the command line, so one file serves both engines and every model it fits
 ([bench-gb10-container](findings/bench-gb10-container.md), "Method"). The vision cells need
 GuideLLM's vision extra and the audio cells its audio extra
 ([host practices](host-practices.md#running-on-every-host), "GuideLLM's extras").
@@ -52,8 +52,8 @@ The audio cells' requests, shared by [audio-a](#audio-a) and [audio-b](#audio-b)
   with no newlines."), once a request. Source 1 is hf-internal-testing/librispeech_asr_dummy, 73
   clips from LibriSpeech's clean validation split, about 9 MB fetched once from Hugging Face; the
   32 the cells read run 1.7 to 29.4 s, within the card's 30-second audio limit.
-- **The columns.** Only the prompt and the clip: LibriSpeech's own text column is the reference
-  transcript, which the mapper's defaults would otherwise send as the prompt.
+- **The columns.** The cells read only the prompt and the clip. LibriSpeech's own text column is
+  the reference transcript, which the mapper's defaults would otherwise send as the prompt.
 - **The encoding.** Every clip is re-encoded as 16 kHz mono WAV, which both engines' input_audio
   accepts; the source is FLAC, which llama.cpp's doesn't.
 

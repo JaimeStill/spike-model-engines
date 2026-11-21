@@ -8,11 +8,12 @@ benchmark planned and run together. Together they are evidence for the engine an
 spike decides nothing itself.
 
 The spike answers for experiment.hosting, and the coordinator's roadmap,
-`standards-lab/roadmap/index.toml`, holds its work. The coordinator records its
-answer in `standards-lab/docs/ai-hosting.md`, "The spikes' answers". IL6 is out of this spike's scope. Each capability in
-detail, the tasks in the order they ran, and the repositories the spike reads are in
-[`docs/capabilities.md`](../docs/capabilities.md); the practices every task follows on the hosts
-are in [`docs/host-practices.md`](../docs/host-practices.md).
+`standards-lab/roadmap/index.toml`, holds its work. The coordinator records its answer in
+`standards-lab/docs/ai-hosting.md`, "The spikes' answers". IL6 is out of this spike's scope.
+[`docs/capabilities.md`](../docs/capabilities.md) details each capability, the tasks in the order
+they ran, and the repositories the spike reads;
+[`docs/host-practices.md`](../docs/host-practices.md) holds the practices every task follows on
+the hosts.
 
 ## The question
 
@@ -22,9 +23,9 @@ Halo), and is it hosted in a container or on bare metal?
 ## The answer
 
 The answer is in the top-level [`README.md`](../README.md#the-answer). standards-lab's
-`docs/ai-hosting.md` records that vLLM superseded it on every workstation: vLLM supersedes the
-engine; the container stands, since on gb10-1 both engines ran at native speed in their
-containers.
+`docs/ai-hosting.md` records that vLLM has replaced the answer's engine on every workstation,
+and that the answer's container hosting stands, since on gb10-1 both engines ran at native speed
+in their containers.
 
 ## The evidence
 
@@ -66,19 +67,20 @@ containers.
   [`docs/engines/vllm/`](../docs/engines/vllm/README.md), each for the GB10s with sections for
   the Framework.
 - **The `engines` suite** (built): [`host/engines`](../host/engines) and its
-  `engines-<group>-<verb>` commands under [`host/`](../host/), reasoning in each guide's
-  scripts page, [llama.cpp's](../docs/engines/llama.cpp/scripts.md) and
-  [vLLM's](../docs/engines/vllm/scripts.md).
+  `engines-<group>-<verb>` commands under [`host/`](../host/); each guide's scripts page,
+  [llama.cpp's](../docs/engines/llama.cpp/scripts.md) and
+  [vLLM's](../docs/engines/vllm/scripts.md), gives their reasoning.
 - **The benchmark cells** (built): the GuideLLM scenarios in [`bench/`](../bench/), sized in
-  [`docs/bench.md`](../docs/bench.md); the measured results in
+  [`docs/bench.md`](../docs/bench.md), with their measured results in
   [`docs/findings/`](../docs/findings/).
 - **Tools, check, and currency** (built): [`mise.toml`](../mise.toml), the bench and host
-  environments, and [`scripts/`](../scripts/), reasoning in [`docs/tools.md`](../docs/tools.md).
+  environments, and [`scripts/`](../scripts/); [`docs/tools.md`](../docs/tools.md) gives their
+  reasoning.
 - **Host practices** (built): [`docs/host-practices.md`](../docs/host-practices.md).
 - **The spike's rules** (built): [`docs/rules.md`](../docs/rules.md).
 
 ## Rules
 
 The experiment's rules, `standards-lab/docs/ai-hosting.md#experiment-rules`, govern every session.
-The rules this spike keeps beside them, how llama.cpp is pinned, the load tools, and the root
-grants, are in [`docs/rules.md`](../docs/rules.md).
+[`docs/rules.md`](../docs/rules.md) holds the rules this spike keeps beside them: how sessions
+are guided, how benchmarks run, how llama.cpp is pinned, the load tools, and the root grants.

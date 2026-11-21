@@ -204,11 +204,10 @@ The client keeps the large files in the store shared by every model it fetches,
 ### Setting up hf
 
 hf is pinned, with the uv that installs it, in the clone's host environment, `mise.host.toml`,
-which `mise run currency` covers: mise's pipx backend installs
-huggingface_hub, which provides `hf`, through uv. The environment is its own, not `mise.toml`, so
-the laptop's `mise run check` never installs it. It installs into your account's mise directory,
-with no root. On gb10-1, from the clone, after a `git pull`, and on the
-Framework the same, the session's step, from `~/repos/spike-model-engines`, where mise is
+which `mise run currency` covers: mise's pipx backend installs huggingface_hub, which provides
+`hf`, through uv. The environment is its own, not `mise.toml`, so the laptop's `mise run check`
+never installs it. It installs into your account's mise directory, with no root. On gb10-1, from
+the clone, after a `git pull`, and on the Framework the same, the session's step, from `~/repos/spike-model-engines`, where mise is
 installed and hf isn't yet:
 
 ```sh

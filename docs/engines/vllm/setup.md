@@ -858,4 +858,5 @@ docker build -t spike-model-engines/vllm-openai-rocm-audio:v0.34.0 host/vllm-roc
 ```
 
 The suite never pulls it, and never removes it (`host/vllm.sh`). Currency doesn't read it, so a
-release move leaves it behind: the digest moves with `VLLM_RELEASE`, by hand.
+release move leaves it behind: when `VLLM_RELEASE` moves, move the Dockerfile's digest to match, by
+hand.

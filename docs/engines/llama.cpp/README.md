@@ -7,12 +7,11 @@ or Vulkan server image. Each way, one `llama-server` runs in router mode: it hol
 itself, and loads each model named in its models preset, as a child process, when asked over its
 API. The router loads models on demand, so one server serves every model in the preset.
 
-The spike pins one b-build per host class in `host/llama.env`: `gb10` and `strix-halo` both at
-b12602, past b12464, which ended their hold on b12098. b12602 is unverified, since llama.cpp is
-inert on both hosts, and b12100 and later (llama.cpp #31620 and #31639) may not resolve Google's
-26B-A4B, 31B and E4B QAT GGUFs from an `hf-repo` tag. The flavor of server image names the class, as
-`ghcr.io/ggml-org/llama.cpp:server-<flavor>-<build>`: `cuda13`, gb10's, on gb10-1, and `rocm` or
-`vulkan`, strix-halo's, on the Framework. With none named, the `engines` commands pick `rocm` on a
+The spike pins one b-build per host class in `host/llama.env`: `gb10` and `strix-halo` both run
+b12602, which is unverified and may not resolve Google's 26B-A4B, 31B and E4B QAT GGUFs from an
+`hf-repo` tag ([Where the pins stand](update.md#where-the-pins-stand)). The flavor of server image
+names the class, as `ghcr.io/ggml-org/llama.cpp:server-<flavor>-<build>`: `cuda13`, gb10's, on
+gb10-1, and `rocm` or `vulkan`, strix-halo's, on the Framework. With none named, the `engines` commands pick `rocm` on a
 host with an AMD GPU and `cuda13` otherwise; `LLAMA_FLAVOR` names the flavor
 ([Update](update.md#switching-the-flavor)). With no version, `install` and `update` take the class's
 pin; native llama.cpp is gb10's. `mise run currency` reports a class's build only when a newer
@@ -54,8 +53,8 @@ notes name, or a b-build, such as `b11429`, which runs as given
 - [Uninstall](uninstall.md): removing llama.cpp, deleting models, with hf or by hand, removing
   native llama.cpp and its root steps, and removing the Framework's prebuilt, the vLLM audio
   probe's image, and its root steps.
-- [How the scripts work](scripts.md): what the `engines` commands' libraries do and why, the
-  libraries every engine shares among them.
+- [How the scripts work](scripts.md): what the `engines` commands' libraries do and why,
+  including the libraries every engine shares.
 - [llama-bench](setup.md#llama-bench): llama.cpp's raw pp/tg benchmark, natively and in ggml's
   full-cuda13 image on gb10-1, and on the Framework in the full-rocm and full-vulkan images and
   from ggml's native Vulkan prebuilt.

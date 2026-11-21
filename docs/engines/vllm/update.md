@@ -110,8 +110,8 @@ On v0.34.0, `rocm`'s default tag is its only ROCm build, ROCm 10.0, the same ima
 ROCm 7.2 build ("ROCm 7.2 artifacts dropped", vLLM #61939), so the pin names no fallback build:
 the architect removed the ROCm 7.2 fallback v0.33.0 kept (spike-model-gateway's
 docs/findings/priority.md), since the Framework's rows served on ROCm 10.0 throughout. The audio
-image builds on the same image ([Setup](setup.md#the-audio-image)), which records its digest where
-the build pins it.
+image builds on the same image; [Setup](setup.md#the-audio-image) records the digest the build
+pins.
 
 ## Rehearsing an update
 
@@ -163,7 +163,7 @@ for each release's native virtualenv ([Native](#native)), and `VLLM_TRACE_COLLEC
 
 ### v0.34.0's KV cache
 
-v0.34.0 changes how every row's KV cache is laid out and sized, with no flag of the rows' moved
+v0.34.0 changes how every row's KV cache is laid out and sized, though no row's flags changed
 (its release notes, "Before you upgrade"):
 
 - The extensible KV cache is on by default on CUDA and ROCm (#56492): the cache is sized from the
@@ -173,8 +173,8 @@ v0.34.0 changes how every row's KV cache is laid out and sized, with no flag of 
   on some models. A row that sizes its cache in bytes (`--kv-cache-memory-bytes`, the agent's FP8
   row) turns it off and keeps the bytes. Where the driver lacks virtual memory support it falls
   back to the estimate; whether gfx1151's does is unread.
-- The default `--block-size` is 64, was 16 (#63231). No row names one, so each moves to 64, but
-  ROCm's paged attention keeps 16.
+- The default `--block-size` rose from 16 to 64 (#63231). No row names one, so each moves to 64,
+  but ROCm's paged attention keeps 16.
 - It fixes caches undersized by up to 84% on DGX Spark (#65413), the GB10s' platform.
 
 The task's benchmarks ran on v0.33.0 and were not rerun on v0.34.0.

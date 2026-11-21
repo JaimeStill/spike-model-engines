@@ -1,8 +1,8 @@
 # How the scripts work
 
-The `engines` commands' libraries for vLLM, and what their code leaves unsaid: why each function
-reads, refuses, or waits as it does. Each library's header points at its section here. What every
-engine shares, the model store and the one-engine-per-host refusals, is in
+This page explains what the `engines` commands' libraries for vLLM leave unsaid in their code: why
+each function reads, refuses, or waits as it does. Each library's header points at its section
+here. What every engine shares, the model store and the one-engine-per-host refusals, is in
 [llama.cpp's scripts](../llama.cpp/scripts.md#what-every-engine-shares).
 
 ## The container

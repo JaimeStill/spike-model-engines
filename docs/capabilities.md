@@ -1,19 +1,19 @@
-# Capabilities, path, and references
+# Capabilities, tasks, and references
 
 This page details the spike's built capabilities, the tasks it ran in order, and the repositories
-it reads, for the map and the evidence in [`context/README.md`](../context/README.md).
+it reads, behind the map and the evidence in [`context/README.md`](../context/README.md).
 
 ## Capabilities
 
 - **Engine guides:** setup, models, APIs, updates, and uninstall, per engine, under
-  `docs/engines/<engine>/`; llama.cpp's and vLLM's are written for the GB10s, and each has
+  `docs/engines/<engine>/`. llama.cpp's and vLLM's are written for the GB10s, and each has
   sections for the Framework.
-- **The `engines` suite:** the scripted install, update, and uninstall steps, under `host/`;
-  llama.cpp's and vLLM's, each in a container (`llama`, `vllm`) and natively (`llama-native`,
-  `vllm-native`), are written. Each container takes a flavor, which picks its image and the
+- **The `engines` suite:** the scripted install, update, and uninstall steps, under `host/`, for
+  llama.cpp and vLLM, each in a container (`llama`, `vllm`) and natively (`llama-native`,
+  `vllm-native`). Each container takes a flavor, which picks its image and the
   devices it gets: llama's is `cuda13`, `rocm`, or `vulkan`, and vllm's `cuda` or `rocm`, which
   also picks its default row.
-- **Served-load findings:** GuideLLM runs under `docs/findings/`.
+- **Served-load findings:** the GuideLLM runs, under `docs/findings/`.
   `bench-gb10-container.md` compares both engines on gb10-1 in containers by shape, quantization,
   concurrency, vision, ASR, and embeddings (granite-embedding-english-r2 on both engines), with
   each method's commands. `llama-strix-rocm.md` compares llama.cpp in ggml's ROCm and Vulkan
@@ -25,7 +25,7 @@ it reads, for the map and the evidence in [`context/README.md`](../context/READM
   llama.cpp in ggml's Vulkan image, and reads gpt-oss-120b's initial setting from it. The anchor
   cells later tasks rerun are first in `llama-gb10-container.md` for llama.cpp and
   `vllm-gb10-container.md` for vLLM.
-- **Raw backend findings:** llama-bench pp/tg per llama.cpp backend. `llama-gb10-native.md` has
+- **Raw backend findings:** llama-bench's pp/tg per llama.cpp backend. `llama-gb10-native.md` has
   gb10-1's CUDA build, natively and in ggml's full-cuda13 image, on gpt-oss-120b and
   gemma-4-26B-A4B. `llama-strix-rocm.md` has the Framework's ROCm and Vulkan images and ggml's
   native Vulkan prebuilt, on the same two models at depths 0 and 8192.
@@ -42,9 +42,9 @@ it reads, for the map and the evidence in [`context/README.md`](../context/READM
   GB10s and its Vulkan image on the Framework. vLLM's leads and the measured concurrency curves
   are kept as evidence, and the answer sets no slot limit ([README](../README.md#the-answer)).
 
-## Path
+## The tasks in order
 
-The tasks, in the order they run; each cites the evidence it proves.
+The tasks ran in this order. Each names the evidence items it proves.
 
 1. `llama-gb10-container`: llama.cpp in ggml's CUDA 13 image on both GB10s, the `engines` suite,
    the llama.cpp guide, two GuideLLM anchor cells (evidence 1, 2).
@@ -65,9 +65,9 @@ The tasks, in the order they run; each cites the evidence it proves.
    ROCm row. The official image can't decode audio, so its audio cells are unsupported; a probe
    image that adds the missing packages serves them. llama.cpp's output tok/s is higher at every
    text, vision, and audio cell, and vLLM's request rate at both embedding cells.
-8. `strix-native`: dropped. It ran only when task 6 showed ROCm leading or the GB10 native tasks
-   showed bare metal winning; Vulkan led task 6, and bare metal measured level with the container
-   on gb10-1 (evidence 6).
+8. `strix-native`: dropped. It was to run only if task 6 showed ROCm leading or the GB10 native
+   tasks showed bare metal winning; Vulkan led task 6, and bare metal measured level with the
+   container on gb10-1 (evidence 6).
 9. `answer`: llama.cpp in a container on both host classes, ggml's CUDA image on the GB10s and
    its Vulkan image on the Framework, in README "The answer" (evidence 1 to 6). The Framework's
    concurrency sweep, in `docs/findings/answer.md`, gives gpt-oss-120b an initial setting of 4
