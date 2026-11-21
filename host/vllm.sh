@@ -106,8 +106,8 @@ vllm_row() {
   case ${VLLM_TRACE:-} in
     '') ;;
     on)
-      VLLM_ALIAS=$(printf '%s\n' "${words[@]}" | grep -A1 -x -- --served-model-name |
-        tail -n +2) || return
+      VLLM_ALIAS=$(printf '%s\n' "${words[@]}" | sed -n '/^--served-model-name$/{n;p;}') ||
+        return
       VLLM_ALIAS=${VLLM_ALIAS:-$VLLM_MODEL}
       VLLM_ARGS+=(--otlp-traces-endpoint "grpc://$VLLM_TRACE_COLLECTOR")
       ;;

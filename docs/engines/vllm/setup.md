@@ -265,7 +265,7 @@ pyenv do. Native vLLM uses three of its parts:
 
 #### How it is set up
 
-uv is pinned in the host environment, `mise.host.toml`, at 0.13.6, beside hf
+uv is pinned in the host environment, `mise.host.toml`, beside hf
 ([Pre-staging models with hf](models.md#pre-staging-models-with-hf)), and the `engines` commands
 run it through mise from the clone, as hf runs. They never install it: on the host, from the
 clone, install the host environment's tools once before the first native install, and again
@@ -275,8 +275,8 @@ after a pull that moves a pin:
 MISE_ENV=host mise install
 ```
 
-The first time, it installs uv, `uv@0.13.6`, and ends `installed 1 tool`; once uv is there, it
-prints `mise all tools are installed`.
+The first time, it installs uv at its pin, `uv@<version>`, and ends `installed 1 tool`; once uv
+is there, it prints `mise all tools are installed`.
 
 The `engines` commands point uv at `/opt/vllm`: `UV_PYTHON_INSTALL_DIR` at `/opt/vllm/python`,
 for its Python, and `UV_CACHE_DIR` at `/opt/vllm/cache/uv`, for its cache.

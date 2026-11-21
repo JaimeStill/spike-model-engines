@@ -1,8 +1,8 @@
 # Tools
 
 The reasoning behind the repository's tool configuration and its scripts: the mise environments,
-the check and currency scripts, marathon's settings, and shellcheck's. Each file's header points
-at its section with a `See` line.
+the check and currency scripts, marathon's settings, the untracked files, and shellcheck's. Each
+file's header points at its section with a `See` line.
 
 ## The check and currency
 
@@ -32,8 +32,8 @@ stands for each class's: gb10's `server-cuda13-<build>`, and strix-halo's `serve
 The builds are read newest first, stopping at the first whose image exists (200); a 404 means none
 yet, and any other answer is a failed read. A class is reported only when its pin is lower. Native
 vLLM's Python is a minor version, whose latest is the minor version of CPython's latest release, as
-mise reads it. A pin held on purpose, as GuideLLM's Python, the vLLM release, and native vLLM's
-Python are, is reported like any other, and the comment beside the pin says why it is held.
+mise reads it. A pin held on purpose, as GuideLLM's Python and native vLLM's Python are, is
+reported like any other, and the comment beside the pin says why it is held.
 
 ## The bench environment
 
@@ -64,3 +64,13 @@ goals live in the coordinator's roadmap, `standards-lab/roadmap/index.toml`.
 
 Its `[remote]` table names the remote platform and the commands that publish and merge a finished
 branch. The spike has no CI, so the merge doesn't wait on pull-request checks.
+
+## Untracked files
+
+[`.gitignore`](../.gitignore) leaves marathon's working files (`.claude/plans/`, `.claude/briefs/`)
+untracked, and benchmark scratch output under `.state/` before its findings are committed.
+
+## Shellcheck's settings
+
+[`.shellcheckrc`](../.shellcheckrc) sets `external-sources=true`, so shellcheck follows the files a
+script sources, such as `host/llama.env`, and checks their use.

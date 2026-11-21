@@ -203,8 +203,8 @@ The client keeps the large files in the store shared by every model it fetches,
 
 ### Setting up hf
 
-hf is pinned, with the uv that installs it, in the clone's host environment, `mise.host.toml`
-(huggingface_hub 2.3.0, uv 0.13.6), which `mise run currency` covers: mise's pipx backend installs
+hf is pinned, with the uv that installs it, in the clone's host environment, `mise.host.toml`,
+which `mise run currency` covers: mise's pipx backend installs
 huggingface_hub, which provides `hf`, through uv. The environment is its own, not `mise.toml`, so
 the laptop's `mise run check` never installs it. It installs into your account's mise directory,
 with no root. On gb10-1, from the clone, after a `git pull`, and on the
@@ -216,10 +216,10 @@ MISE_ENV=host mise install
 MISE_ENV=host mise exec -- hf version
 ```
 
-`mise install` also installs the clone's check tools, jq and shellcheck, from `mise.toml`. When
-mise asks whether to trust the clone's config files, answer yes. `hf version` prints its
-version, 2.3.0. hf runs as `MISE_ENV=host mise exec -- hf`, from the clone, and installs
-nothing outside mise's directory.
+`mise install` also installs the clone's check tools, jq, shellcheck, and marathon, from
+`mise.toml`. When mise asks whether to trust the clone's config files, answer yes. `hf version`
+prints its pinned version. hf runs as `MISE_ENV=host mise exec -- hf`, from the clone, and
+installs nothing outside mise's directory.
 
 Every model below is ungated, so no token is needed. hf warns that its requests are
 unauthenticated, which only lowers Hugging Face's rate limit.

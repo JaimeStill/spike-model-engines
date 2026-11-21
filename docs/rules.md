@@ -15,10 +15,10 @@ tools, and the root grants.
 - **Root** stays the architect's, run from exact commands. A root command a session must repeat
   may be granted once, by the architect, as a sudoers rule naming that one command exactly, such
   as gb10-1's page-cache drop
-  ([setup](../docs/engines/llama.cpp/setup.md#7-allow-the-page-cache-drop)) and the Framework's
-  ([setup](../docs/engines/llama.cpp/setup.md#11-allow-the-page-cache-drop)), or the five
+  ([setup](engines/llama.cpp/setup.md#7-allow-the-page-cache-drop)) and the Framework's
+  ([setup](engines/llama.cpp/setup.md#11-allow-the-page-cache-drop)), or the five
   `systemctl` commands that start, stop, restart, enable, and disable native llama.cpp's
   `llama-router` unit, each named with its arguments
-  ([setup](../docs/engines/llama.cpp/setup.md#1-the-architects-root-steps)), and native vLLM's
-  `vllm-server` unit ([setup](../docs/engines/vllm/setup.md#1-the-architects-root-steps)).
+  ([setup](engines/llama.cpp/setup.md#1-the-architects-root-steps)), and native vLLM's
+  `vllm-server` unit ([setup](engines/vllm/setup.md#1-the-architects-root-steps)).
 

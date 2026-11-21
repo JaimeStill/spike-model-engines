@@ -18,7 +18,7 @@ it reads, for the map and the evidence in [`context/README.md`](../context/READM
   concurrency, vision, ASR, and embeddings (granite-embedding-english-r2 on both engines), with
   each method's commands. `llama-strix-rocm.md` compares llama.cpp in ggml's ROCm and Vulkan
   images on the Framework by shape, quantization, vision, ASR, and embeddings, with each flavor's
-  cold load and footprint. [`vllm-strix.md`](../docs/findings/vllm-strix.md) compares vLLM in its
+  cold load and footprint. [`vllm-strix.md`](findings/vllm-strix.md) compares vLLM in its
   official ROCm image with llama.cpp in ggml's Vulkan image on the Framework, cell for cell, by
   shape, quantization, vision, ASR, and embeddings, with each row's cold start and footprint and
   an audio probe on a derived image. `answer.md` runs gb10-1's concurrency sweep on the Framework,
