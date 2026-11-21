@@ -174,9 +174,10 @@ the load and the compile alone; record it.
 ### The rows
 
 Every model the server serves is a row of `host/vllm-rows`: an id in brackets, the model's Hugging
-Face repository, then its server flags. The file's comments give each flag's reason. The rows are
-one set for both flavors. Every row but the standing rows serves sequences of 8192 tokens and
-reserves 0.80 of the host's GPU memory, on every host (`--max-model-len 8192
+Face repository, then its server flags; [The rows file](#the-rows-file) gives its format, and [Each
+row's reasons](#each-rows-reasons) and [The standing rows](#the-standing-rows) each flag's reason.
+The rows are one set for both flavors. Every row but the standing rows serves sequences of 8192
+tokens and reserves 0.80 of the host's GPU memory, on every host (`--max-model-len 8192
 --gpu-memory-utilization 0.80`), and the model's own generation config sets its sampling. Beyond
 those:
 
@@ -221,6 +222,145 @@ A row's id is its repository's name without the organization, with a suffix for 
 the same model. The container's command is the row's model, `--host 0.0.0.0 --port 8000`, then
 the row's flags, which `docker inspect` shows
 ([Update](update.md#moving-to-the-pinned-release-or-model)).
+
+### The rows file
+
+`host/vllm-rows` holds vLLM's rows, one a model the server can serve, each the model and its server
+flags, named by the pin (`VLLM_ROWS` in `host/vllm.env`). The pin names each flavor's default row,
+`VLLM_MODEL_CUDA`'s on the GB10s and `VLLM_MODEL_ROCM`'s on the Framework;
+`VLLM_MODEL=<row id> host/engines vllm update` serves another for one run
+([Serving another row for one run](#serving-another-row-for-one-run)). The rows are one set for
+both flavors, though not every row serves on both: NVFP4 is CUDA's alone.
+
+A row is its id in brackets, then the model's Hugging Face repository, then its settings and its
+server flags, over as many lines as read well. `vllm.sh` puts `--host` and `--port` after the
+model, so a row never names them. An id is the repository's name without its organization, with a
+suffix for a second row of the same model; each is unique. No flag or value holds a space or a
+`#`, since the served command is compared joined with spaces and `#` starts a comment. A row serves
+under its repository, which `/v1/models` lists and requests name in `"model"`, unless it names one
+other name with `--served-model-name`; it names exactly one, since vLLM lists every name it is
+given.
+
+A row's settings are the suite's, which `vllm serve` never sees (`vllm.sh`, `vllm_row`), each a
+word `<key>=<value>`: `container=<name>`, the container it serves from, `vllm` when it names none;
+`port=<port>`, the host port it publishes on the tailnet address and listens on, 8000 when it
+names none; and `image=<repository>`, an image the host builds, served in place of the flavor's
+official one at the same tag (`vllm_image`), and never pulled. Rows with distinct containers and
+ports serve side by side on one host, one process each; rows that share a container replace each
+other in it.
+
+Each row reserves the fraction of the GPU's memory its `--gpu-memory-utilization` names, which
+leaves the rest to the host it shares it with. A row that serves alone on its host reserves 0.80.
+Rows that serve together on one host each reserve a share, and their fractions' sum is what vLLM
+takes of the host, so each set of them is sized for its host. A row that sizes its KV cache in
+bytes (`--kv-cache-memory-bytes`) keeps its fraction, and vLLM takes the bytes in place of what the
+fraction would leave the cache. Every row serves sequences of 8192 tokens, as each of llama.cpp's
+slots, but the agent rows, which serve the agent's 131,072. The model's own generation config sets
+its sampling (vLLM's default, `--generation-config auto`). Gemma 4's rows hold 4 sequences,
+mirroring llama.cpp's 4 slots, but the capability rows, which hold what their cells met the floors
+at; keep a BF16 KV cache, since the NVFP4 checkpoints declare a static FP8 one but ship no
+calibrated k/v scales, so vLLM would quantize it with a scale of 1.0, and every Gemma 4 row matches
+them; and use Gemma 4's own reasoning and tool-call parsers. Their vision encoder loads (no
+`--language-model-only`), and E4B's and 12B's audio encoder too: vLLM allows every modality the
+model has without `--limit-mm-per-prompt`.
+
+### Each row's reasons
+
+- `gemma-4-26B-A4B-NVFP4`: the `cuda` flavor's default: Gemma 4 26B-A4B, MoE, NVIDIA's NVFP4. The
+  anchors A' and B', and vision.
+- `gemma-4-26B-A4B-NVFP4-flashinfer`: the FlashInfer diagnostic: the pin's row on FlashInfer
+  attention, text-only. Without a backend named, vLLM forces Triton for Gemma 4's mixed head sizes
+  on the GB10, where FA4 isn't available; `--language-model-only` leaves the vision encoder out,
+  so only the text model's attention runs.
+- `gemma-4-26B-A4B-NVFP4-marlin`: the Marlin MoE diagnostic: the pin's row on Marlin's kernels for
+  the NVFP4 experts. Without a backend named, vLLM v0.32.0 chooses `FLASHINFER_CUTLASS` for them
+  on the GB10's SM121, out of the backends its journal lists, `MARLIN` among them; Marlin is the
+  fallback in vLLM's own list, a weight-only kernel that runs the activations in 16 bits. The row
+  asks whether the MoE kernel explains vLLM's slow NVFP4 decode, so only the MoE backend changes.
+- `gemma-4-26B-A4B-it`: Gemma 4 26B-A4B, MoE, Google's BF16, with its vision encoder: the MoE shape
+  in a format ROCm serves, where the NVFP4 rows are CUDA's alone. The anchors and vision on the
+  Framework.
+- `gemma-4-E4B-it`: Gemma 4 E4B, dense small, BF16.
+- `gemma-4-E4B-it-qat-w4a16-ct`: Gemma 4 E4B, Google's quantization-aware trained w4a16: the
+  quantization pair beside BF16.
+- `gemma-4-12B-it-qat-w4a16-ct`: Gemma 4 12B, dense mid, Google's QAT w4a16.
+- `Gemma-4-31B-IT-NVFP4`: Gemma 4 31B, dense large, NVIDIA's NVFP4; it declares the static FP8 KV
+  cache too.
+- `gemma-4-31B-it-qat-w4a16-ct`: Gemma 4 31B, dense large, Google's QAT w4a16: the dense large
+  shape in a format ROCm serves.
+- `granite-embedding-english-r2`: IBM's granite-embedding-english-r2, BF16, served for
+  `/v1/embeddings` only: vLLM's pooling runner, which its architecture selects anyway, named so the
+  row says what it serves. A ModernBERT encoder with heads of 64, whose encoder-only attention runs
+  on `FLASH_ATTN` on the GB10's SM121. 16 sequences, one a stream of the embedding cell's 16. No
+  parsers: it generates nothing.
+- `gpt-oss-120b`: OpenAI's gpt-oss-120b in its native MXFP4, the `rocm` flavor's default, at 16
+  sequences, mirroring llama.cpp's 16-slot section: its anchor-load cells and the concurrency sweep
+  run on this one start. Its KV cache stays the checkpoint's (BF16), and its parsers are gpt-oss's:
+  `openai_gptoss` for the reasoning, which vLLM would choose for gpt-oss anyway, and `openai` for
+  the tool calls.
+- `gpt-oss-120b-agent`: gpt-oss-120b for the agent (spike-model-layout's agent-vllm task,
+  spike-model-layout's docs/findings/agent-vllm.md): the gpt-oss-120b row at the agent's sessions,
+  131,072 tokens each. Its KV cache stays the checkpoint's (BF16), sized by the 0.80, and no
+  attention or MoE backend is named, so vLLM chooses its own. It holds 8 at once, the highest level
+  of the agent sweep at which it met the agent's floor (an ITL median of at most 100 ms; agent-vllm
+  F, "Meets the floor through"), set by spike-model-layout's vllm-layout task: past 8 a session
+  queues rather than slowing the others.
+
+### The standing rows
+
+The capability rows (spike-model-layout's capability-vllm task, spike-model-layout's
+docs/findings/capability-vllm.md), placed by its vllm-layout task: vision on 8000, audio on 8001,
+embedding on 8002, each in its own container on its own port at its own fraction. Each serves
+sequences of 8192 tokens, and names no attention or MoE backend, so vLLM chooses its own and the
+start log records it.
+
+vllm-layout keeps the purposes apart by placement. The standing layout: gb10-1 serves the agent
+(`gpt-oss-120b-agent-fp8`) alone; gb10-2 serves vision alone; the Framework serves audio and
+embedding, the embedding rate-limited by the gateway. On gb10-2 audio missed its floor beside
+vision at every pair level, 2 to 8 streams each (an RTFx median of 2.86 to 3.36 against 5), while
+vision met its own at every pair but 8 + 8; on the Framework audio held beside embedding sent at a
+constant 8.4 and 34 requests a second (RTFx 6.43 and 5.84), and missed beside it run flat out at
+16 streams (2.44). The rows file has no list of a host's standing rows: these are the rows each
+host stands on.
+
+Each standing row serves under its purpose alias, its one name, for spike-model-gateway's
+agentgateway, whose per-purpose routes pass requests through unchanged (spike-model-gateway's
+docs/findings/agentgateway.md), so a request names the alias in `"model"`. What each admits in
+flight and how it schedules is from spike-model-gateway's docs/findings/priority.md.
+
+- `gpt-oss-120b-agent-fp8`: the agent row on an FP8 KV cache (`fp8`, which vLLM reads as e4m3 on
+  CUDA), sized in bytes to hold llama.cpp's agent-only pool of 1,179,648 tokens: 32993476982
+  bytes, about 30.73 GiB. The bytes size the cache in place of the 0.80, which the row keeps for
+  the rest. No backend is named, so the start log records the attention backend vLLM chooses for
+  gpt-oss's sinks on an FP8 cache. It holds 12 at once, the highest level at which it met the
+  agent's floor (agent-vllm F), set by vllm-layout as the BF16 row's cap is. It serves under its
+  purpose alias, `agent`. It admits 24 in flight, running and waiting, twice its cap, and answers
+  503 past that (`--max-num-queued-reqs`, counted in the API server), so the gateway can send what
+  a full row refuses to its overflow where vLLM would otherwise queue without bound; and it
+  schedules by each request's priority, lower first, arrival breaking ties, so the gateway can rank
+  its keys' work.
+- `gemma-4-26B-A4B-NVFP4-vision-gb10`: gb10-2's vision: Gemma 4 26B-A4B in NVIDIA's NVFP4, 0.40,
+  gb10-2's one row. It holds 16 at once: alone on gb10-2 it met vision's floor (a request latency
+  median of at most 10 s) at 16 streams (9.64 s; vllm-layout's cell
+  vllm-layout-g2-vision-capacity), the row's cap. It serves under its purpose alias, `vision`. It
+  admits 32 in flight, twice its cap, answers 503 past that, and schedules by priority, as the
+  agent row does.
+- `gemma-4-E4B-it-audio-framework`: the Framework's audio: Gemma 4 E4B, BF16, 0.18, from the audio
+  image ([The audio image](setup.md#the-audio-image)), since the official ROCm image ships none of
+  the audio extra's decoders, and every audio request on it returns 500. The host builds the
+  image, at the pinned release's tag. It holds 4 at once: beside granite at 34 requests a second it
+  met audio's floor (an RTFx median of at least 5) at 4 streams (5.84; vllm-layout-fw-pair-a4r34)
+  and missed at 8 (4.94; vllm-layout-fw-stress-a8r34). It serves under its purpose alias, `audio`.
+  It admits 8 in flight, twice its cap, and answers 503 past that, as the agent row does; it
+  schedules first come, first served.
+- `granite-embedding-english-r2-framework`: the Framework's embedding: granite-embedding-english-r2,
+  on vLLM's pooling runner, 0.03. 128 sequences and 65,536 batched tokens a step: vLLM's default of
+  8,192 tokens batches only 16 of the embedding cells' 512-token inputs a step (capability-vllm G),
+  and a document pipeline sends more. Alone, its throughput stops rising at 16 streams of 512
+  tokens (98,325 prompt tok/s) and holds to 128 (vllm-layout-fw-embed-sweep); beside audio, the
+  gateway holds it to at most 34 requests a second, the rate audio was measured to hold beside. It
+  serves under its purpose alias, `embedding`. It admits any number in flight: the gateway's rate
+  limit is what holds it back, so it has no `--max-num-queued-reqs`.
 
 ### The rows on the Framework
 
@@ -275,6 +415,25 @@ Native vLLM takes the same `VLLM_MODEL` before `host/engines vllm-native install
 which compare the row with the row file, `/opt/vllm/row`, as the container's compare its
 command, and restart `vllm-server` on the row when they differ
 ([Update](update.md#native)).
+
+### Tracing a row for one run
+
+Per-row tracing is off unless `VLLM_TRACE=on` is given for one run, as `VLLM_MODEL` names its row:
+
+```sh
+VLLM_TRACE=on VLLM_MODEL=<row id> host/engines vllm update
+```
+
+With it, the row's container exports a span per request over OTLP gRPC to the OpenTelemetry
+Collector at `VLLM_TRACE_COLLECTOR` (`host/vllm.env`), the one in spike-model-gateway's compose
+stack on gb10-2, under the service name `vllm-<alias>`: the alias is the row's
+`--served-model-name`, the gateway's name for it (agent, vision, audio, embedding), or the row's id
+when it names none. The collector's host is resolved to its tailnet address when the command runs,
+never written down (`host/vllm.sh`, `vllm_preflight`). Detailed traces
+(`--collect-detailed-traces`) stay off. Without it, a row exports nothing, and since the endpoint is
+a server flag, `update` moves a traced row back to untraced, and back again, by restarting it. Use
+it only as the command's prefix, never `export` it, as `VLLM_MODEL`. The container path only:
+native vLLM, retired, never traces.
 
 ### Returning to the default
 

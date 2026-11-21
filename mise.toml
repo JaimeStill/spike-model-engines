@@ -1,4 +1,5 @@
-# Tasks never install a missing tool; `mise install` is the one step that reads the network.
+# The laptop's tools and the check and currency tasks.
+# See docs/tools.md#the-check-and-currency
 [settings]
 task.run_auto_install = false
 

@@ -163,13 +163,13 @@ where it isn't installed, or after [uninstalling](uninstall.md).
 
 The pins are `host/llama.env`: one b-build per host class, `LLAMA_BUILD_GB10` (cuda13) and
 `LLAMA_BUILD_STRIX_HALO` (rocm and vulkan), which each of the class's flavors names, as
-`server-<flavor>-<build>` in `LLAMA_REPOSITORY`; and `LLAMA_RELEASE`, the semver release whose
-notes ("Nightly build:") name b11960. Both classes' build, b12602, is past that release, and
-unverified: b12100 and later (llama.cpp #31620 and #31639) may not resolve Google's 26B-A4B,
-31B and E4B QAT GGUFs from an `hf-repo` tag (`host/llama.env`). On the laptop, `mise run currency`
-reports a class whose build is older than the newest b-build with the class's server image on
-ghcr.io (`server-cuda13-<build>` for gb10, `server-vulkan-<build>` for strix-halo), not the
-newest release, since llama.cpp publishes images only nightly and on manual runs; a class at that
+`server-<flavor>-<build>` in `LLAMA_REPOSITORY`; and `LLAMA_RELEASE`, the semver release whose notes
+("Nightly build:") name b11960. Both classes' build, b12602, is past that release, and unverified:
+b12100 and later (llama.cpp #31620 and #31639) may not resolve Google's 26B-A4B, 31B and E4B QAT
+GGUFs from an `hf-repo` tag ([Where the pins stand](#where-the-pins-stand)). On the laptop,
+`mise run currency` reports a class whose build is older than the newest b-build with the class's
+server image on ghcr.io (`server-cuda13-<build>` for gb10, `server-vulkan-<build>` for strix-halo),
+not the newest release, since llama.cpp publishes images only nightly and on manual runs; a class at that
 build, or past it, reads as current:
 
 ```sh
@@ -184,6 +184,26 @@ and the pin this guide quotes to match: the [README](README.md), and the image a
 `--version` output in [Setup](setup.md#3-prove-the-pinned-image-runs-on-the-gpu).
 Commit and push; then, on each host, `git pull` and `host/engines llama update`, or
 `host/engines llama-native update` where native llama.cpp serves ([Native](#native)).
+
+### Where the pins stand
+
+A class's build serves each of its flavors: `host/llama.sh` names the server image
+`server-<flavor>-<build>` in `LLAMA_REPOSITORY`, and `llama_pin` (`host/llama-release.sh`, which
+sources `host/llama.env`) reads the class's pin. `LLAMA_RELEASE` is the semver release last pinned,
+v0.8.0, whose notes ("Nightly build:") name b11960; neither class runs it now. gb10 (gb10-1; cuda13)
+and strix-halo (the Framework; rocm and vulkan) run b12602, the newest build with every flavor's
+server image on ghcr.io (`server-cuda13-`, `server-rocm-` and `server-vulkan-b12602`) on 2026-11-21.
+It is past b12464, the build spike-model-gateway's priority task moved both classes to (the
+architect's review escalation, spike-model-gateway's docs/findings/priority.md). That ended the hold
+on b12098: llama.cpp #31620 and #31639 (b12100 and later) match an `-hf` quantization tag only after
+`-`, `.` or `/`, and Google's 26B-A4B, 31B and E4B QAT GGUFs (such as `gemma-4-26B_q4_0-it.gguf`)
+put `_` before it, so their sections may not resolve on b12602. llama.cpp is inert on both hosts,
+which serve vLLM's rows, and b12602 is unverified: no section has started or served on it. The
+Framework's re-screen of Gemma 4 26B-A4B waits on llama.cpp #25584, the fix for #29221 (Vulkan's
+"tensor not allocated" abort on a 15-slot section's second request), and #31418 (Vulkan's batched
+tensor copy API) (spike-hosting-upgrades' docs/screens/framework/2026-11-04.md and
+docs/screens/gb10-1/2026-11-05.md). `scripts/currency.sh` compares each class's pin with the newest
+b-build that has the class's server image on ghcr.io, not with `LLAMA_RELEASE`'s build.
 
 ## Native
 

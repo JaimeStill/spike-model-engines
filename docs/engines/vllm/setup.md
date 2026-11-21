@@ -209,13 +209,20 @@ sudo systemctl daemon-reload
 
 The unit runs `/opt/vllm/current/bin/vllm serve` as your account, on the model and flags in
 `/opt/vllm/row`, with `--host` set to `tailscale ip -4` as it starts, on `--port 8000`, the order
-the container's command has. It sets `HF_HUB_CACHE` to `/srv/models`, and points the compile
-caches into `/opt/vllm/cache`: `XDG_CACHE_HOME`, `VLLM_CACHE_ROOT`, `TRITON_HOME`, and
+the container's command has. It sets `HF_HUB_CACHE` to `/srv/models`, and points the compile caches
+into `/opt/vllm/cache`: `XDG_CACHE_HOME`, `VLLM_CACHE_ROOT`, `TRITON_HOME`, and
 `FLASHINFER_WORKSPACE_BASE`. It requires and follows `tailscaled`, as `llama-router` does, and
-restarts 5 seconds after a failure. A start takes minutes, but vLLM tells systemd nothing when it
-is ready, so systemd counts the unit started at once and the `engines` commands wait on `/health`
-instead. It is installed but neither enabled nor started; the `engines` commands enable and start
-it while native vLLM serves.
+restarts 5 seconds after a failure. It is installed but neither enabled nor started; the `engines`
+commands enable and start it while native vLLM serves.
+
+A start loads, compiles, and captures CUDA graphs for minutes before the server answers, but vLLM
+sends systemd no readiness, so the unit is `Type=simple`: systemd counts it started once bash runs,
+`TimeoutStartSec` never applies, and the `engines` commands wait on `/health` instead, for up to 10
+minutes. Stopping is bounded by systemd's default, 90 seconds, after which it kills what is left.
+The unit reads the tailnet address as it starts, so a start without the address fails, and systemd
+tries again. Its compile caches are set as `host/vllm-native.sh` sets them for the commands that
+fill them (`VLLM_NATIVE_ENV`). Its command writes `$$` where bash's `$` is meant: systemd reads `$$`
+as a literal `$`, leaving the substitutions to bash.
 
 Allow the `engines` commands to run the unit's five `systemctl` commands, and nothing else,
 without a password: a sudoers rule naming `systemctl start`, `stop`, `restart`, `enable`, and
@@ -227,6 +234,10 @@ only when the check passes:
 ```sh
 sudo visudo -cf host/vllm-server.sudoers && sudo install -m 0440 host/vllm-server.sudoers /etc/sudoers.d/vllm-server
 ```
+
+The rule lets the `vllm-native` commands run the five with `sudo -n`, and nothing else as root:
+each command is fixed, with its arguments. It is one line, so `sudo -l` lists the five on the
+`NOPASSWD` line the commands' preflight reads.
 
 Check the rule without the password `sudo` just cached: `sudo -k` forgets it, and `sudo -n` fails
 instead of asking for one. Stopping the unit while it isn't running changes nothing; without the
@@ -824,3 +835,27 @@ It prints
 ```text
 vllm is running, and one engine serves per host at a time, since each reserves most of the host's GPU memory; docker stop vllm stops it
 ```
+
+### The audio image
+
+The Framework's audio row, `gemma-4-E4B-it-audio-framework`
+([Models](models.md#the-standing-rows)), serves from the audio image,
+`host/vllm-rocm-audio/Dockerfile`: vLLM's ROCm image at the pin, by its digest, with the decoders
+of vLLM's audio extra it ships without. vllm-strix's audio probe found the official image with
+none of torchcodec, ffmpeg, av, soundfile, or soxr, so vLLM raises "Please install vllm[audio]" and
+every audio request returns 500 ([vllm-strix](../../findings/vllm-strix.md#the-audio-probe)). The
+extra (av, scipy, soundfile, soxr, mistral_common[audio]) pins no versions, and of it only av,
+soundfile, and soxr were missing, pinned at the versions uv resolved on 2026-10-28.
+
+It builds on v0.34.0's one ROCm build, its default tag, ROCm 10.0 (the same image as `-rocm100`), as
+the suite serves it ([Update](update.md#the-release-on-each-flavor)), pinned by the index digest
+Docker Hub served for the tag on 2026-11-17. v0.34.0's audio extra is v0.33.0's, so the same three
+are installed. The host builds it, tagged as the suite serves it, `<repository>:<release>`, from the
+clone:
+
+```sh
+docker build -t spike-model-engines/vllm-openai-rocm-audio:v0.34.0 host/vllm-rocm-audio
+```
+
+The suite never pulls it, and never removes it (`host/vllm.sh`). Currency doesn't read it, so a
+release move leaves it behind: the digest moves with `VLLM_RELEASE`, by hand.

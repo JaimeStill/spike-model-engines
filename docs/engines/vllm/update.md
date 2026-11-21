@@ -103,6 +103,16 @@ whose image of the host's flavor isn't published fails at the pull, changing not
 on the Framework is a cold start to record ([Setup](setup.md#5-watch-the-first-start-up-to-20-minutes)),
 and the first under a new release may compile again.
 
+On v0.34.0, `rocm`'s default tag is its only ROCm build, ROCm 10.0, the same image as
+`v0.34.0-rocm100` (index
+`sha256:3cb773d23f063afa86291ef75773cdd486154ddea94c213300f4ed7cc42b7af1` on Docker Hub on
+2026-11-17), the most recent ROCm AMD supports on the Framework's gfx1151. v0.34.0 publishes no
+ROCm 7.2 build ("ROCm 7.2 artifacts dropped", vLLM #61939), so the pin names no fallback build:
+the architect removed the ROCm 7.2 fallback v0.33.0 kept (spike-model-gateway's
+docs/findings/priority.md), since the Framework's rows served on ROCm 10.0 throughout. The audio
+image builds on the same image ([Setup](setup.md#the-audio-image)), which records its digest where
+the build pins it.
+
 ## Rehearsing an update
 
 To walk an update before the pin moves, install an older release, then update to the pin:
@@ -136,6 +146,38 @@ Edit `VLLM_RELEASE` in `host/vllm.env` to it, and the pin this guide quotes to m
 ([Models](models.md#adding-a-row-or-moving-the-default)). Commit and push; then, on the host,
 `git pull` and `host/engines vllm update`, or `host/engines vllm-native update` where native vLLM
 serves ([Native](#native)).
+
+One release serves every flavor: `host/vllm.sh` names the image `<repository>:<release>`, in the
+repository of the flavor it resolves (`vllm_flavor`). `cuda`'s is the release's default tag, vLLM's
+CUDA 13.0 multi-arch build, not a variant such as `-efa`: every pinned release since v0.31.0
+publishes it for arm64, v0.34.0 among them (its arm64 image,
+`sha256:e40eb98263fa13418dda684147d73e8ec4a2b0e056a37e955dc189cd1b11dd16` on Docker Hub on
+2026-11-17). `rocm`'s is vLLM's official ROCm image of the same release, its default tag
+([The release on each flavor](#the-release-on-each-flavor)). Each flavor's default row moves with
+the release rather than on demand; a `VLLM_MODEL` in the environment names another for one run,
+with no edit to the pin ([Models](models.md#changing-the-model)). `host/vllm.env` is sourced by
+`scripts/currency.sh`, which reads only the release, and by `host/vllm.sh`, and through it
+`host/vllm-native.sh`. It also holds `VLLM_NATIVE_PYTHON`, the CPython minor version uv installs
+for each release's native virtualenv ([Native](#native)), and `VLLM_TRACE_COLLECTOR`
+([Tracing a row for one run](models.md#tracing-a-row-for-one-run)).
+
+### v0.34.0's KV cache
+
+v0.34.0 changes how every row's KV cache is laid out and sized, with no flag of the rows' moved
+(its release notes, "Before you upgrade"):
+
+- The extensible KV cache is on by default on CUDA and ROCm (#56492): the cache is sized from the
+  memory actually free after CUDA graph capture and warmup, not from an estimate. Each row's
+  `--gpu-memory-utilization` still caps its instance, so the rows that share a host keep their
+  shares, and the cache may grow within the fraction; vLLM notes per-token decode latency can rise
+  on some models. A row that sizes its cache in bytes (`--kv-cache-memory-bytes`, the agent's FP8
+  row) turns it off and keeps the bytes. Where the driver lacks virtual memory support it falls
+  back to the estimate; whether gfx1151's does is unread.
+- The default `--block-size` is 64, was 16 (#63231). No row names one, so each moves to 64, but
+  ROCm's paged attention keeps 16.
+- It fixes caches undersized by up to 84% on DGX Spark (#65413), the GB10s' platform.
+
+The task's benchmarks ran on v0.33.0 and were not rerun on v0.34.0.
 
 ## Native
 

@@ -209,6 +209,10 @@ The unit runs `/opt/llama.cpp/current/llama-server` as your account, with `LLAMA
 `tailscaled`, and restarts 5 seconds after a failure. It is installed but neither enabled nor
 started; the `engines` commands enable and start it while native llama.cpp serves.
 
+The unit follows personal-agents' "Run it as a service". It reads the tailnet address as it
+starts, so a start without the address fails, and systemd tries again. Its command writes `$$`
+where bash's `$` is meant: systemd reads `$$` as a literal `$`, leaving the substitution to bash.
+
 Allow the `engines` commands to run the unit's five `systemctl` commands, and nothing else, without
 a password: a sudoers rule naming `systemctl start`, `stop`, `restart`, `enable`, and `disable
 llama-router` exactly, as the page-cache rule names its one command
@@ -219,6 +223,10 @@ only when the check passes:
 ```sh
 sudo visudo -cf host/llama-router.sudoers && sudo install -m 0440 host/llama-router.sudoers /etc/sudoers.d/llama-router
 ```
+
+The rule lets the `llama-native` commands run the five with `sudo -n`, and nothing else as root:
+each command is fixed, with its arguments. It is one line, so `sudo -l` lists the five on the
+`NOPASSWD` line the commands' preflight reads.
 
 `visudo` prints `host/llama-router.sudoers: parsed OK`. Check the rule without the password
 `sudo` just cached: `sudo -k` forgets it, and `sudo -n` fails instead of asking for one. Stopping
