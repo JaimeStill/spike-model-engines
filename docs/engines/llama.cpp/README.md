@@ -8,9 +8,9 @@ itself, and loads each model named in its models preset, as a child process, whe
 API. The router loads models on demand, so one server serves every model in the preset.
 
 The spike pins one b-build per host class in `host/llama.env`: `gb10` and `strix-halo` both at
-b12464, which ended their hold on b12098. b12464 is unverified, since llama.cpp is inert on both
-hosts, and b12100 and later (llama.cpp #31620 and #31639) may not resolve Google's 26B-A4B, 31B and
-E4B QAT GGUFs from an `hf-repo` tag. The flavor of server image names the class, as
+b12602, past b12464, which ended their hold on b12098. b12602 is unverified, since llama.cpp is
+inert on both hosts, and b12100 and later (llama.cpp #31620 and #31639) may not resolve Google's
+26B-A4B, 31B and E4B QAT GGUFs from an `hf-repo` tag. The flavor of server image names the class, as
 `ghcr.io/ggml-org/llama.cpp:server-<flavor>-<build>`: `cuda13`, gb10's, on gb10-1, and `rocm` or
 `vulkan`, strix-halo's, on the Framework. With none named, the `engines` commands pick `rocm` on a
 host with an AMD GPU and `cuda13` otherwise; `LLAMA_FLAVOR` names the flavor

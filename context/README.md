@@ -216,9 +216,9 @@ The practices every task follows, on the GB10s and the Framework, each with its 
   why it is held. Two are held: `mise.bench.toml` holds GuideLLM's Python at 3.14, because
   torchcodec 0.17.0, which GuideLLM's audio extra needs, publishes no 3.15 wheel; and
   `host/vllm.env` holds native vLLM's Python at 3.12, because native vLLM is retired on both hosts.
-  spike-model-gateway's priority task ended the llama.cpp hold on b12098 (both classes now at
-  b12464, inert and unverified there, and Google's QAT sections may still not resolve: llama.cpp
-  #31620 and #31639) and moved vLLM to v0.34.0.
+  spike-model-gateway's priority task ended the llama.cpp hold on b12098 (both classes moved to
+  b12464, now b12602, inert and unverified there, and Google's QAT sections may still not resolve:
+  llama.cpp #31620 and #31639) and moved vLLM to v0.34.0.
 - **GuideLLM's client faults.** GuideLLM 0.8.1 has failed on the client while the server served:
   it stalled between an embedding cell's 1- and 16-stream levels, and it dropped a request's
   stream before the request finished, which llama.cpp logged as the client's read error. When the
