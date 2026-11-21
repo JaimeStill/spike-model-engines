@@ -12,8 +12,8 @@ and tokenizer in the file. The engine-neutral cells name neither: the model, its
 JSON's path are given on the command line, and the target in `GUIDELLM__SPEC__BACKEND__TARGET`, so
 one file serves both engines and every model it fits
 ([bench-gb10-container](findings/bench-gb10-container.md), "Method"). The vision cells need
-GuideLLM's vision extra and the audio cells its audio extra ([context](../context/README.md),
-"GuideLLM's extras").
+GuideLLM's vision extra and the audio cells its audio extra
+([host practices](host-practices.md#running-on-every-host), "GuideLLM's extras").
 
 ## Output tokens
 
