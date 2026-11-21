@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
-# llama.cpp's versions, in one place: sourced by scripts/currency.sh and host/llama.sh, and by any
-# script that runs llama.cpp natively, so each resolves a version the same way. A version is a
-# semver release, such as v0.7.0, or a b-build, such as b11669; a release runs the b-build its
-# notes name ("Nightly build:"). It reads the notes with curl and bash alone, since the host's
-# scripts run outside mise and can't count on its jq.
+# llama.cpp's versions: sourced by scripts/currency.sh and host/llama.sh, and through llama.sh by
+# llama-native.sh, so each resolves a version the same way. A version is a semver release, such as
+# v0.7.0, or a b-build, such as b11669; a release runs the b-build its notes name ("Nightly
+# build:"). The pins are llama.env's, one b-build per host class.
+#
+# See docs/engines/llama.cpp/scripts.md#the-versions
 
 # shellcheck source=host/llama.env
 source "$(dirname "${BASH_SOURCE[0]}")/llama.env"
 
-# Prints the tag of the semver release given and the b-build its notes name, as `<tag> <build>`,
-# such as `v0.7.0 b11669`. Reads the network, and fails, saying why, when the release can't be
-# read or its notes name no b-build.
 llama_release() {
   local url=https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/$1 json tag
   local tag_re='"tag_name": *"([^"]*)"' build_re='Nightly build:[^b]*(b[0-9]+)'
@@ -26,13 +24,8 @@ llama_release() {
   echo "${tag:-$1} ${BASH_REMATCH[1]}"
 }
 
-# The host classes llama.cpp is pinned for, each with its own build in llama.env: gb10, the GB10s,
-# whose flavor is cuda13, and strix-halo, the Framework's Strix Halo, whose flavors are rocm and
-# vulkan. llama_flavor (host/llama.sh) sets LLAMA_CLASS from the flavor; native llama.cpp, a CUDA
-# arm64 prebuilt, is gb10's (host/llama-native.sh).
 LLAMA_CLASSES=(gb10 strix-halo)
 
-# Prints the pin of the host class given, from llama.env. Refuses any other class.
 llama_pin() {
   case ${1:-} in
     gb10) echo "$LLAMA_BUILD_GB10" ;;
@@ -44,9 +37,6 @@ llama_pin() {
   esac
 }
 
-# Prints the b-build for the version given: a b-build as given, a semver release's b-build from its
-# notes (llama_release), and the pin of LLAMA_CLASS's host class (llama_pin) when given nothing.
-# Refuses anything else.
 llama_build() {
   local release
   if [[ -z ${1:-} ]]; then

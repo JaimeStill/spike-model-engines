@@ -21,8 +21,6 @@ set -euo pipefail
 # shellcheck source=host/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 
-# The settings given, read before vllm_flavor resolves them, so the update install points at
-# names them.
 given=$(vllm_given)
 vllm_flavor
 engines_refuse_running llama

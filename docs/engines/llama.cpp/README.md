@@ -54,6 +54,8 @@ notes name, or a b-build, such as `b11429`, which runs as given
 - [Uninstall](uninstall.md): removing llama.cpp, deleting models, with hf or by hand, removing
   native llama.cpp and its root steps, and removing the Framework's prebuilt, the vLLM audio
   probe's image, and its root steps.
+- [How the scripts work](scripts.md): what the `engines` commands' libraries do and why, the
+  libraries every engine shares among them.
 - [llama-bench](setup.md#llama-bench): llama.cpp's raw pp/tg benchmark, natively and in ggml's
   full-cuda13 image on gb10-1, and on the Framework in the full-rocm and full-vulkan images and
   from ggml's native Vulkan prebuilt.

@@ -25,7 +25,6 @@ engines_refuse_running llama
 vllm_refuse_running
 engines_refuse_unit llama-router
 vllm_native_preflight
-# The update that moves it to what install was asked for: the pin's release, or the release given.
 update="engines vllm-native update${1:+ $1}"
 
 current=$(vllm_native_current)
