@@ -33,11 +33,14 @@ The sections, each one model the router lists:
 | `ggml-org/gpt-oss-120b-GGUF:MXFP4` | 4 × 8192 | gpt-oss's, above | the anchor cells' model |
 | `gpt-oss-120b-MXFP4-16-slots` | 16 × 8192 (`c = 131072`) | gpt-oss's | the same file, for the concurrency sweep; load one of the gpt-oss sections at a time |
 | `gpt-oss-120b-MXFP4-set-a` | 4 sharing 131072 | gpt-oss's | the same file, as set A's harness model; `kv-unified = true`, `checkpoint-min-step = 4096` |
+| `gpt-oss-120b-MXFP4-agent-only` | 16 sharing 1179648 | gpt-oss's | the same file, for a GB10 serving the agent alone; set-a's other keys |
 | `ggml-org/gemma-4-E4B-it-GGUF:Q8_0` | 4 × 8192 | Gemma 4's | dense small; projector with vision and audio |
+| `gemma-4-E4B-it-Q8_0-16-slots` | 16 × 8192 (`c = 131072`) | Gemma 4's | the same E4B file, for role-split's split arm |
 | `google/gemma-4-E4B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | E4B's quantization pair, Google's QAT Q4_0 |
 | `google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | dense mid |
 | `google/gemma-4-31B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | dense large |
 | `google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0` | 4 × 8192 | Gemma 4's | MoE; projector with vision |
+| `gemma-4-26B-A4B-it-qat-Q4_0-16-slots` | 16 × 8192 (`c = 131072`) | Gemma 4's | the same 26B-A4B file, for role-split's split arm; GB10 only |
 | `mrutkows/granite-embedding-english-r2-GGUF:BF16` | 16 × 8192 | none | `embeddings = true`; `batch-size` and `ubatch-size` 8192 |
 
 Gemma 4's sampling is the configuration its cards standardize for every use, temperature 1.0,
@@ -45,19 +48,8 @@ top_p 0.95, top_k 64, which vLLM applies from the checkpoint's generation config
 turns off llama.cpp's other truncation, which vLLM doesn't apply. Every Gemma 4 section attaches
 its projector, as vLLM loads the encoders with the model, so the footprints compare.
 
-`gpt-oss-120b-MXFP4-set-a` is set A's harness model, which the Framework serves between tasks
-([Setup](setup.md#12-serve-set-a)). It takes set A's values from spike-ai-pipeline's preset:
-gpt-oss-120b's trained context, 131072 tokens, in one KV cache its 4 slots share
-(`kv-unified`), so one long request may use more than a quarter of it, and context checkpoints
-at least 4096 tokens apart (`checkpoint-min-step`), so the 32 a slot keeps reach 131072. Set A
-starts at 4 slots: tuning them is a per-scenario setting, not this preset's.
-
-granite-embedding-english-r2 serves only `/v1/embeddings`, in BF16, the weights vLLM serves, with
-the pooling its GGUF declares, CLS. IBM publishes no GGUF of it, so the section names a
-conversion of IBM's weights; the quantization `BF16` picks its `-bf16.gguf` file, and it has no
-projector. It reads each input whole, not causally, so one input must fit one physical batch,
-whose default of 512 tokens is below the embedding cell's 512 plus the model's own; the batch is
-raised to a whole slot.
+Set A's harness model and the embedding model have their reasons in
+[Each section's reasons](#each-sections-reasons).
 
 The context is chosen for the spike's anchor request, 512 tokens in and 256 out: 768 tokens of
 the 8192 each slot holds, which leaves room for gpt-oss's chat template, its reasoning, and longer
@@ -95,17 +87,17 @@ section's reasons follow.
   8192 tokens each. A second name, since a loaded model keeps the arguments it started with; load
   one of the gpt-oss sections at a time.
 - `gpt-oss-120b-MXFP4-set-a`: the same gpt-oss-120b file as set A's harness model, which the
-  Framework serves between tasks ([Setup](setup.md#12-serve-set-a)): its trained context, 131072,
-  in one KV pool its 4 slots share (`kv-unified`), so one long request may hold more than a
-  quarter of it. The values are spike-ai-pipeline's set A (its host/llama-preset/models.ini, from
-  spike-model-hosting's set A profile), whose `[*]` keys this section carries for itself:
-  `checkpoint-min-step = 4096` makes the 32-checkpoint budget's reach (32 x 4096) match `c`. A
-  third name, since a loaded model keeps the arguments it started with; load one of the gpt-oss
-  sections at a time. `cache-ram = 0` and `cache-idle-slots = false` turn off the host-side prompt
-  cache and its idle-slot saves, which stalled an agent candidate's multi-turn decode on gb10-1 at
-  b12098 (llama.cpp #30252); measured from fresh loads with and without them, set A did as well or
-  better without (spike-hosting-upgrades, docs/screens/gb10-1/2026-11-05.md), and its 4.5 MiB
-  checkpoints stay well inside the headroom.
+  Framework served between this spike's tasks ([Setup](setup.md#12-serve-set-a)): its trained
+  context, 131072, in one KV pool its 4 slots share (`kv-unified`), so one long request may hold
+  more than a quarter of it. The values are spike-ai-pipeline's set A (its
+  host/llama-preset/models.ini, from spike-model-hosting's set A profile), whose `[*]` keys this
+  section carries for itself: `checkpoint-min-step = 4096` makes the 32-checkpoint budget's reach
+  (32 x 4096) match `c`. A third name, since a loaded model keeps the arguments it started with;
+  load one of the gpt-oss sections at a time. `cache-ram = 0` and `cache-idle-slots = false` turn
+  off the host-side prompt cache and its idle-slot saves, which stalled an agent candidate's
+  multi-turn decode on gb10-1 at b12098 (llama.cpp #30252); measured from fresh loads with and
+  without them, set A did as well or better without (spike-hosting-upgrades,
+  docs/screens/gb10-1/2026-11-05.md), and its 4.5 MiB checkpoints stay well inside the headroom.
 - `gpt-oss-120b-MXFP4-agent-only`: the same gpt-oss-120b file for role-split's split arm, a GB10
   serving the agent alone: one KV pool of 1179648 tokens (9 x 131072) that its 16 slots share
   (`kv-unified`), with set-a's other keys and sampling. Nine 131072-token sessions is the count
@@ -262,9 +254,8 @@ mkdir -p ~/prestage
 stage() { nohup bash -c 'mise exec -- hf download "$@"; echo "exit $?"' stage "$@" > ~/prestage/"${1//\//--}".log 2>&1 & }
 ```
 
-Then start every download, and both engines' pinned images (`host/llama.env`,
-`host/vllm.env`), together. The block below ran when gb10's llama.cpp pin was v0.8.0 (b11960);
-gb10's pin is now b12602:
+Then start every download, and both engines' pinned images (`host/llama.env`, `host/vllm.env`),
+together. The block below ran at gb10's llama.cpp pin v0.8.0 (b11960):
 
 ```sh
 stage ggml-org/gemma-4-E4B-it-GGUF --include gemma-4-E4B-it-Q8_0.gguf --include mmproj-gemma-4-E4B-it-Q8_0.gguf
@@ -516,11 +507,11 @@ rm -rf /srv/models/models--ggml-org--gpt-oss-120b-GGUF
 
 ## Copying a model to the other GB10
 
-Only under a named borrow of gb10-2 (`ai-hosting.md`, "Hosts and access"): gb10-2 is reserved
-for spike-ai-pipeline, and the spike runs on gb10-1 alone. Under a borrow, download a model once,
-on gb10-1, and copy it to gb10-2 over the QSFP link instead of downloading it again. The
-`gb10-N-qsfp` names and passwordless SSH between the nodes come from the GB10 setup in dotfiles.
-Copy only once the model shows `loaded` on gb10-1, so no partial file travels. On gb10-1:
+Only under a named borrow of gb10-2: gb10-2 is reserved for spike-ai-pipeline, and the spike runs on
+gb10-1 alone. Under a borrow, download a model once, on gb10-1, and copy it to gb10-2 over the QSFP
+link instead of downloading it again. The `gb10-N-qsfp` names and passwordless SSH between the nodes
+come from the GB10 setup in dotfiles. Copy only once the model shows `loaded` on gb10-1, so no
+partial file travels. On gb10-1:
 
 ```sh
 rsync -a --info=progress2 /srv/models/models--ggml-org--gpt-oss-120b-GGUF gb10-2-qsfp:/srv/models/

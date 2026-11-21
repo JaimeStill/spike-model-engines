@@ -8,10 +8,11 @@ On the host, from the clone:
 host/engines vllm uninstall
 ```
 
-`uninstall` removes the `vllm` container, every vLLM image of either flavor, `vllm/vllm-openai`'s
-and `vllm/vllm-openai-rocm`'s, and the compile cache, `~/.cache/vllm`, and keeps the model store,
-`/srv/models`, so a later install serves the same model without downloading it again. A second run
-changes nothing and says so. It reads no flavor, so it runs the same on every host.
+`uninstall` removes the container of the flavor's default row, or `VLLM_MODEL`'s; once no vLLM
+container is left it removes every official vLLM image, `vllm/vllm-openai`'s and
+`vllm/vllm-openai-rocm`'s, and the compile cache, `~/.cache/vllm`. A row's own image stays. It
+keeps the model store, `/srv/models`, so a later install serves the same model without downloading
+it again. A second run changes nothing and says so.
 
 With `vllm` gone, llama.cpp's install and update no longer refuse. Start `llama` again, when it
 was stopped for vLLM:
@@ -62,9 +63,10 @@ deletes its models and the store itself.
 
 ## The Framework
 
-On the Framework, `host/engines vllm uninstall` removes the `vllm` container and the ROCm image of
-every release, `vllm/vllm-openai-rocm:<release>`, as on gb10-1 it removes the CUDA image's
-([Removing vLLM](#removing-vllm)), and the compile cache, `~/.cache/vllm`. It keeps `/srv/models`;
+On the Framework, `host/engines vllm uninstall` removes the container of the ROCm flavor's
+default row, or `VLLM_MODEL`'s; once no vLLM container is left it removes every official vLLM
+image and the compile cache, `~/.cache/vllm`, as on gb10-1 ([Removing vLLM](#removing-vllm)). A
+row's own image stays. It keeps `/srv/models`;
 with `vllm` gone, llama.cpp's install and update no longer refuse, and `docker start llama` brings
 back a `llama` stopped for vLLM. Its router serves no model until one is loaded, since it runs
 with `--no-models-autoload`:

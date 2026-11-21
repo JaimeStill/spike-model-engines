@@ -94,8 +94,7 @@ GB10s, then on the Framework.
   naming a library that is gone, and every GPU container then fails to start. Regenerate it after
   each upgrade ([setup](engines/llama.cpp/setup.md#1-bring-the-host-current)).
 - **gb10-1 alone.** gb10-2 is reserved for spike-ai-pipeline, so every task installs, downloads,
-  and measures on gb10-1 alone; gb10-2 is used only under a named borrow (`ai-hosting.md`,
-  "Hosts and access").
+  and measures on gb10-1 alone; gb10-2 is used only under a named borrow.
 - **Models.** Download a model once, on gb10-1, with hf
   ([models](engines/llama.cpp/models.md#pre-staging-models-with-hf)). Copy it to gb10-2
   over QSFP only under a named borrow of gb10-2
@@ -105,10 +104,9 @@ GB10s, then on the Framework.
 
 - **A measuring session owns the Framework.** Nothing else serves on it while a session measures,
   so no other server holds port 8080 or the GTT during a measurement.
-- **Set A between tasks.** The Framework serves set A from the `llama` container between tasks
-  ([setup](engines/llama.cpp/setup.md#12-serve-set-a)). vLLM's install and update refuse
-  while `llama` runs, so a task stops it (`docker stop llama`) before installing vLLM, and the
-  setup's step serves set A again.
+- **Set A between tasks.** The Framework served set A from the `llama` container between this
+  spike's tasks ([setup](engines/llama.cpp/setup.md#12-serve-set-a)). vLLM's install and update
+  refuse while `llama` runs, so a task stops it (`docker stop llama`) before installing vLLM.
 - **The GTT ceiling.** The GPU reaches up to 112 GiB of RAM as GTT, set by TTM's `pages_limit`
   and amdgpu's `gttsize`, built into the boot image. Above 90% of RAM, `amd-ttm` warns that a GPU
   filling memory can starve the host; clearing the options drops the ceiling to the kernel's
@@ -123,9 +121,10 @@ GB10s, then on the Framework.
   logs in again or the terminal runs `newgrp docker`
   ([setup](engines/llama.cpp/setup.md#3-docker-for-jaime)).
 - **ufw route rules.** Omarchy's ufw with ufw-docker drops routed traffic to a container's
-  published port, so the laptop reaches ports 8080 and 8000 only through `ufw route allow` rules
-  on `tailscale0`. A laptop request that times out while `/health` answers on the host means a
-  rule is missing ([setup](engines/llama.cpp/setup.md#4-route-the-ports-through-ufw)).
+  published port, so the laptop reaches ports 8080, 8000, 8001 and 8002 only through
+  `ufw route allow` rules on `tailscale0`. A laptop request that times out while `/health` answers
+  on the host means a rule is missing
+  ([setup](engines/llama.cpp/setup.md#4-route-the-ports-through-ufw)).
 - **Flavors.** `host/engines llama` picks the `rocm` flavor on the Framework's AMD GPU, and
   `LLAMA_FLAVOR=vulkan host/engines llama update` switches to `vulkan`. Update keeps the same
   build's other flavor, so switching back pulls nothing
@@ -138,9 +137,10 @@ GB10s, then on the Framework.
   reservation and leaves about 114 GiB
   ([vllm-strix](findings/vllm-strix.md#cold-start-and-footprint)).
 - **vLLM's audio.** vLLM's official ROCm image ships no audio decoder, so an audio request returns
-  500. The probe image that `host/vllm-rocm-audio/Dockerfile` builds adds the audio extra's
-  missing packages and serves audio; the `engines` suite doesn't build it
-  ([vllm-strix](findings/vllm-strix.md#the-audio-probe)).
+  500. The audio image, `spike-model-engines/vllm-openai-rocm-audio:<release>`, which
+  `host/vllm-rocm-audio/Dockerfile` builds, adds the audio extra's missing packages and serves the
+  Framework's audio row; the suite never builds, pulls, or removes it
+  ([setup](engines/vllm/setup.md#the-audio-image)).
 - **Sudoers files without an editor.** `sudo` drops an `EDITOR` set on its command line, so
   `visudo` opens vim, and vim inside another editor's terminal takes `visudo`'s `--` for a file
   name and saves nothing. The architect writes a rule with `tee`, checks it with `visudo -cf`, and

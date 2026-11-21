@@ -2,10 +2,9 @@
 
 ## GB10, in a container
 
-Run these steps on gb10-1. gb10-2 is reserved for spike-ai-pipeline, and the spike installs
-there only under a named borrow of it (`ai-hosting.md`, "Hosts and access"). Commands with `sudo`
-are root steps, the architect's; Docker needs no `sudo`, because the account is in the `docker`
-group.
+Run these steps on gb10-1. gb10-2 is reserved for spike-ai-pipeline, and the spike installs there
+only under a named borrow of it. Commands with `sudo` are root steps, the architect's; Docker needs
+no `sudo`, because the account is in the `docker` group.
 
 ### 1. Bring the host current
 
@@ -50,8 +49,7 @@ needs.
 ### 3. Prove the pinned image runs on the GPU
 
 Pull the pinned image (`host/llama.env`), gb10's build, ask its `llama-server` for its build, then
-list the devices it finds with the GPU attached. The block below ran when gb10's pin was b12063;
-gb10's pin is now b12602:
+list the devices it finds with the GPU attached. The block below ran at b12063:
 
 ```sh
 docker pull ghcr.io/ggml-org/llama.cpp:server-cuda13-b12063
@@ -59,10 +57,9 @@ docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b12063 --ver
 docker run --rm --gpus all ghcr.io/ggml-org/llama.cpp:server-cuda13-b12063 --list-devices
 ```
 
-`--version` prints `version: 0.8.0-dev (build 12063, commit 2cbca389f)`, then `built with GNU
-14.2.0 for Linux aarch64`, as read from gb10-1's running container of the same image on
-2026-11-03. `--list-devices` lists the GB10 as a CUDA device; an empty list means the container
-didn't reach the GPU.
+`--version` prints `version: 0.8.0-dev (build 12063, commit 2cbca389f)`, then `built with GNU 14.2.0
+for Linux aarch64`, as read from gb10-1's running container of the same image. `--list-devices`
+lists the GB10 as a CUDA device; an empty list means the container didn't reach the GPU.
 
 ### 4. Get the clone onto the host
 
@@ -429,11 +426,14 @@ The architect's root step. Omarchy runs ufw with ufw-docker, which drops routed 
 container's published port: the laptop's requests to `framework:8080` time out, though the
 container answers on the host. A native server needs no rule, since ufw doesn't filter the host's
 own input on `tailscale0`; a container's port is routed, through Docker's forwarding. Allow the
-routed traffic that arrives over the tailnet to llama.cpp's port, 8080, and vLLM's, 8000:
+routed traffic that arrives over the tailnet to llama.cpp's port, 8080, and vLLM's, 8000, 8001
+and 8002, the ports of vLLM's rows ([vLLM's Models](../vllm/models.md#the-rows-file)):
 
 ```sh
 sudo ufw route allow in on tailscale0 proto tcp to any port 8080
 sudo ufw route allow in on tailscale0 proto tcp to any port 8000
+sudo ufw route allow in on tailscale0 proto tcp to any port 8001
+sudo ufw route allow in on tailscale0 proto tcp to any port 8002
 ```
 
 Each adds a rule for IPv4 and one for IPv6. Check them:
@@ -442,21 +442,21 @@ Each adds a rule for IPv4 and one for IPv6. Check them:
 sudo ufw status verbose
 ```
 
-It lists `8080/tcp ALLOW FWD Anywhere on tailscale0`, the same for `8000/tcp`, and both again
-with `(v6)`. The rules name a port, not a container, so they hold for any container published
-there: a flavor switch, an update, or vLLM's container. They go with
+It lists `8080/tcp ALLOW FWD Anywhere on tailscale0`, the same for `8000/tcp`, `8001/tcp` and
+`8002/tcp`, and each again with `(v6)`. The rules name a port, not a container, so they hold for any
+container published there: a flavor switch, an update, or vLLM's container. They go with
 [Uninstall](uninstall.md#removing-the-frameworks-root-steps).
 
 <a id="5-stop-the-router"></a>
 
 ### 5. Retire the router
 
-The retirement removes spike-model-hosting's native router, `llama-router`, and everything only
-it used. The router served on the Framework before this spike: it held port 8080 and, with its
-set A loaded, most of the GTT, and the `engines` commands refuse while any `llama-router` unit
-is active. The Framework serves set A from the `llama` container instead
-([12. Serve set A](#12-serve-set-a)). The architect runs every step; the session reads the state
-back before and after. What the router used, read on 2026-10-29 with it disabled and inactive:
+The retirement removes spike-model-hosting's native router, `llama-router`, and everything only it
+used. The router served on the Framework before this spike: it held port 8080 and, with its set A
+loaded, most of the GTT, and the `engines` commands refuse while any `llama-router` unit is active.
+The Framework served set A from the `llama` container instead ([12. Serve set A](#12-serve-set-a)).
+The architect runs every step; the session reads the state back before and after. What the router
+used, read with it disabled and inactive:
 
 | What | Where | Owner |
 |---|---|---|
@@ -527,10 +527,10 @@ On a host where `llama` doesn't run yet, as in a setup from scratch, which retir
 before [10. Install](#10-install), the last line prints only `ss`'s header and `docker port`'s
 error.
 
-As run on 2026-10-29, from about 15:25 to 15:31Z, the architect's steps at the Framework's own
-prompt and the session's read-backs, each block exactly as given: both read-backs matched what
-this step says, the drive went from 82G used to 36K, and port 8080 stayed the `llama`
-container's ([the answer finding's Walkthrough](../../findings/answer.md#the-routers-retirement)).
+As run, the architect's steps at the Framework's own prompt and the session's read-backs, each block
+exactly as given: both read-backs matched what this step says, the drive went from 82G used to 36K,
+and port 8080 stayed the `llama` container's ([the answer finding's
+Walkthrough](../../findings/answer.md#the-routers-retirement)).
 
 The `engines` commands still refuse beside any active `llama-router` unit, by its name alone:
 native llama.cpp's on gb10-1 ([GB10, native](#gb10-native)), or one a host rebuilds. Nothing here
@@ -754,10 +754,10 @@ The rule goes when its file does ([Uninstall](uninstall.md#the-framework)).
 
 ### 12. Serve set A
 
-The session's step. Between tasks the Framework serves set A, the four models Pi and the
-personal agents call, from the `llama` container in ggml's Vulkan image, at the pin. Set A is four
-sections of the preset ([Models](models.md#the-preset)), each already in `/srv/models` and within
-the quantization floor, so nothing downloads:
+The session's step. The Framework served set A between this spike's tasks, the four models Pi and
+the personal agents call, from the `llama` container in ggml's Vulkan image, at the pin. Set A is
+four sections of the preset ([Models](models.md#the-preset)), each already in `/srv/models` and
+within the quantization floor, so nothing downloads:
 
 | Section | Model | Role |
 |---|---|---|
@@ -826,8 +826,9 @@ an update, a `docker start`, or a reboot, which `--restart unless-stopped` bring
 router serves nothing until a model is loaded: run the load block above again, or load each model
 from Pi's `/llama`.
 
-What the spike no longer runs on the Framework, the vLLM audio probe's image and ggml's native
-Vulkan prebuilt, is removed with [Uninstall](uninstall.md#the-framework)'s two blocks.
+ggml's native Vulkan prebuilt, which the spike no longer runs on the Framework, and the audio
+image, once the Framework's audio row is uninstalled, are removed with
+[Uninstall](uninstall.md#the-framework)'s two blocks.
 
 ## llama-bench
 
@@ -863,12 +864,11 @@ llama-bench ships with every llama.cpp build, so the spike installs nothing for 
 
 **In a container.** The server image the spike runs, `server-<flavor>-<build>`, holds only
 `llama-server`. ggml's `full-<flavor>-<build>` image holds every tool, llama-bench among them, for
-the same build. Its entrypoint, `/app/tools.sh`, picks the tool from its first argument;
-`--bench` (or `-b`) runs `./llama-bench` in `/app` with the rest. On the GB10, pull
-`full-cuda13` for gb10's pin and list the devices it finds with the GPU attached (the Framework's
-flavors are under [On the Framework](#on-the-framework)). The walk below ran when that pin was
-v0.8.0 (b11960); gb10's pin is now b12602, and `update` removes every other build's full images
-([Update](update.md#moving-to-the-pinned-build)):
+the same build. Its entrypoint, `/app/tools.sh`, picks the tool from its first argument; `--bench`
+(or `-b`) runs `./llama-bench` in `/app` with the rest. On the GB10, pull `full-cuda13` for gb10's
+pin and list the devices it finds with the GPU attached (the Framework's flavors are under [On the
+Framework](#on-the-framework)). The walk below ran at v0.8.0 (b11960); `update` removes every other
+build's full images ([Update](update.md#moving-to-the-pinned-build)):
 
 ```sh
 docker pull ghcr.io/ggml-org/llama.cpp:full-cuda13-b11960

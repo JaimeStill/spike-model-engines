@@ -116,24 +116,19 @@ and unpacks it in `~/llama.cpp/<build>-vulkan` ([Models](models.md#on-the-framew
 asset is `llama-b11669-bin-ubuntu-vulkan-x64.tar.gz`, whose SHA-256 is
 `e8709e5ba6c1b093dea7f3de57f4aba842f9a188fba6b465782d65d6fcfa4d9f`.
 
-The vLLM audio probe's image, `spike-model-engines/vllm-openai-rocm-audio:v0.32.0`, is vLLM's
-official ROCm image with three audio decoders added, which
-[vllm-strix](../../findings/vllm-strix.md#the-audio-probe) built on the Framework. The suite never
-builds or serves it, so neither `host/engines vllm uninstall` nor llama.cpp's removes it; the
-session does, and the image list then shows no `vllm-openai-rocm-audio`. It shares its layers
-with `vllm/vllm-openai-rocm:v0.32.0`, which stays, so only the added layer's space comes back:
+The audio image, `spike-model-engines/vllm-openai-rocm-audio:<release>`, serves the Framework's
+audio row ([vLLM's Setup](../vllm/setup.md#the-audio-image)); the suite never builds, pulls, or
+removes it, so the session removes it once that row is uninstalled, and the image list then shows
+no `vllm-openai-rocm-audio`. It shares its layers with vLLM's official ROCm image of the same
+release, so while that image stays only the added layer's space comes back:
 
 ```sh
-docker rmi spike-model-engines/vllm-openai-rocm-audio:v0.32.0
+docker rmi spike-model-engines/vllm-openai-rocm-audio:<release>
 docker image ls --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}'
 ```
 
-Its Dockerfile stays in the repository, `host/vllm-rocm-audio/Dockerfile`, and rebuilds it, as
-the probe did, from the clone:
-
-```sh
-docker build -q -t spike-model-engines/vllm-openai-rocm-audio:v0.32.0 host/vllm-rocm-audio
-```
+Its Dockerfile stays in the repository, `host/vllm-rocm-audio/Dockerfile`, and rebuilds it
+([vLLM's Setup](../vllm/setup.md#the-audio-image)).
 
 ### Removing the Framework's root steps
 
@@ -152,6 +147,8 @@ The ufw rules that route the tailnet's traffic to the containers' ports, llama.c
 ```sh
 sudo ufw route delete allow in on tailscale0 proto tcp to any port 8080
 sudo ufw route delete allow in on tailscale0 proto tcp to any port 8000
+sudo ufw route delete allow in on tailscale0 proto tcp to any port 8001
+sudo ufw route delete allow in on tailscale0 proto tcp to any port 8002
 ```
 
 Each deletes its IPv4 and IPv6 rule; `sudo ufw status verbose` then lists no `ALLOW FWD` rule on

@@ -6,17 +6,13 @@ Strix Halo, in containers and on bare metal. `README.md` is the front page and g
 under "The answer". The repository is managed with the marathon workflow, so start from
 `context/README.md`.
 
-- **Rules:** sessions are guided where the architect is learning. The session runs routine host
-  steps that need no root over Tailscale SSH, and the GuideLLM cells in the architect's view, from
-  the commands the brief agreed; the architect keeps root, a new tool's or concept's first walk,
-  the last slice's walkthrough, and every escalation's decision. Every benchmark is planned
-  together. Read `context/README.md`, "Rules", and the experiment's rules,
-  `standards-lab/docs/ai-hosting.md#experiment-rules`, before any host step.
+- **Rules:** read `docs/rules.md` and `standards-lab/docs/ai-hosting.md#experiment-rules` before
+  any host step.
 - **Standards:** `STANDARDS.md`, with pointers into the architecture repository.
 - **Check:** `mise run check`, which shellchecks every tracked shell script and runs lint-context
   and lint-references.
 - **Currency:** `mise run currency`, which reports every pin behind its latest.
-- **Goals:** the coordinator's roadmap, `standards-lab/roadmap/index.toml`, holds this spike's
-  work.
+- **Goals:** the spike answered for experiment.hosting, which is complete;
+  `standards-lab/roadmap/v1.ai.hosting.toml` builds from its answer.
 - **References:** the repositories this spike reads are keys in the coordinator's
   `references.toml` and `references.local.toml`. The spike reads them and never writes to them.

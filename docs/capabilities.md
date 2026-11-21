@@ -1,7 +1,7 @@
-# Capabilities, tasks, and references
+# Capabilities and references
 
-This page details the spike's built capabilities, the tasks it ran in order, and the repositories
-it reads, behind the map and the evidence in [`context/README.md`](../context/README.md).
+This page details the spike's built capabilities and the repositories it reads, behind the map
+and the evidence in [`context/README.md`](../context/README.md).
 
 ## Capabilities
 
@@ -12,7 +12,9 @@ it reads, behind the map and the evidence in [`context/README.md`](../context/RE
   llama.cpp and vLLM, each in a container (`llama`, `vllm`) and natively (`llama-native`,
   `vllm-native`). Each container takes a flavor, which picks its image and the
   devices it gets: llama's is `cuda13`, `rocm`, or `vulkan`, and vllm's `cuda` or `rocm`, which
-  also picks its default row.
+  also picks its default row. vLLM serves one container per row, each with its own port and memory
+  fraction; the standing rows and per-row tracing are in
+  [Models](engines/vllm/models.md#the-standing-rows).
 - **Served-load findings:** the GuideLLM runs, under `docs/findings/`.
   `bench-gb10-container.md` compares both engines on gb10-1 in containers by shape, quantization,
   concurrency, vision, ASR, and embeddings (granite-embedding-english-r2 on both engines), with
@@ -37,41 +39,10 @@ it reads, behind the map and the evidence in [`context/README.md`](../context/RE
   vLLM's image and natively from its cu130 wheel under systemd: install, update, rollback, cold
   start, footprint, the anchor cells, and the Marlin MoE diagnostic.
 - **Quantization rule:** the floor every cell keeps, applied in `bench-gb10-container.md`'s
-  formats ([Rules](../context/README.md#rules)).
+  formats (`standards-lab/docs/ai-hosting.md#experiment-rules`).
 - **The answer:** llama.cpp in a container on both host classes, in ggml's CUDA image on the
   GB10s and its Vulkan image on the Framework. vLLM's leads and the measured concurrency curves
   are kept as evidence, and the answer sets no slot limit ([README](../README.md#the-answer)).
-
-## The tasks in order
-
-The tasks ran in this order. Each names the evidence items it proves.
-
-1. `llama-gb10-container`: llama.cpp in ggml's CUDA 13 image on both GB10s, the `engines` suite,
-   the llama.cpp guide, two GuideLLM anchor cells (evidence 1, 2).
-2. `vllm-gb10-container`: vLLM's CUDA 13.0 arm64 image on both GB10s, NVFP4 served, the vLLM guide
-   (evidence 1, 3).
-3. `bench-gb10-container`: both engines' cells on gb10-1 and the API-surface probes, in
-   `docs/findings/bench-gb10-container.md` (evidence 2, 3, 4, 5).
-4. `llama-gb10-native`: llama.cpp native under systemd on gb10-1, llama-bench, anchor cells
-   against the container, in `docs/findings/llama-gb10-native.md` (evidence 1, 6).
-5. `vllm-gb10-native`: vLLM's aarch64 wheel natively on gb10-1, anchor cells against the
-   container, and a Marlin MoE diagnostic on bench-gb10-container's question of vLLM's slow NVFP4
-   decode on SM121, in `docs/findings/vllm-gb10-native.md` (evidence 1, 6).
-6. `llama-strix-rocm`: llama.cpp in ggml's ROCm image against ggml's Vulkan image on the
-   Framework, the `engines` suite's flavor, in `docs/findings/llama-strix-rocm.md` (evidence 1, 2,
-   3).
-7. `vllm-strix`: vLLM's official ROCm image on gfx1151 against llama.cpp's Vulkan image, which
-   led task 6, cell for cell, in `docs/findings/vllm-strix.md` (evidence 1, 2). vLLM serves every
-   ROCm row. The official image can't decode audio, so its audio cells are unsupported; a probe
-   image that adds the missing packages serves them. llama.cpp's output tok/s is higher at every
-   text, vision, and audio cell, and vLLM's request rate at both embedding cells.
-8. `strix-native`: dropped. It was to run only if task 6 showed ROCm leading or the GB10 native
-   tasks showed bare metal winning; Vulkan led task 6, and bare metal measured level with the
-   container on gb10-1 (evidence 6).
-9. `answer`: llama.cpp in a container on both host classes, ggml's CUDA image on the GB10s and
-   its Vulkan image on the Framework, in README "The answer" (evidence 1 to 6). The Framework's
-   concurrency sweep, in `docs/findings/answer.md`, gives gpt-oss-120b an initial setting of 4
-   streams. spike-model-hosting's router is retired, and the Framework serves set A.
 
 ## References
 

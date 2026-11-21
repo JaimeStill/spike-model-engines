@@ -42,7 +42,7 @@ notes name, or a b-build, such as `b11429`, which runs as given
 - [Setup](setup.md): bring a host current, record its stack, prove the image, install, and allow
   the session's page-cache drop; natively, the architect's root steps, install, and stop; on the
   Framework, the GTT ceiling, Docker, the ufw route rules, retiring spike-model-hosting's router,
-  the ROCm image's first run, and serving set A between tasks.
+  the ROCm image's first run, and set A, which it served between this spike's tasks.
 - [Models](models.md): the preset, pre-staging every model with hf, the Framework's staging and
   the seeding of its store, loading a model, watching or cancelling its download, copying it to
   gb10-2 under a borrow, and listing models.

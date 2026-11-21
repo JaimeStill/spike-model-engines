@@ -24,8 +24,8 @@ vllm-native <verb>` for native vLLM:
 | Command | What it does |
 |---|---|
 | `host/engines vllm install` | Runs the server on the pinned row, or `VLLM_MODEL`'s, at the pinned release or the release given |
-| `host/engines vllm update` | Moves the server to the pinned release and row, or `VLLM_MODEL`'s, and removes every other vLLM image |
-| `host/engines vllm uninstall` | Removes the server, every vLLM image, and the compile cache, keeping `/srv/models` |
+| `host/engines vllm update` | Replaces the row's container (`vllm` unless the row names another) with the pinned release and row, or `VLLM_MODEL`'s, and removes every official vLLM image no container on the host uses |
+| `host/engines vllm uninstall` | Removes the container of the default row, or `VLLM_MODEL`'s; once no vLLM container is left, every official vLLM image and the compile cache. A row's own image stays, as `/srv/models` does |
 | `host/engines vllm-native install [release]` | Serves native vLLM on the pinned row, or `VLLM_MODEL`'s, at the pinned release or the release given |
 | `host/engines vllm-native update [release]` | Moves native vLLM to the pinned release and row, or the given release or `VLLM_MODEL`'s, and removes every other release |
 | `host/engines vllm-native uninstall` | Stops and disables native vLLM and removes every release and its caches, keeping `/srv/models` |

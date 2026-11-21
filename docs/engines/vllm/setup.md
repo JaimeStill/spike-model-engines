@@ -2,9 +2,9 @@
 
 ## GB10, in a container
 
-Run these steps on gb10-1. gb10-2 is reserved for spike-ai-pipeline, and the spike installs
-there only under a named borrow of it (`ai-hosting.md`, "Hosts and access"). Docker needs no
-`sudo`, because the account is in the `docker` group.
+Run these steps on gb10-1. gb10-2 is reserved for spike-ai-pipeline, and the spike installs there
+only under a named borrow of it. Docker needs no `sudo`, because the account is in the `docker`
+group.
 
 ### 1. Bring the host current and record its stack
 
@@ -27,9 +27,9 @@ docker run --rm --gpus all --entrypoint python3 vllm/vllm-openai:v0.34.0 -c \
   "import torch; p = torch.cuda.get_device_properties(0); print(torch.cuda.get_device_name(0), p.total_memory // 2**20, 'MiB')"
 ```
 
-`--version` prints the release without its `v`, `0.32.0` when the pin was v0.32.0. The second
-command prints the GB10's name and the memory CUDA sees on it, in MiB; an error that no CUDA
-device is available means the container didn't reach the GPU.
+`--version` prints the release without its `v`, `<release>`. The second command prints the GB10's
+name and the memory CUDA sees on it, in MiB; an error that no CUDA device is available means the
+container didn't reach the GPU.
 
 ### 3. Get the clone onto the host
 
@@ -567,7 +567,7 @@ From the laptop, the server answers on the host's tailnet name ([API](api.md#ver
 curl -s -m5 http://gb10-1:8000/version
 ```
 
-It printed `{"version":"0.32.0"}` when the pin was v0.32.0.
+It prints `{"version":"<release>"}`, the release without its `v`.
 
 A cold start is timed from the unit's start to the `Application startup complete.` line, as the
 container's is from its start ([6. Watch the cold start](#6-watch-the-cold-start-and-record-it)):
@@ -620,8 +620,8 @@ and they hold for vLLM's container too:
   recorded as a pending reboot;
 - [the GTT ceiling](../llama.cpp/setup.md#2-set-the-gtt-ceiling), 112 GiB;
 - [Docker for jaime](../llama.cpp/setup.md#3-docker-for-jaime), the `docker` group;
-- [the ufw rule](../llama.cpp/setup.md#4-route-the-ports-through-ufw) that routes the tailnet's
-  traffic to port 8000, vLLM's, beside 8080;
+- [the ufw rules](../llama.cpp/setup.md#4-route-the-ports-through-ufw) that route the tailnet's
+  traffic to ports 8000, 8001 and 8002, vLLM's rows', beside 8080;
 - [the router retired](../llama.cpp/setup.md#5-retire-the-router), spike-model-hosting's
   `llama-router`;
 - [the model store](../llama.cpp/setup.md#8-create-the-model-store), `/srv/models`;
@@ -641,7 +641,7 @@ stat -c %U /srv/models
 ```
 
 ufw's rules are root's to read; the architect checks that `sudo ufw status verbose` lists
-`8000/tcp ALLOW FWD Anywhere on tailscale0`. Then the session records the host stack, as
+`8000/tcp ALLOW FWD Anywhere on tailscale0`, and the same for `8001/tcp` and `8002/tcp`. Then the session records the host stack, as
 llama.cpp's [Record the host stack](../llama.cpp/setup.md#6-record-the-host-stack) does, and
 brings the clone, `~/repos/spike-model-engines`, to the task's branch
 ([Get the clone onto the host](../llama.cpp/setup.md#7-get-the-clone-onto-the-host)).
@@ -838,20 +838,19 @@ vllm is running, and one engine serves per host at a time, since each reserves m
 
 ### The audio image
 
-The Framework's audio row, `gemma-4-E4B-it-audio-framework`
-([Models](models.md#the-standing-rows)), serves from the audio image,
-`host/vllm-rocm-audio/Dockerfile`: vLLM's ROCm image at the pin, by its digest, with the decoders
-of vLLM's audio extra it ships without. vllm-strix's audio probe found the official image with
-none of torchcodec, ffmpeg, av, soundfile, or soxr, so vLLM raises "Please install vllm[audio]" and
-every audio request returns 500 ([vllm-strix](../../findings/vllm-strix.md#the-audio-probe)). The
-extra (av, scipy, soundfile, soxr, mistral_common[audio]) pins no versions, and of it only av,
-soundfile, and soxr were missing, pinned at the versions uv resolved on 2026-10-28.
+The Framework's audio row, `gemma-4-E4B-it-audio-framework` ([Models](models.md#the-standing-rows)),
+serves from the audio image, `host/vllm-rocm-audio/Dockerfile`: vLLM's ROCm image at the pin, by its
+digest, with the decoders of vLLM's audio extra it ships without. vllm-strix's audio probe found the
+official image with none of torchcodec, ffmpeg, av, soundfile, or soxr, so vLLM raises "Please
+install vllm[audio]" and every audio request returns 500
+([vllm-strix](../../findings/vllm-strix.md#the-audio-probe)). The extra (av, scipy, soundfile, soxr,
+mistral_common[audio]) pins no versions, and of it only av, soundfile, and soxr were missing, pinned
+at the versions uv resolved.
 
 It builds on v0.34.0's one ROCm build, its default tag, ROCm 10.0 (the same image as `-rocm100`), as
 the suite serves it ([Update](update.md#the-release-on-each-flavor)), pinned by the index digest
-Docker Hub served for the tag on 2026-11-17. v0.34.0's audio extra is v0.33.0's, so the same three
-are installed. The host builds it, tagged as the suite serves it, `<repository>:<release>`, from the
-clone:
+Docker Hub served for the tag. v0.34.0's audio extra is v0.33.0's, so the same three are installed.
+The host builds it, tagged as the suite serves it, `<repository>:<release>`, from the clone:
 
 ```sh
 docker build -t spike-model-engines/vllm-openai-rocm-audio:v0.34.0 host/vllm-rocm-audio

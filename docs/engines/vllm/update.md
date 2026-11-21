@@ -9,19 +9,20 @@ git pull
 host/engines vllm update
 ```
 
-`update` pulls the pinned image of the host's flavor ([The flavor](#the-flavor)), replaces the
-`vllm` container with one running it on the flavor's default row, and removes every other vLLM
-image, of either flavor, so only the pinned image remains. With `VLLM_MODEL=<row id>` before it, it
-serves that row instead, for one run ([Models](models.md#serving-another-row-for-one-run)); without,
-it returns to the default. It compares the container's whole command with the row's, so it replaces
-the container when its image, its model, or any server flag differs; when the image is already the
-pin's, as when only the row changes, it replaces the container without pulling. It pulls before it
-removes anything, so a failed pull leaves the old release serving. When `vllm` already runs the
-pinned release and the row's model and flags, and no other vLLM image is left, it changes nothing
-and says so; when that `vllm` is stopped, it says `docker start vllm` starts it, and leaves it
-stopped. It fails, changing nothing, when vLLM isn't installed, when `VLLM_MODEL` names no row, or
-while llama.cpp's `llama` container or `llama-router` unit runs, or native vLLM's `vllm-server`
-does, and, before it pulls, when `/srv/models` is missing or the host has no tailnet IPv4 address.
+`update` pulls the pinned image of the host's flavor ([The flavor](#the-flavor)), replaces the row's
+container (`vllm` unless the row names another) with one running it on the flavor's default row, and
+removes every official vLLM image, of either flavor, no container on the host uses. With
+`VLLM_MODEL=<row id>` before it, it serves that row instead, for one run
+([Models](models.md#serving-another-row-for-one-run)); without, it returns to the default. It
+compares the container's whole command with the row's, so it replaces the container when its image,
+its model, or any server flag differs; when the image is already the pin's, as when only the row
+changes, it replaces the container without pulling. It pulls before it removes anything, so a failed
+pull leaves the old release serving. When `vllm` already runs the pinned release and the row's model
+and flags, and no unused vLLM image is left, it changes nothing and says so; when that `vllm` is
+stopped, it says `docker start vllm` starts it, and leaves it stopped. It fails, changing nothing,
+when vLLM isn't installed, when `VLLM_MODEL` names no row, or while llama.cpp's `llama` container or
+`llama-router` unit runs, or native vLLM's `vllm-server` does, and, before it pulls, when
+`/srv/models` is missing or the host has no tailnet IPv4 address.
 
 The new container starts cold. Follow its log until `Application startup complete.`, then time
 and record the cold start as [Setup](setup.md#6-watch-the-cold-start-and-record-it) shows:
@@ -41,8 +42,8 @@ docker image ls vllm/vllm-openai-rocm
 ```
 
 The first prints the pinned image, then the row's model and server flags the container serves;
-the other two, one a flavor's repository, list the pinned image alone, and nothing for the other
-flavor. The laptop confirms the version the server itself runs
+the other two, one a flavor's repository, list the pinned image and any image another row's
+container uses. The laptop confirms the version the server itself runs
 ([API](api.md#version)), which reads `0.34.0` at the pin.
 
 ## The flavor
@@ -58,8 +59,7 @@ devices and the default row:
 | `rocm` | `vllm/vllm-openai-rocm:<release>` | `--device /dev/kfd --device /dev/dri` | `gpt-oss-120b` | a host with an AMD GPU: the Framework |
 
 A host has an AMD GPU when a card under `/sys/class/drm` reports AMD's PCI vendor ID, `0x1002`,
-which any account can read; on gb10-1 it reads NVIDIA's `0x10de`, so gb10-1 serves as it did
-before the flavor:
+which any account can read; on gb10-1 it reads NVIDIA's `0x10de`:
 
 ```sh
 cat /sys/class/drm/card*/device/vendor
@@ -96,22 +96,19 @@ git pull
 host/engines vllm update
 ```
 
-It pulls the ROCm image of the pinned release before it replaces anything, so a failed pull
-leaves the old release serving, then removes every other vLLM image. A release named for one run,
-`host/engines vllm install v0.31.0`, installs that release's image of the host's flavor. A release
-whose image of the host's flavor isn't published fails at the pull, changing nothing. Every start
-on the Framework is a cold start to record ([Setup](setup.md#5-watch-the-first-start-up-to-20-minutes)),
-and the first under a new release may compile again.
+It pulls the ROCm image of the pinned release before it replaces anything, so a failed pull leaves
+the old release serving, then removes every official vLLM image no container on the host uses. A
+release named for one run, `host/engines vllm install v0.31.0`, installs that release's image of the
+host's flavor. A release whose image of the host's flavor isn't published fails at the pull,
+changing nothing. Every start on the Framework is a cold start to record
+([Setup](setup.md#5-watch-the-first-start-up-to-20-minutes)), and the first under a new release may
+compile again.
 
 On v0.34.0, `rocm`'s default tag is its only ROCm build, ROCm 10.0, the same image as
-`v0.34.0-rocm100` (index
-`sha256:3cb773d23f063afa86291ef75773cdd486154ddea94c213300f4ed7cc42b7af1` on Docker Hub on
-2026-11-17), the most recent ROCm AMD supports on the Framework's gfx1151. v0.34.0 publishes no
-ROCm 7.2 build ("ROCm 7.2 artifacts dropped", vLLM #61939), so the pin names no fallback build:
-the architect removed the ROCm 7.2 fallback v0.33.0 kept (spike-model-gateway's
-docs/findings/priority.md), since the Framework's rows served on ROCm 10.0 throughout. The audio
-image builds on the same image; [Setup](setup.md#the-audio-image) records the digest the build
-pins.
+`v0.34.0-rocm100` (index `sha256:3cb773d23f063afa86291ef75773cdd486154ddea94c213300f4ed7cc42b7af1`
+on Docker Hub), the most recent ROCm AMD supports on the Framework's gfx1151. v0.34.0 publishes no
+ROCm 7.2 build (vLLM #61939), so the pin names no fallback build. The audio image builds on the same
+image; [Setup](setup.md#the-audio-image) records the digest the build pins.
 
 ## Rehearsing an update
 
@@ -151,15 +148,15 @@ One release serves every flavor: `host/vllm.sh` names the image `<repository>:<r
 repository of the flavor it resolves (`vllm_flavor`). `cuda`'s is the release's default tag, vLLM's
 CUDA 13.0 multi-arch build, not a variant such as `-efa`: every pinned release since v0.31.0
 publishes it for arm64, v0.34.0 among them (its arm64 image,
-`sha256:e40eb98263fa13418dda684147d73e8ec4a2b0e056a37e955dc189cd1b11dd16` on Docker Hub on
-2026-11-17). `rocm`'s is vLLM's official ROCm image of the same release, its default tag
-([The release on each flavor](#the-release-on-each-flavor)). Each flavor's default row moves with
-the release rather than on demand; a `VLLM_MODEL` in the environment names another for one run,
-with no edit to the pin ([Models](models.md#changing-the-model)). `host/vllm.env` is sourced by
-`scripts/currency.sh`, which reads only the release, and by `host/vllm.sh`, and through it
-`host/vllm-native.sh`. It also holds `VLLM_NATIVE_PYTHON`, the CPython minor version uv installs
-for each release's native virtualenv ([Native](#native)), and `VLLM_TRACE_COLLECTOR`
-([Tracing a row for one run](models.md#tracing-a-row-for-one-run)).
+`sha256:e40eb98263fa13418dda684147d73e8ec4a2b0e056a37e955dc189cd1b11dd16` on Docker Hub). `rocm`'s
+is vLLM's official ROCm image of the same release, its default tag ([The release on each
+flavor](#the-release-on-each-flavor)). Each flavor's default row moves with the release rather than
+on demand; a `VLLM_MODEL` in the environment names another for one run, with no edit to the pin
+([Models](models.md#changing-the-model)). `host/vllm.env` is sourced by `scripts/currency.sh`, which
+reads only the release, and by `host/vllm.sh`, and through it `host/vllm-native.sh`. It also holds
+`VLLM_NATIVE_PYTHON`, the CPython minor version uv installs for each release's native virtualenv
+([Native](#native)), and `VLLM_TRACE_COLLECTOR` ([Tracing a row for one
+run](models.md#tracing-a-row-for-one-run)).
 
 ### v0.34.0's KV cache
 
@@ -177,7 +174,8 @@ v0.34.0 changes how every row's KV cache is laid out and sized, though no row's 
   but ROCm's paged attention keeps 16.
 - It fixes caches undersized by up to 84% on DGX Spark (#65413), the GB10s' platform.
 
-The task's benchmarks ran on v0.33.0 and were not rerun on v0.34.0.
+spike-model-gateway's priority benchmarks (its docs/findings/priority.md) ran on v0.33.0 and were
+not rerun on v0.34.0.
 
 ## Native
 
@@ -200,7 +198,7 @@ starts it again. It waits for `/health` to answer, for at most 10 minutes. Only 
 release serves does it remove every other release, so only the serving release is kept. It prints
 uv's and the kernel install's output, phase by phase as `install` does ([What the native install
 runs](setup.md#what-the-native-install-runs)), then what moved and what it removed, then the
-server's `/version` and torch's version and CUDA, 13.0. From v0.31.0 to the pin, `update v0.32.0`
+server's `/version` and torch's version and CUDA, 13.0. From v0.31.0 to v0.32.0, `update v0.32.0`
 in [the walk](#the-walk), uv's install reads:
 
 ```text
@@ -310,9 +308,9 @@ and the forward's `0.71 s`, against 27 s on each release's first start.
 
 ### The walk
 
-The native walk installs the older release, updates to the pin, rolls back, and moves forward
-again, each step printing `/version` and torch's CUDA. From the clone, on a host where native
-vLLM isn't installed:
+The native walk installs the older release, updates to v0.32.0, the pin when the walk ran, rolls
+back, and moves forward again, each step printing `/version` and torch's CUDA. From the clone, on a
+host where native vLLM isn't installed:
 
 ```sh
 host/engines vllm-native install v0.31.0

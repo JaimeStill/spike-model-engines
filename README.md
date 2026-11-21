@@ -7,8 +7,10 @@ reserved for spike-ai-pipeline) and on the Framework, and documents how each is 
 configured, called, updated, and removed. Its answer is evidence for standards-lab's
 `experiment.hosting` intake, which decides the engine strategy `v1.ai.hosting` specifies.
 
-- The engine guides: `docs/engines/` (written by the install tasks).
-- The measured results: `docs/findings/` (written by the benchmark tasks).
+- The engine guides: [llama.cpp](docs/engines/llama.cpp/README.md) and
+  [vLLM](docs/engines/vllm/README.md).
+- The measured results: [`docs/findings/`](docs/findings/).
+- The context: [`context/README.md`](context/README.md).
 
 ## The answer
 
@@ -150,14 +152,15 @@ Also open:
 - **vLLM's ROCm audio:** probe only, the suite doesn't build it
   ([vllm-strix](docs/findings/vllm-strix.md#the-audio-probe)).
 
-### The Framework's end state
+### The Framework's state at the answer
 
-The Framework serves set A from the `llama` container in ggml's Vulkan image, at b11960:
+The Framework served set A from the `llama` container in ggml's Vulkan image, at b11960:
 gpt-oss-120b on 4 slots, Gemma 4 26B-A4B QAT Q4_0 and E4B Q8_0 with their projectors, and
 granite-embedding-english-r2, on `framework:8080`
-([setup](docs/engines/llama.cpp/setup.md#12-serve-set-a)). The `vllm` container is installed and
+([setup](docs/engines/llama.cpp/setup.md#12-serve-set-a)). The `vllm` container was installed and
 stopped. spike-model-hosting's router, `llama-router`, was retired on 2026-10-29: its unit,
 presets, builds, and 82G of models are gone, and the models drive stays mounted, empty
 ([setup](docs/engines/llama.cpp/setup.md#5-retire-the-router);
 [answer's Walkthrough](docs/findings/answer.md#walkthrough), where Pi ran against set A from the
-laptop).
+laptop). The hosts have since moved to vLLM's standing rows
+([Models](docs/engines/vllm/models.md#the-standing-rows)).

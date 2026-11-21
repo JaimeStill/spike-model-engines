@@ -143,12 +143,11 @@ record it as one ([Setup](setup.md#6-watch-the-cold-start-and-record-it)).
 
 ## Copying the model to the other GB10
 
-Only under a named borrow of gb10-2 (`ai-hosting.md`, "Hosts and access"): gb10-2 is reserved
-for spike-ai-pipeline, and the spike runs on gb10-1 alone. Under a borrow, download the model
-once, on gb10-1, and copy it to gb10-2 over the QSFP link instead of downloading it again. The
-`gb10-N-qsfp` names and passwordless SSH between the nodes come from the GB10 setup in dotfiles.
-Copy only once gb10-1's log shows `Application startup complete.`, so no partial file travels.
-On gb10-1:
+Only under a named borrow of gb10-2: gb10-2 is reserved for spike-ai-pipeline, and the spike runs on
+gb10-1 alone. Under a borrow, download the model once, on gb10-1, and copy it to gb10-2 over the
+QSFP link instead of downloading it again. The `gb10-N-qsfp` names and passwordless SSH between the
+nodes come from the GB10 setup in dotfiles. Copy only once gb10-1's log shows `Application startup
+complete.`, so no partial file travels. On gb10-1:
 
 ```sh
 rsync -a --info=progress2 /srv/models/models--nvidia--Gemma-4-26B-A4B-NVFP4 /srv/models/blobs gb10-2-qsfp:/srv/models/
@@ -176,10 +175,9 @@ the load and the compile alone; record it.
 Every model the server serves is a row of `host/vllm-rows`: an id in brackets, the model's Hugging
 Face repository, then its server flags; [The rows file](#the-rows-file) gives its format, and [Each
 row's reasons](#each-rows-reasons) and [The standing rows](#the-standing-rows) each flag's reason.
-The rows are one set for both flavors. Every row but the standing rows serves sequences of 8192
-tokens and reserves 0.80 of the host's GPU memory, on every host (`--max-model-len 8192
---gpu-memory-utilization 0.80`), and the model's own generation config sets its sampling. Beyond
-those:
+The flags leave out `--max-model-len 8192`, which every row but the agent rows names, and
+`--gpu-memory-utilization 0.80` where a row names no other fraction; "the default's" is the
+`gemma-4-26B-A4B-NVFP4` row's flags. The rows a run names:
 
 | Row id | Model | Flags | Serves |
 |---|---|---|---|
@@ -194,18 +192,9 @@ those:
 | `gemma-4-31B-it-qat-w4a16-ct` | `google/gemma-4-31B-it-qat-w4a16-ct` | the default's | dense large, QAT w4a16 |
 | `granite-embedding-english-r2` | `ibm-granite/granite-embedding-english-r2` | `--runner pooling --max-num-seqs 16` | `/v1/embeddings` only |
 | `gpt-oss-120b` | `openai/gpt-oss-120b` | `--max-num-seqs 16 --reasoning-parser openai_gptoss --enable-auto-tool-choice --tool-call-parser openai` | the `rocm` flavor's default; 16 sequences, its KV cache the checkpoint's |
+| `gpt-oss-120b-agent` | `openai/gpt-oss-120b` | `--max-num-seqs 8 --max-model-len 131072`, and `gpt-oss-120b`'s parsers | the agent; 8 sessions of 131,072 tokens, its KV cache the checkpoint's |
 
-granite-embedding-english-r2, a ModernBERT encoder with heads of 64, runs its encoder-only
-attention on `FLASH_ATTN` on the GB10's SM121.
-
-"The default's" is the `gemma-4-26B-A4B-NVFP4` row's flags.
-
-The standing rows are the ones each host stands on, served under their purpose alias for
-spike-model-gateway's agentgateway, and each names its own sequence length and fraction. All but
-the embedding row cap what they admit in flight, running and waiting, at twice their sequences,
-and answer 503 past that (`--max-num-queued-reqs`); the agent and vision rows schedule by each
-request's priority, lower first (`--scheduling-policy priority`), and the others first come, first
-served:
+The standing rows, the ones each host stands on:
 
 | Row id | Model | Flags | Serves |
 |---|---|---|---|
@@ -213,15 +202,6 @@ served:
 | `gemma-4-26B-A4B-NVFP4-vision-gb10` | `nvidia/Gemma-4-26B-A4B-NVFP4` | `container=vllm-vision port=8000`, then `--served-model-name vision --max-num-seqs 16 --gpu-memory-utilization 0.40 --max-num-queued-reqs 32 --scheduling-policy priority`, and the default's KV cache and parsers | `vision` on gb10-2, alone |
 | `gemma-4-E4B-it-audio-framework` | `google/gemma-4-E4B-it` | `container=vllm-audio port=8001 image=spike-model-engines/vllm-openai-rocm-audio`, then `--served-model-name audio --max-num-seqs 4 --gpu-memory-utilization 0.18 --max-num-queued-reqs 8`, and the default's KV cache and parsers | `audio` on the Framework, from the audio image the host builds |
 | `granite-embedding-english-r2-framework` | `ibm-granite/granite-embedding-english-r2` | `container=vllm-embed port=8002`, then `--served-model-name embedding --runner pooling --max-num-seqs 128 --gpu-memory-utilization 0.03 --max-num-batched-tokens 65536` | `embedding` on the Framework, beside audio; no queue limit, since the gateway's rate limit holds it |
-
-A standing row's `container=`, `port=` and `image=` are the suite's settings, which `vllm serve`
-never sees: the container it serves from, its host port, and an image the host builds. The
-vision, audio and embedding rows serve sequences of 8192 tokens.
-
-A row's id is its repository's name without the organization, with a suffix for a second row of
-the same model. The container's command is the row's model, `--host 0.0.0.0 --port 8000`, then
-the row's flags, which `docker inspect` shows
-([Update](update.md#moving-to-the-pinned-release-or-model)).
 
 ### The rows file
 
@@ -233,13 +213,14 @@ flags, named by the pin (`VLLM_ROWS` in `host/vllm.env`). The pin names each fla
 both flavors, though not every row serves on both: NVFP4 is CUDA's alone.
 
 A row is its id in brackets, then the model's Hugging Face repository, then its settings and its
-server flags, over as many lines as read well. `vllm.sh` puts `--host` and `--port` after the
-model, so a row never names them. An id is the repository's name without its organization, with a
-suffix for a second row of the same model; each is unique. No flag or value holds a space or a
-`#`, since the served command is compared joined with spaces and `#` starts a comment. A row serves
-under its repository, which `/v1/models` lists and requests name in `"model"`, unless it names one
-other name with `--served-model-name`; it names exactly one, since vLLM lists every name it is
-given.
+server flags, over as many lines as read well. The container's command is the row's model,
+`--host 0.0.0.0 --port <the row's port>`, then the row's flags, which `docker inspect` shows
+([Update](update.md#moving-to-the-pinned-release-or-model)), so a row never names `--host` or
+`--port`. An id is the repository's name without its organization, with a suffix for a second row of
+the same model; each is unique. No flag or value holds a space or a `#`, since the served command is
+compared joined with spaces and `#` starts a comment. A row serves under its repository, which
+`/v1/models` lists and requests name in `"model"`, unless it names one other name with
+`--served-model-name`; it names exactly one, since vLLM lists every name it is given.
 
 A row's settings are the suite's, which `vllm serve` never sees (`vllm.sh`, `vllm_row`), each a
 word `<key>=<value>`: `container=<name>`, the container it serves from, `vllm` when it names none;
@@ -252,18 +233,18 @@ other in it.
 Each row reserves the fraction of the GPU's memory its `--gpu-memory-utilization` names, which
 leaves the rest to the host it shares it with. A row that serves alone on its host reserves 0.80.
 Rows that serve together on one host each reserve a share, and their fractions' sum is what vLLM
-takes of the host, so each set of them is sized for its host. A row that sizes its KV cache in
-bytes (`--kv-cache-memory-bytes`) keeps its fraction, and vLLM takes the bytes in place of what the
+takes of the host, so each set of them is sized for its host. A row that sizes its KV cache in bytes
+(`--kv-cache-memory-bytes`) keeps its fraction, and vLLM takes the bytes in place of what the
 fraction would leave the cache. Every row serves sequences of 8192 tokens, as each of llama.cpp's
-slots does, except the agent rows, which serve the agent's 131,072. The model's own generation config sets
-its sampling (vLLM's default, `--generation-config auto`).
+slots does, except the agent rows, which serve the agent's 131,072. The model's own generation
+config sets its sampling (vLLM's default, `--generation-config auto`).
 
-Gemma 4's rows hold 4 sequences, mirroring llama.cpp's 4 slots, except the capability rows, which
-hold the count their cells met the floors at. They keep a BF16 KV cache: the NVFP4 checkpoints
-declare a static FP8 one but ship no calibrated k/v scales, so vLLM would quantize it with a scale
-of 1.0, and every Gemma 4 row matches the NVFP4 rows. They use Gemma 4's own reasoning and
-tool-call parsers. Their vision encoder loads (no `--language-model-only`), and E4B's and 12B's
-audio encoder too: vLLM allows every modality the model has without `--limit-mm-per-prompt`.
+Gemma 4's rows hold 4 sequences, mirroring llama.cpp's 4 slots, except the standing rows, which hold
+the count their cells met the floors at. They keep a BF16 KV cache: the NVFP4 checkpoints declare a
+static FP8 one but ship no calibrated k/v scales, so vLLM would quantize it with a scale of 1.0, and
+every Gemma 4 row matches the NVFP4 rows. They use Gemma 4's own reasoning and tool-call parsers.
+Their vision encoder loads (no `--language-model-only`), and E4B's and 12B's audio encoder too: vLLM
+allows every modality the model has without `--limit-mm-per-prompt`.
 
 ### Each row's reasons
 
@@ -366,8 +347,8 @@ flight and how it schedules is from spike-model-gateway's docs/findings/priority
 ### The rows on the Framework
 
 The `rocm` flavor serves the rows whose format ROCm runs, every one but the NVFP4 rows, which are
-CUDA's alone. Every row serves on gfx1151 at v0.32.0, but the official image ships no audio
-decoder, so an audio request returns 500
+CUDA's alone. Every row served on gfx1151 at v0.32.0, in vllm-strix, but the official image ships no
+audio decoder, so an audio request on it returns 500
 ([vllm-strix](../../findings/vllm-strix.md#unsupported-cells)).
 
 | Row id | Shape |
@@ -446,9 +427,9 @@ host/engines vllm update
 
 On gb10-1 it prints `vllm moved from ... to vllm/vllm-openai:v0.34.0 with row gemma-4-26B-A4B-NVFP4
 (nvidia/Gemma-4-26B-A4B-NVFP4)`, and on the Framework `... to vllm/vllm-openai-rocm:v0.34.0 with row
-gpt-oss-120b (openai/gpt-oss-120b)`, another cold start to record. Leave every host on the default
-row when a session ends. Use `VLLM_MODEL=...` only as the command's prefix, never `export` it: an
-exported one would keep naming its row for every later command in that shell.
+gpt-oss-120b (openai/gpt-oss-120b)`, another cold start to record. Use `VLLM_MODEL=...` only as the
+command's prefix, never `export` it: an exported one would keep naming its row for every later
+command in that shell.
 
 ### Adding a row, or moving the default
 

@@ -8,9 +8,8 @@ These commands run on the laptop and name the host by its short name, `gb10-1`, 
 MagicDNS resolves to its tailnet address (llama.cpp's
 [Models](../llama.cpp/models.md#the-hosts-address-on-the-laptop)).
 
-v0.32.0 no longer allows every origin for cross-origin requests by default, so a browser page on
-another origin can't call the server. `curl` and other clients that aren't browsers aren't
-affected.
+vLLM doesn't allow every origin for cross-origin requests by default, so a browser page on another
+origin can't call the server. `curl` and other clients that aren't browsers aren't affected.
 
 ## A chat completion
 
@@ -38,8 +37,8 @@ curl -s "http://gb10-1:8000/v1/models" | jq '.data[] | {id, max_model_len}'
 ```
 
 The OpenAI-compatible model list: the one model the server serves, by the id clients send in
-`"model"`, and the tokens a sequence holds, 8192 in every row. It shows which row's model the
-server serves now.
+`"model"`, and the tokens a sequence holds, 8192 in every row but the agent rows. It shows which
+row's model the server serves now.
 
 ## Version
 
