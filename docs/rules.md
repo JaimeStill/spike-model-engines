@@ -2,9 +2,21 @@
 
 The rules this spike keeps beside the experiment's rules,
 `standards-lab/docs/ai-hosting.md#experiment-rules`, which
-[`context/README.md`](../context/README.md#rules) points to: how llama.cpp is pinned, the load
-tools, and the root grants.
+[`context/README.md`](../context/README.md#rules) points to: how sessions are guided, how
+benchmarks run, how llama.cpp is pinned, the load tools, and the root grants.
 
+- **Guided sessions.** Sessions are guided where the architect is learning. Each slice's docs and
+  scripts are written on the branch first. The session runs routine host steps that need no root
+  itself, over Tailscale SSH, and records each output: downloads and image pulls, engine install,
+  update, and uninstall, model loads, readiness waits, cold-start timing, log and memory
+  read-outs, and health and version checks. The architect keeps root, a new tool's or concept's
+  first walk, which the session walks them through, the last slice's walkthrough of the whole
+  procedure from the docs, and every escalation's decision. Every command either side runs
+  appears in a guide or the finding's method exactly as run.
+- **Benchmarks.** Each benchmark is planned together in its task's plan round, then built and run
+  a step at a time from the commands the brief agreed: the session runs the GuideLLM cells in the
+  architect's view, printing each command first. A run takes at most 10 minutes unless the
+  brief decides otherwise.
 - **Current hosts and engines.** Every session starts by bringing the hosts current. llama.cpp
   is pinned to one b-build per host class, which currency compares with the newest b-build that
   has the class's server image on ghcr.io; the guides name a build a semver release names by the
