@@ -6,7 +6,8 @@
 # container too, vllm unless it says otherwise, and its port, 8000 unless it says otherwise. The
 # container runs as the invoking user, with the model store (/srv/models) as its Hugging Face
 # cache and the compile cache directory (~/.cache/vllm) as its home, publishing the row's port on
-# the host's tailnet IPv4 address only. A run given VLLM_TRACE=on (host/vllm.env) traces the row.
+# the host's tailnet IPv4 address only. A run given VLLM_TRACE=on traces the row
+# (docs/engines/vllm/models.md#tracing-a-row-for-one-run).
 #
 # See docs/engines/vllm/scripts.md#the-container
 

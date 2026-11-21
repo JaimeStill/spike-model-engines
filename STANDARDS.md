@@ -5,11 +5,7 @@ The judgement calls the check can't enforce, one line each, for the standards-re
 
 The architecture pages that apply, in the architecture repository:
 
-- `principles/comments.md`: every comment is one of the five kinds, in scripts and every
-  configuration file (TOML, YAML, `.env`, the rows file, the INI preset, systemd units, sudoers,
-  Dockerfiles, `.gitignore`, `.shellcheckrc`); a script's header is its package documentation, and
-  a configuration file's header is a short description plus `See` lines to the docs/ page that
-  holds its reasoning.
+- `principles/comments.md`: the reasoning a comment points to lives in `docs/`.
 - `principles/minimal-footprint.md`
 - `principles/rolling-currency.md`
 - `principles/validation-first.md`
@@ -31,6 +27,5 @@ The architecture pages that apply, in the architecture repository:
   section, not a file.
 - A guide says how the engine runs now; a finding, under `docs/findings/<task>.md`, says what was
   measured, when, on which engine version and host stack, and stays dated.
-- Every command a session or the architect runs appears in a guide or the finding's method
-  exactly as run. No tailnet identifier is committed, neither an address nor the MagicDNS
-  suffix; hosts go by short name, such as `gb10-1`.
+- No tailnet identifier is committed, neither an address nor the MagicDNS suffix; hosts go by
+  short name, such as `gb10-1`.

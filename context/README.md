@@ -7,13 +7,12 @@ benchmark planned and run together. Together they are evidence for the engine an
 `v1.ai.hosting` specifies per host class, as a general strategy for self-hosted model engines. The
 spike decides nothing itself.
 
-The spike answers for experiment.hosting, and the coordinator's roadmap,
-`standards-lab/roadmap/index.toml`, holds its work. The coordinator records its answer in
+The spike answered for experiment.hosting; v1.ai.hosting
+(`standards-lab/roadmap/v1.ai.hosting.toml`) builds from its answer. The coordinator records it in
 `standards-lab/docs/ai-hosting.md`, "The spikes' answers". IL6 is out of this spike's scope.
-[`docs/capabilities.md`](../docs/capabilities.md) details each capability, the tasks in the order
-they ran, and the repositories the spike reads;
-[`docs/host-practices.md`](../docs/host-practices.md) holds the practices every task follows on
-the hosts.
+[`docs/capabilities.md`](../docs/capabilities.md) details each capability and the repositories the
+spike reads; [`docs/host-practices.md`](../docs/host-practices.md) holds the practices every task
+follows on the hosts.
 
 ## The question
 
@@ -69,7 +68,9 @@ in their containers.
 - **The `engines` suite** (built): [`host/engines`](../host/engines) and its
   `engines-<group>-<verb>` commands under [`host/`](../host/); each guide's scripts page,
   [llama.cpp's](../docs/engines/llama.cpp/scripts.md) and
-  [vLLM's](../docs/engines/vllm/scripts.md), gives their reasoning.
+  [vLLM's](../docs/engines/vllm/scripts.md), gives their reasoning. vLLM serves one container per
+  row; the standing rows and per-row tracing are in
+  [Models](../docs/engines/vllm/models.md#the-standing-rows).
 - **The benchmark cells** (built): the GuideLLM scenarios in [`bench/`](../bench/), sized in
   [`docs/bench.md`](../docs/bench.md), with their measured results in
   [`docs/findings/`](../docs/findings/).

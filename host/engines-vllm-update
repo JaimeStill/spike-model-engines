@@ -16,7 +16,8 @@
 # and refuses while the llama container runs, or any llama-router unit (native llama.cpp's, or
 # another project's of that name) or native vLLM's vllm-server unit is active, since llama.cpp and
 # vLLM never serve on a host at once.
-# With VLLM_TRACE=on before it, the row is traced (host/vllm.env); the collector's endpoint is
+# With VLLM_TRACE=on before it, the row is traced
+# (docs/engines/vllm/models.md#tracing-a-row-for-one-run); the collector's endpoint is
 # a server flag, so an update without it moves a traced row back to untraced, restarting it.
 set -euo pipefail
 # shellcheck source=host/vllm.sh
