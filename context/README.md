@@ -7,8 +7,8 @@ benchmark planned and run together. Together they are evidence for the engine an
 `v1.ai.hosting` specifies per host class, as a general strategy for self-hosted model engines. The
 spike decides nothing itself.
 
-The spike answered for experiment.hosting, which is complete;
-`standards-lab/roadmap/v1.ai.hosting.toml` builds from its answer. The coordinator records it in
+The spike answered for experiment.hosting; v1.ai.hosting
+(`standards-lab/roadmap/v1.ai.hosting.toml`) builds from its answer. The coordinator records it in
 `standards-lab/docs/ai-hosting.md`, "The spikes' answers". IL6 is out of this spike's scope.
 [`docs/capabilities.md`](../docs/capabilities.md) details each capability and the repositories the
 spike reads; [`docs/host-practices.md`](../docs/host-practices.md) holds the practices every task

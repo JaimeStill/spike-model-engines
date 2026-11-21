@@ -12,7 +12,7 @@ under "The answer". The repository is managed with the marathon workflow, so sta
 - **Check:** `mise run check`, which shellchecks every tracked shell script and runs lint-context
   and lint-references.
 - **Currency:** `mise run currency`, which reports every pin behind its latest.
-- **Goals:** the spike answered for experiment.hosting, which is complete;
-  `standards-lab/roadmap/v1.ai.hosting.toml` builds from its answer.
+- **Goals:** the spike answered for experiment.hosting; v1.ai.hosting
+  (`standards-lab/roadmap/v1.ai.hosting.toml`) builds from its answer.
 - **References:** the repositories this spike reads are keys in the coordinator's
   `references.toml` and `references.local.toml`. The spike reads them and never writes to them.

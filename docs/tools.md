@@ -60,7 +60,7 @@ vision cells' image requests and the audio-chat cells' audio requests need
 [`.claude/marathon.toml`](../.claude/marathon.toml) sets the project's kind, `code`: this spike
 holds shell scripts and engine guides, checked by `mise run check`, with `mise run currency` as
 its currency command ([The check and currency](#the-check-and-currency)). It has no gate. The
-spike answered for experiment.hosting, which is complete; `standards-lab/roadmap/v1.ai.hosting.toml`
+spike answered for experiment.hosting; v1.ai.hosting (`standards-lab/roadmap/v1.ai.hosting.toml`)
 builds from its answer.
 
 Its `[remote]` table names the remote platform and the commands that publish and merge a finished
