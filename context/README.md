@@ -8,8 +8,8 @@ benchmark planned and run together. Together they are evidence for the engine an
 spike decides nothing itself.
 
 The spike answers for experiment.hosting, and the coordinator's roadmap,
-`standards-lab/roadmap/index.toml`, holds its work. Its question is framed in
-`standards-lab/context/ai-hosting.md`. IL6 is out of this spike's scope. Each capability in
+`standards-lab/roadmap/index.toml`, holds its work. The coordinator records its
+answer in `standards-lab/docs/ai-hosting.md`, "The spikes' answers". IL6 is out of this spike's scope. Each capability in
 detail, the tasks in the order they ran, and the repositories the spike reads are in
 [`docs/capabilities.md`](../docs/capabilities.md); the practices every task follows on the hosts
 are in [`docs/host-practices.md`](../docs/host-practices.md).
