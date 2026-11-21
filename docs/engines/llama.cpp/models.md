@@ -75,6 +75,112 @@ A model already loaded keeps the arguments it was started with. When the preset 
 reload unloads it, so load it again ([Loading a model](#loading-a-model)) to start it with the new
 arguments.
 
+### The preset file
+
+`host/llama-preset/models.ini` is bind-mounted read-only into the `llama` container at
+`/etc/llama-preset/models.ini` (`host/llama.sh`), and read by native llama.cpp's `llama-router`
+unit through `/opt/llama.cpp/preset/models.ini` (`host/llama-native.sh`). Every model names its
+Hugging Face repository and quantization in `hf-repo`, as hf pre-staged it into the store
+(`/srv/models`, Hugging Face's cache layout). The `[*]` keys are in the table above; each other
+section's reasons follow.
+
+### Each section's reasons
+
+- `ggml-org/gpt-oss-120b-GGUF:MXFP4`: OpenAI's gpt-oss-120b in its native MXFP4
+  (card: https://huggingface.co/openai/gpt-oss-120b). 4 slots of 8192 tokens each (`c` is split
+  evenly across the slots). Sampling from openai/gpt-oss's README, "Recommended Sampling
+  Parameters": temperature 1.0, top_p 1.0; `top-k = 0` and `min-p = 0` turn off the server's two
+  other truncations.
+- `gpt-oss-120b-MXFP4-16-slots`: the same gpt-oss-120b file for the concurrency sweep: 16 slots of
+  8192 tokens each. A second name, since a loaded model keeps the arguments it started with; load
+  one of the gpt-oss sections at a time.
+- `gpt-oss-120b-MXFP4-set-a`: the same gpt-oss-120b file as set A's harness model, which the
+  Framework serves between tasks ([Setup](setup.md#12-serve-set-a)): its trained context, 131072,
+  in one KV pool its 4 slots share (`kv-unified`), so one long request may hold more than a
+  quarter of it. The values are spike-ai-pipeline's set A (its host/llama-preset/models.ini, from
+  spike-model-hosting's set A profile), whose `[*]` keys this section carries for itself:
+  `checkpoint-min-step = 4096` makes the 32-checkpoint budget's reach (32 x 4096) match `c`. A
+  third name, since a loaded model keeps the arguments it started with; load one of the gpt-oss
+  sections at a time. `cache-ram = 0` and `cache-idle-slots = false` turn off the host-side prompt
+  cache and its idle-slot saves, which stalled an agent candidate's multi-turn decode on gb10-1 at
+  b12098 (llama.cpp #30252); measured from fresh loads with and without them, set A did as well or
+  better without (spike-hosting-upgrades, docs/screens/gb10-1/2026-11-05.md), and its 4.5 MiB
+  checkpoints stay well inside the headroom.
+- `gpt-oss-120b-MXFP4-agent-only`: the same gpt-oss-120b file for role-split's split arm, a GB10
+  serving the agent alone: one KV pool of 1179648 tokens (9 x 131072) that its 16 slots share
+  (`kv-unified`), with set-a's other keys and sampling. Nine 131072-token sessions is the count
+  spike-model-layout's footprint finding computes for an agent-only GB10
+  (docs/findings/footprint.md, section I.4 and its worked placement I.7; section G: set A's figures
+  under load; section K: the open items it leaves). The unified pool lets 16 shorter sessions share
+  what 9 full ones would hold. `cache-ram = 0` and `cache-idle-slots = false`, as set-a's: the
+  prompt cache's idle-slot saves stalled decode on CUDA at b12098 (spike-hosting-upgrades,
+  docs/blockers.md, "Idle-slot saves stall decode on CUDA", llama.cpp #30252, and "The prompt cache
+  with a unified KV cache"). A fourth name, since a loaded model keeps the arguments it started
+  with; load one of the gpt-oss sections at a time.
+
+The Gemma 4 sections share the anchors' 4 slots of 8192 tokens (the two 16-slot ones keep the slot
+size, at 16 slots), and the sampling Gemma 4's cards standardize for every use, above. Each
+attaches the projector hf staged beside it, as vLLM loads the vision (and for E4B the audio)
+encoder with the model.
+
+The prompt-cache cap: `cache-ram = 0`, `cache-idle-slots = false` and `ctx-checkpoints = 2` cap
+the host prompt cache, as set-a's section does: at the default, `cache-ram` 8192 MiB a process,
+set A's 26B-A4B took gb10-1 under its memory floor under vision load, its RSS growing 1217 -> 10397
+MiB (spike-model-layout, docs/findings/footprint.md, sections G, I.4 and K).
+`cache-idle-slots = false` stops the idle-slot saves, which stalled decode on CUDA at b12098
+(llama.cpp #30252); with no prompt cache nothing evicts a slot's context checkpoints, so
+`ctx-checkpoints = 2` bounds them (spike-hosting-upgrades, docs/blockers.md, "Idle-slot saves
+stall decode on CUDA" and "Context checkpoints unbounded with no prompt cache"). The three together
+are gb10-1's measured Gemma configuration. The E4B Q8_0 and 26B-A4B QAT sections carry it.
+
+- `ggml-org/gemma-4-E4B-it-GGUF:Q8_0`: Gemma 4 E4B, dense small, Q8_0; its projector carries the
+  vision and audio encoders. Set A's audio model
+  (card: https://huggingface.co/google/gemma-4-E4B-it). The prompt-cache cap, above.
+- `gemma-4-E4B-it-Q8_0-16-slots`: the same E4B file for role-split's split arm, the audio model of
+  the GB10 that serves vision, audio and embedding: 16 slots of 8192 tokens each, set A's section's
+  slot size, with its cap keys and their reasons (the section above; spike-hosting-upgrades,
+  docs/blockers.md, the checkpoint and #30252 entries). Sized from spike-model-layout's footprint
+  finding (docs/findings/footprint.md, section I.4: alone on a GB10 the model's headroom, 94.36
+  GiB, holds `c` far past 131072; section G: set A's figures under load; section K: the cap). A
+  second name, since a loaded model keeps the arguments it started with; load one of the two E4B
+  Q8_0 sections at a time.
+- `google/gemma-4-E4B-it-qat-q4_0-gguf:Q4_0`: Gemma 4 E4B, Google's quantization-aware trained
+  Q4_0: the quantization pair beside Q8_0.
+- `google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0`: Gemma 4 12B, dense mid, Google's QAT Q4_0.
+- `google/gemma-4-31B-it-qat-q4_0-gguf:Q4_0`: Gemma 4 31B, dense large, Google's QAT Q4_0.
+- `google/gemma-4-26B-A4B-it-qat-q4_0-gguf:Q4_0`: Gemma 4 26B-A4B, MoE, Google's QAT Q4_0; its
+  projector carries the vision encoder. The vision keys, `ub`, `image-min-tokens` and
+  `mtmd-batch-max-tokens`, come from spike-ai-pipeline's preset (host/llama-preset/models.ini at
+  694f71b, the same section, served on gb10-2 at b12098). `ub = 1120` lets an image of up to 1120
+  tokens encode in one ubatch: llama-server caps an image's tokens at n_ubatch, so the default 512
+  cut every image to 512. `image-min-tokens = 560` raises the smallest image's token budget: Gemma
+  4 sizes an image's tokens by its pixels, and a small image of dense text got too few to be read
+  (spike-ai-pipeline's docinfer sample run, 2026-11-08). `mtmd-batch-max-tokens = 512` (default
+  1024) keeps two 560-token images from sharing one encode batch, so the image encoder's buffer
+  stays at the one-image size. Served on every host: spike-model-layout's hosts task chose this
+  shared section over a gb10-2-only one. Set A's vision model. The prompt-cache cap, above.
+- `gemma-4-26B-A4B-it-qat-Q4_0-16-slots`: the same 26B-A4B QAT file for role-split's split arm,
+  the vision model of the GB10 that serves vision, audio and embedding: 16 slots of 8192 tokens
+  each, set A's section's slot size, with its vision keys, and its cap keys with their reasons (the
+  section above; spike-hosting-upgrades, docs/blockers.md, the checkpoint and #30252 entries).
+  Sized from spike-model-layout's footprint finding (docs/findings/footprint.md, section I.4: alone
+  on a GB10 the model's headroom, 83.67 GiB, holds `c` far past 131072; section G: set A's figures
+  under load; section K: the cap). GB10 only: on Vulkan (the Framework) the section aborts past 4
+  slots (spike-hosting-upgrades, docs/blockers.md, "Gemma 4 26B-A4B aborts on Vulkan with several
+  slots"). A second name, since a loaded model keeps the arguments it started with; load one of
+  the two 26B-A4B sections at a time.
+- `mrutkows/granite-embedding-english-r2-GGUF:BF16`: IBM's granite-embedding-english-r2, BF16,
+  served for `/v1/embeddings` only: the same weights as vLLM's row, from the BF16 GGUF converted
+  from them; IBM publishes no GGUF of its own. The quantization BF16 picks
+  `granite-embedding-english-r2-bf16.gguf` (the router matches it in the file name without regard
+  to case), and the repository has no projector
+  (card: https://huggingface.co/ibm-granite/granite-embedding-english-r2). A ModernBERT encoder;
+  its GGUF declares CLS pooling (pooling_type 2), as the card's sentence-transformers config does,
+  so no pooling key overrides it. 16 slots of 8192 tokens, its trained context, one a stream of the
+  embedding cell's 16. An embedding model reads its whole input at once, not causally, so one input
+  must fit one physical batch (`ubatch-size`, default 512, below the cell's 512 tokens plus the
+  model's own): the batch is raised to a whole slot.
+
 ## Pre-staging models with hf
 
 The router downloads a model the first time it loads it, so that load waits on the download, and
@@ -97,10 +203,11 @@ The client keeps the large files in the store shared by every model it fetches,
 
 ### Setting up hf
 
-hf is pinned, with the uv that installs it, in the clone's host environment, `mise.host.toml`
-(huggingface_hub 2.3.0, uv 0.13.6), which `mise run currency` covers. It installs into your
-account's mise directory, with no root. On gb10-1, from the clone, after a `git pull`, and on the
-Framework the same, the session's step, from `~/repos/spike-model-engines`, where mise is
+hf is pinned, with the uv that installs it, in the clone's host environment, `mise.host.toml`,
+which `mise run currency` covers: mise's pipx backend installs huggingface_hub, which provides
+`hf`, through uv. The environment is its own, not `mise.toml`, so the laptop's `mise run check`
+never installs it. It installs into your account's mise directory, with no root. On gb10-1, from
+the clone, after a `git pull`, and on the Framework the same, the session's step, from `~/repos/spike-model-engines`, where mise is
 installed and hf isn't yet:
 
 ```sh
@@ -108,10 +215,10 @@ MISE_ENV=host mise install
 MISE_ENV=host mise exec -- hf version
 ```
 
-`mise install` also installs the clone's check tools, jq and shellcheck, from `mise.toml`. When
-mise asks whether to trust the clone's config files, answer yes. `hf version` prints its
-version, 2.3.0. hf runs as `MISE_ENV=host mise exec -- hf`, from the clone, and installs
-nothing outside mise's directory.
+`mise install` also installs the clone's check tools, jq, shellcheck, and marathon, from
+`mise.toml`. When mise asks whether to trust the clone's config files, answer yes. `hf version`
+prints its pinned version. hf runs as `MISE_ENV=host mise exec -- hf`, from the clone, and
+installs nothing outside mise's directory.
 
 Every model below is ungated, so no token is needed. hf warns that its requests are
 unauthenticated, which only lowers Hugging Face's rate limit.
@@ -157,7 +264,7 @@ stage() { nohup bash -c 'mise exec -- hf download "$@"; echo "exit $?"' stage "$
 
 Then start every download, and both engines' pinned images (`host/llama.env`,
 `host/vllm.env`), together. The block below ran when gb10's llama.cpp pin was v0.8.0 (b11960);
-gb10's pin is now b12464:
+gb10's pin is now b12602:
 
 ```sh
 stage ggml-org/gemma-4-E4B-it-GGUF --include gemma-4-E4B-it-Q8_0.gguf --include mmproj-gemma-4-E4B-it-Q8_0.gguf

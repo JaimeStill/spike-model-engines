@@ -1,16 +1,11 @@
-# Anchor cell B: gpt-oss-120b MXFP4 on the llama.cpp router, 4 streams sending 32 requests in all,
-# 8 each back to back, each 512 synthetic prompt tokens and exactly 256 output tokens: one stream
-# per slot of the preset's 4. GuideLLM sends max_tokens with ignore_eos whenever output_tokens is
-# set, so every request generates its full 256. The target is the router's URL, which the
-# architect sets in GUIDELLM__SPEC__BACKEND__TARGET so no address is committed. Run from the
-# repository root (docs/findings/llama-gb10-container.md).
+# Anchor cell B: gpt-oss-120b on the llama.cpp router, 4 streams sending 32 requests.
+# See docs/bench.md#anchor-b
 spec:
   backend:
     kind: openai_http
     model: ggml-org/gpt-oss-120b-GGUF:MXFP4
     request_format: /v1/chat/completions
-  # The router serves GGUF files, which carry no tokenizer GuideLLM reads: the prompt is cut to
-  # its 512 tokens by the model's upstream tokenizer, fetched from Hugging Face.
+  # See docs/bench.md#tokenizers
   tokenizer:
     kind: huggingface_auto
     model: openai/gpt-oss-120b

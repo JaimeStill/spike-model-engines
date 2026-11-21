@@ -1,16 +1,10 @@
-# Shape cell B: one Gemma 4 model, 4 streams sending 32 requests in all, 8 each back to back, each
-# 512 synthetic prompt tokens and exactly 256 output tokens: anchor cell B's load, one stream per
-# slot of the preset's 4 (vLLM: per sequence of its 4). Engine-neutral, like shape-a.yaml: the
-# model, its tokenizer, and the JSON's path are given on the command line, and the target in
-# GUIDELLM__SPEC__BACKEND__TARGET (docs/findings/bench-gb10-container.md, "Method"). GuideLLM
-# sends max_completion_tokens with ignore_eos whenever output_tokens is set, so every request
-# generates its full 256. Run from the repository root.
+# Shape cell B: one Gemma 4 model at anchor cell B's load, on either engine.
+# See docs/bench.md#shape-b
 spec:
   backend:
     kind: openai_http
     request_format: /v1/chat/completions
-    # Gemma 4 reasons only when its chat template is asked to, so every request asks, as vLLM's
-    # anchors A' and B' do: the 256 tokens are reasoning first, then the reply.
+    # See docs/bench.md#gemma-4s-reasoning
     extras:
       body:
         chat_template_kwargs:

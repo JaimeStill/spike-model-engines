@@ -7,309 +7,80 @@ benchmark planned and run together. Together they are evidence for the engine an
 `v1.ai.hosting` specifies per host class, as a general strategy for self-hosted model engines. The
 spike decides nothing itself.
 
-The spike is the sub-goal `experiment.hosting.spike-model-engines` in the coordinator's roadmap,
-`standards-lab/context/roadmap.toml`, where its tasks live. Its question is framed in
-`standards-lab/context/ai-hosting.md`, under "Experiment: experiment.hosting", which holds the
-experiment's rules and its spikes' answers. IL6 is out of this spike's scope.
+The spike answers for experiment.hosting, and the coordinator's roadmap,
+`standards-lab/roadmap/index.toml`, holds its work. The coordinator records its answer in
+`standards-lab/docs/ai-hosting.md`, "The spikes' answers". IL6 is out of this spike's scope.
+[`docs/capabilities.md`](../docs/capabilities.md) details each capability, the tasks in the order
+they ran, and the repositories the spike reads;
+[`docs/host-practices.md`](../docs/host-practices.md) holds the practices every task follows on
+the hosts.
 
 ## The question
 
 Which engine, llama.cpp or vLLM, serves each workstation (the GB10s, then the Framework's Strix
 Halo), and is it hosted in a container or on bare metal?
 
+## The answer
+
+The answer is in the top-level [`README.md`](../README.md#the-answer). standards-lab's
+`docs/ai-hosting.md` records that vLLM has replaced the answer's engine on every workstation,
+and that the answer's container hosting stands, since on gb10-1 both engines ran at native speed
+in their containers.
+
 ## The evidence
 
 1. Each engine installs, updates, and uninstalls on each host class from a few named, idempotent
    scripted steps, and its guide documents setup, models, APIs, updates, and uninstall, and
-   whether the engine loads models on demand.
+   whether the engine loads models on demand. Finding:
+   [`llama-gb10-container.md`](../docs/findings/llama-gb10-container.md),
+   [`vllm-gb10-container.md`](../docs/findings/vllm-gb10-container.md),
+   [`llama-gb10-native.md`](../docs/findings/llama-gb10-native.md),
+   [`vllm-gb10-native.md`](../docs/findings/vllm-gb10-native.md),
+   [`llama-strix-rocm.md`](../docs/findings/llama-strix-rocm.md),
+   [`vllm-strix.md`](../docs/findings/vllm-strix.md).
 2. Raw speed, TTFT, unified-memory footprint, and cold load per engine and host class, by shape:
    dense small, mid, and large; MoE; embedding; ASR; vision. Each cell is measured, or marked
-   unsupported with its reason.
+   unsupported with its reason. Finding:
+   [`llama-gb10-container.md`](../docs/findings/llama-gb10-container.md),
+   [`bench-gb10-container.md`](../docs/findings/bench-gb10-container.md),
+   [`llama-strix-rocm.md`](../docs/findings/llama-strix-rocm.md),
+   [`vllm-strix.md`](../docs/findings/vllm-strix.md).
 3. The same for each quantization format an engine serves natively, within the quantization
-   floor. NVFP4 only through vLLM.
-4. Scaling from 1 to N concurrent streams, and what each engine does past its slots.
+   floor. NVFP4 only through vLLM. Finding:
+   [`vllm-gb10-container.md`](../docs/findings/vllm-gb10-container.md),
+   [`bench-gb10-container.md`](../docs/findings/bench-gb10-container.md),
+   [`llama-strix-rocm.md`](../docs/findings/llama-strix-rocm.md).
+4. Scaling from 1 to N concurrent streams, and what each engine does past its slots. Finding:
+   [`bench-gb10-container.md`](../docs/findings/bench-gb10-container.md),
+   [`answer.md`](../docs/findings/answer.md).
 5. The API surface the consumers need: OpenAI chat with tools and reasoning, Anthropic messages,
-   embeddings, transcription, and vision, each probed or marked on paper.
+   embeddings, transcription, and vision, each probed or marked on paper. Finding:
+   [`bench-gb10-container.md`](../docs/findings/bench-gb10-container.md).
 6. Container against bare metal for each engine kept, per host class: install, update, rollback,
-   startup, speed parity, and GPU and memory access.
+   startup, speed parity, and GPU and memory access. Finding:
+   [`llama-gb10-native.md`](../docs/findings/llama-gb10-native.md),
+   [`vllm-gb10-native.md`](../docs/findings/vllm-gb10-native.md).
+
+## Capability map
+
+- **Engine guides** (built): [`docs/engines/llama.cpp/`](../docs/engines/llama.cpp/README.md) and
+  [`docs/engines/vllm/`](../docs/engines/vllm/README.md), each for the GB10s with sections for
+  the Framework.
+- **The `engines` suite** (built): [`host/engines`](../host/engines) and its
+  `engines-<group>-<verb>` commands under [`host/`](../host/); each guide's scripts page,
+  [llama.cpp's](../docs/engines/llama.cpp/scripts.md) and
+  [vLLM's](../docs/engines/vllm/scripts.md), gives their reasoning.
+- **The benchmark cells** (built): the GuideLLM scenarios in [`bench/`](../bench/), sized in
+  [`docs/bench.md`](../docs/bench.md), with their measured results in
+  [`docs/findings/`](../docs/findings/).
+- **Tools, check, and currency** (built): [`mise.toml`](../mise.toml), the bench and host
+  environments, and [`scripts/`](../scripts/); [`docs/tools.md`](../docs/tools.md) gives their
+  reasoning.
+- **Host practices** (built): [`docs/host-practices.md`](../docs/host-practices.md).
+- **The spike's rules** (built): [`docs/rules.md`](../docs/rules.md).
 
 ## Rules
 
-The experiment's rules, in `ai-hosting.md`, govern every session. In short:
-
-- **Guided sessions.** Sessions are guided where the architect is learning. Each slice's docs and
-  scripts are written on the branch first. The session runs routine host steps that need no root
-  itself, over Tailscale SSH, and records each output: downloads and image pulls, engine install,
-  update, and uninstall, model loads, readiness waits, cold-start timing, log and memory
-  read-outs, and health and version checks. The architect keeps root, a new tool's or concept's
-  first walk, which the session walks them through, the last slice's walkthrough of the whole
-  procedure from the docs, and every escalation's decision. Every command either side runs
-  appears in a guide or the finding's method exactly as run.
-- **Benchmarks.** Each benchmark is planned together in its task's plan round, then built and run
-  a step at a time from the commands the brief agreed: the session runs the GuideLLM cells in the
-  architect's view, printing each command first. A run takes at most 10 minutes unless the
-  brief decides otherwise.
-- **Current hosts and engines.** Every session starts by bringing the hosts current. llama.cpp
-  is pinned to one b-build per host class, which currency compares with the newest b-build that
-  has the class's server image on ghcr.io; the guides name a build a semver release names by the
-  release first, with the b-build beside it, as v0.7.0 (b11669); vLLM follows its releases.
-  Every result records the engine version and the host stack.
-- **Comparisons.** Only cells run in the same session on the same versions are compared. A task
-  that compares with an earlier one first reruns one anchor cell per engine.
-- **Quantization floor.** A format is accepted when its publisher evaluated it (native MXFP4, a
-  QAT Q4_0, or an NVFP4 or FP8 checkpoint whose card evals are within about 1% of BF16).
-  Otherwise nothing goes below Q5_K_M or FP8, and embedding, ASR, and dense models under 8B run at
-  Q8_0 or FP8 or better.
-- **Load tools.** GuideLLM 0.8.1, run from the laptop, for every served measurement; llama-bench
-  for raw pp/tg per llama.cpp backend.
-- **Root** stays the architect's, run from exact commands. A root command a session must repeat
-  may be granted once, by the architect, as a sudoers rule naming that one command exactly, such
-  as gb10-1's page-cache drop
-  ([setup](../docs/engines/llama.cpp/setup.md#7-allow-the-page-cache-drop)) and the Framework's
-  ([setup](../docs/engines/llama.cpp/setup.md#11-allow-the-page-cache-drop)), or the five
-  `systemctl` commands that start, stop, restart, enable, and disable native llama.cpp's
-  `llama-router` unit, each named with its arguments
-  ([setup](../docs/engines/llama.cpp/setup.md#1-the-architects-root-steps)), and native vLLM's
-  `vllm-server` unit ([setup](../docs/engines/vllm/setup.md#1-the-architects-root-steps)).
-
-## Capabilities
-
-- **Engine guides:** setup, models, APIs, updates, and uninstall, per engine, under
-  `docs/engines/<engine>/`; llama.cpp's and vLLM's are written for the GB10s, and each has
-  sections for the Framework.
-- **The `engines` suite:** the scripted install, update, and uninstall steps, under `host/`;
-  llama.cpp's and vLLM's, each in a container (`llama`, `vllm`) and natively (`llama-native`,
-  `vllm-native`), are written. Each container takes a flavor, which picks its image and the
-  devices it gets: llama's is `cuda13`, `rocm`, or `vulkan`, and vllm's `cuda` or `rocm`, which
-  also picks its default row.
-- **Served-load findings:** GuideLLM runs under `docs/findings/`.
-  `bench-gb10-container.md` compares both engines on gb10-1 in containers by shape, quantization,
-  concurrency, vision, ASR, and embeddings (granite-embedding-english-r2 on both engines), with
-  each method's commands. `llama-strix-rocm.md` compares llama.cpp in ggml's ROCm and Vulkan
-  images on the Framework by shape, quantization, vision, ASR, and embeddings, with each flavor's
-  cold load and footprint. [`vllm-strix.md`](../docs/findings/vllm-strix.md) compares vLLM in its
-  official ROCm image with llama.cpp in ggml's Vulkan image on the Framework, cell for cell, by
-  shape, quantization, vision, ASR, and embeddings, with each row's cold start and footprint and
-  an audio probe on a derived image. `answer.md` runs gb10-1's concurrency sweep on the Framework,
-  llama.cpp in ggml's Vulkan image, and reads gpt-oss-120b's initial setting from it. The anchor
-  cells later tasks rerun are first in `llama-gb10-container.md` for llama.cpp and
-  `vllm-gb10-container.md` for vLLM.
-- **Raw backend findings:** llama-bench pp/tg per llama.cpp backend. `llama-gb10-native.md` has
-  gb10-1's CUDA build, natively and in ggml's full-cuda13 image, on gpt-oss-120b and
-  gemma-4-26B-A4B. `llama-strix-rocm.md` has the Framework's ROCm and Vulkan images and ggml's
-  native Vulkan prebuilt, on the same two models at depths 0 and 8192.
-- **API surface:** the matrix of what each engine serves, probed on both engines from each API
-  page's probes (`bench-gb10-container.md`, "API probes").
-- **Hosting method:** container against bare metal. `llama-gb10-native.md` compares llama.cpp
-  on gb10-1 in ggml's container and natively under systemd: install, update, rollback, cold load,
-  footprint, llama-bench, and the anchor cells. `vllm-gb10-native.md` compares vLLM on gb10-1 in
-  vLLM's image and natively from its cu130 wheel under systemd: install, update, rollback, cold
-  start, footprint, the anchor cells, and the Marlin MoE diagnostic.
-- **Quantization rule:** the floor every cell keeps, applied in `bench-gb10-container.md`'s
-  formats ([Rules](#rules)).
-- **The answer:** llama.cpp in a container on both host classes, in ggml's CUDA image on the
-  GB10s and its Vulkan image on the Framework. vLLM's leads and the measured concurrency curves
-  are kept as evidence, and the answer sets no slot limit ([README](../README.md#the-answer)).
-
-## Path
-
-The tasks, in the order they run; each cites the evidence it proves.
-
-1. `llama-gb10-container`: llama.cpp in ggml's CUDA 13 image on both GB10s, the `engines` suite,
-   the llama.cpp guide, two GuideLLM anchor cells (evidence 1, 2).
-2. `vllm-gb10-container`: vLLM's CUDA 13.0 arm64 image on both GB10s, NVFP4 served, the vLLM guide
-   (evidence 1, 3).
-3. `bench-gb10-container`: both engines' cells on gb10-1 and the API-surface probes, in
-   `docs/findings/bench-gb10-container.md` (evidence 2, 3, 4, 5).
-4. `llama-gb10-native`: llama.cpp native under systemd on gb10-1, llama-bench, anchor cells
-   against the container, in `docs/findings/llama-gb10-native.md` (evidence 1, 6).
-5. `vllm-gb10-native`: vLLM's aarch64 wheel natively on gb10-1, anchor cells against the
-   container, and a Marlin MoE diagnostic on bench-gb10-container's question of vLLM's slow NVFP4
-   decode on SM121, in `docs/findings/vllm-gb10-native.md` (evidence 1, 6).
-6. `llama-strix-rocm`: llama.cpp in ggml's ROCm image against ggml's Vulkan image on the
-   Framework, the `engines` suite's flavor, in `docs/findings/llama-strix-rocm.md` (evidence 1, 2,
-   3).
-7. `vllm-strix`: vLLM's official ROCm image on gfx1151 against llama.cpp's Vulkan image, which
-   led task 6, cell for cell, in `docs/findings/vllm-strix.md` (evidence 1, 2). vLLM serves every
-   ROCm row. The official image can't decode audio, so its audio cells are unsupported; a probe
-   image that adds the missing packages serves them. llama.cpp's output tok/s is higher at every
-   text, vision, and audio cell, and vLLM's request rate at both embedding cells.
-8. `strix-native`: dropped. It ran only when task 6 showed ROCm leading or the GB10 native tasks
-   showed bare metal winning; Vulkan led task 6, and bare metal measured level with the container
-   on gb10-1 (evidence 6).
-9. `answer`: llama.cpp in a container on both host classes, ggml's CUDA image on the GB10s and
-   its Vulkan image on the Framework, in README "The answer" (evidence 1 to 6). The Framework's
-   concurrency sweep, in `docs/findings/answer.md`, gives gpt-oss-120b an initial setting of 4
-   streams. spike-model-hosting's router is retired, and the Framework serves set A.
-
-## Running on every host
-
-The practices every task follows, on the GB10s and the Framework, each with its reason:
-
-- **Pre-staging.** Every model a task serves is downloaded, and both engines' images pulled,
-  first, all in parallel, before any start, cell, or timed load. A download loads the host's
-  network, disk, and CPU, so a cell or load beside one would measure that noise too
-  ([models](../docs/engines/llama.cpp/models.md#pre-staging-everything-at-once)).
-- **Cold loads.** A cold load is timed from a dropped page cache: a model read before loads from
-  memory instead of disk, and vLLM counts the cache as free memory. The session drops it with the
-  architect's sudoers rule: `sync && sudo -n /usr/sbin/sysctl vm.drop_caches=3` on gb10-1
-  ([setup](../docs/engines/llama.cpp/setup.md#7-allow-the-page-cache-drop)), and
-  `sync && sudo -n /usr/bin/sysctl vm.drop_caches=3` on the Framework, since Arch keeps `sysctl`
-  in `/usr/bin` ([setup](../docs/engines/llama.cpp/setup.md#11-allow-the-page-cache-drop)).
-- **The shared blob store.** The Hugging Face client in vLLM's image keeps a model's weight files
-  in `/srv/models/blobs`, outside the model's directory, which only links to them. Copy
-  `/srv/models/blobs` with the model's directory, and measure a model with `du -shL`, since a
-  plain `du -sh` doesn't follow the links and shows a few MB
-  ([models](../docs/engines/vllm/models.md#the-first-download)).
-- **One engine per host.** Each engine's install and update refuse while another engine serves:
-  the other engine's container, or any `llama-router` or `vllm-server` unit, each of which serves
-  on its engine's container's port. Beside a second server, vLLM's memory reservation would fail
-  and its container restart in a loop. Stop one before installing the other.
-- **vLLM's compile cache.** A row's first start compiles into the compile cache, and later starts
-  load it, so a timed start runs from a warm compile cache and the first start is recorded apart.
-  On the Framework, the generative rows' first starts took 163 to 189 s and their warm starts 70
-  to 161 s ([vllm-strix](../docs/findings/vllm-strix.md#cold-start-and-footprint)).
-- **A started router serves no model.** llama.cpp's router runs with `--no-models-autoload`, so
-  after `docker start llama` or a reboot, as at a handover from vLLM, it serves nothing until a
-  model is loaded through `/models/load`
-  ([models](../docs/engines/llama.cpp/models.md#loading-a-model)).
-- **A restarted container's log.** A container started again keeps the log of its earlier
-  starts, so a ready line is read only since the container's start
-  ([setup](../docs/engines/vllm/setup.md#6-watch-the-cold-start-and-record-it)).
-- **`ls` is eza.** Both host classes alias `ls` to eza (the GB10 setup in dotfiles, and Omarchy),
-  whose flags differ from coreutils' (`ls -laL` failed: eza reads `-L` as a tree depth), so guide
-  commands use `du -shL`, `stat`, `readlink -f`, or `command ls` instead.
-- **Hosts by short name.** Laptop commands name a host by its short name (`http://gb10-1:8000`,
-  `http://framework:8080`), which MagicDNS resolves, so no command carries a tailnet address.
-- **Install messages.** The `engines` install messages print the port, never the host's address,
-  so a pasted output keeps to `ai-hosting.md`'s "Visibility" rule as it stands.
-- **A moved preset.** llama's container mounts the clone's `host/llama-preset` by its path, and
-  native llama.cpp reads it through the `/opt/llama.cpp/preset` link, so moving the clone or its
-  scripts leaves either on a stale preset. `host/engines llama update` rebuilds the container
-  without a pull, and `host/engines llama-native update` re-points the link; each `install`
-  refuses and points at its update
-  ([update](../docs/engines/llama.cpp/update.md#moving-to-the-pinned-build)).
-- **Network path.** When the architect is remote, the laptop can reach a host through a
-  Tailscale DERP relay. The relay adds its round trip to TTFT and request latency, but not to ITL
-  or the server's `/metrics` figures, so every served run records its path with `tailscale ping`.
-- **Model state.** The prompt cache changes TTFT and the prompt tokens the server processes: cell
-  B's rerun, on a freshly loaded model, had a higher TTFT than its first run after cell A. Start
-  each cell from the same model state, warmed or freshly loaded, so TTFT compares like with like.
-- **Warm-up.** Send each model one request before its first cell. A cold first request raised
-  llama.cpp's anchor A's TTFT p95 from 436 to 735 ms, with decode unchanged
-  ([bench-gb10-container](../docs/findings/bench-gb10-container.md#walkthrough)).
-- **Embeddings normalize differently.** llama.cpp returns each embedding at unit length by
-  default; vLLM returns granite-embedding-english-r2's unnormalized, of norm about 30, since the
-  model ships no normalization. A client that takes a dot product as a cosine normalizes vLLM's
-  embeddings first ([vLLM's API](../docs/engines/vllm/api.md#embeddings)).
-- **Store-only loads.** llama.cpp's preset sets `offline = true`, so a load never downloads. vLLM
-  has no such guard: a start fetches any small file missing from the store without a word, as
-  gpt-oss-120b's did for three JSON files from `original/`. Stage every file a model's start reads
-  ([Pre-staging](../docs/findings/bench-gb10-container.md#pre-staging)).
-- **Buffer sizes.** llama.cpp's preset sets `verbosity = 4`, since v0.7.0 (b11669) logs a load's
-  weight, KV cache, and compute buffers only above its default of 3
-  ([models](../docs/engines/llama.cpp/models.md#the-preset)).
-- **Base64 from a file.** The vision probes read the image's base64 with `jq --rawfile`, since
-  the base64 passed as a jq argument exceeds the shell's argument-list limit
-  ([API](../docs/engines/llama.cpp/api.md#vision)).
-- **Held pins.** `mise run currency` reports a held pin like any other, and the pin's comment says
-  why it is held. Two are held: `mise.bench.toml` holds GuideLLM's Python at 3.14, because
-  torchcodec 0.17.0, which GuideLLM's audio extra needs, publishes no 3.15 wheel; and
-  `host/vllm.env` holds native vLLM's Python at 3.12, because native vLLM is retired on both hosts.
-  spike-model-gateway's priority task ended the llama.cpp hold on b12098 (both classes now at
-  b12464, inert and unverified there, and Google's QAT sections may still not resolve: llama.cpp
-  #31620 and #31639) and moved vLLM to v0.34.0.
-- **GuideLLM's client faults.** GuideLLM 0.8.1 has failed on the client while the server served:
-  it stalled between an embedding cell's 1- and 16-stream levels, and it dropped a request's
-  stream before the request finished, which llama.cpp logged as the client's read error. When the
-  server's log and `/metrics` show no server error and the server idle, the fault is GuideLLM's:
-  the cell reruns once, and both runs are kept
-  ([vllm-strix](../docs/findings/vllm-strix.md#a-note-on-the-granite-stall)).
-- **GuideLLM's extras.** The bench environment installs GuideLLM with its `vision` and `audio`
-  extras, for the image and audio requests. mise counts an install made before the extras were
-  added as current, so that install gains them only when forced:
-  `MISE_ENV=bench mise install --force pipx:guidellm`.
-
-## Running on the GB10s
-
-The practices every task on the GB10s follows, each with its reason:
-
-- **CDI spec.** An `apt upgrade` without a reboot can leave the NVIDIA Container Toolkit's CDI spec
-  naming a library that is gone, and every GPU container then fails to start. Regenerate it after
-  each upgrade ([setup](../docs/engines/llama.cpp/setup.md#1-bring-the-host-current)).
-- **gb10-1 alone.** gb10-2 is reserved for spike-ai-pipeline, so every task installs, downloads,
-  and measures on gb10-1 alone; gb10-2 is used only under a named borrow (`ai-hosting.md`,
-  "Hosts and access").
-- **Models.** Download a model once, on gb10-1, with hf
-  ([models](../docs/engines/llama.cpp/models.md#pre-staging-models-with-hf)). Copy it to gb10-2
-  over QSFP only under a named borrow of gb10-2
-  ([models](../docs/engines/llama.cpp/models.md#copying-a-model-to-the-other-gb10)).
-
-## Running on the Framework
-
-The practices every task on the Framework follows, each with its reason:
-
-- **A measuring session owns the Framework.** Nothing else serves on it while a session measures,
-  so no other server holds port 8080 or the GTT during a measurement.
-- **Set A between tasks.** The Framework serves set A from the `llama` container between tasks
-  ([setup](../docs/engines/llama.cpp/setup.md#12-serve-set-a)). vLLM's install and update refuse
-  while `llama` runs, so a task stops it (`docker stop llama`) before installing vLLM, and the
-  setup's step serves set A again.
-- **The GTT ceiling.** The GPU reaches up to 112 GiB of RAM as GTT, set by TTM's `pages_limit`
-  and amdgpu's `gttsize`, built into the boot image. Above 90% of RAM, `amd-ttm` warns that a GPU
-  filling memory can starve the host; clearing the options drops the ceiling to the kernel's
-  default of half of RAM, about 62.5 GiB ([setup](../docs/engines/llama.cpp/setup.md#2-set-the-gtt-ceiling)).
-- **The store and its snapshots.** `/srv/models` is on the root drive, a btrfs subvolume Snapper
-  snapshots before each `omarchy update`, so a deleted model frees its space only once the last
-  snapshot holding it ages out
-  ([setup](../docs/engines/llama.cpp/setup.md#8-create-the-model-store)).
-- **The docker group.** Joining it takes effect at the next login. A terminal on the Framework's
-  desktop belongs to the desktop's earlier login, so it gets `permission denied` until the desktop
-  logs in again or the terminal runs `newgrp docker`
-  ([setup](../docs/engines/llama.cpp/setup.md#3-docker-for-jaime)).
-- **ufw route rules.** Omarchy's ufw with ufw-docker drops routed traffic to a container's
-  published port, so the laptop reaches ports 8080 and 8000 only through `ufw route allow` rules
-  on `tailscale0`. A laptop request that times out while `/health` answers on the host means a
-  rule is missing ([setup](../docs/engines/llama.cpp/setup.md#4-route-the-ports-through-ufw)).
-- **Flavors.** `host/engines llama` picks the `rocm` flavor on the Framework's AMD GPU, and
-  `LLAMA_FLAVOR=vulkan host/engines llama update` switches to `vulkan`. Update keeps the same
-  build's other flavor, so switching back pulls nothing
-  ([update](../docs/engines/llama.cpp/update.md#switching-the-flavor)). `host/engines vllm` picks
-  its `rocm` flavor the same way: `vllm/vllm-openai-rocm`, with gpt-oss-120b as its default row
-  ([update](../docs/engines/vllm/update.md#the-flavor)).
-- **vLLM's reservation.** vLLM counts the whole 112 GiB GTT ceiling as the GPU's memory and
-  reserves 0.80 of it, 89.6 GiB, at every generative row, so MemAvailable falls to about 21 to 24
-  GiB whatever the model; the KV cache takes what the weights leave. The embedding row logs no
-  reservation and leaves about 114 GiB ([vllm-strix](../docs/findings/vllm-strix.md#cold-start-and-footprint)).
-- **vLLM's audio.** vLLM's official ROCm image ships no audio decoder, so an audio request returns
-  500. The probe image that `host/vllm-rocm-audio/Dockerfile` builds adds the audio extra's
-  missing packages and serves audio; the `engines` suite doesn't build it
-  ([vllm-strix](../docs/findings/vllm-strix.md#the-audio-probe)).
-- **Sudoers files without an editor.** `sudo` drops an `EDITOR` set on its command line, so
-  `visudo` opens vim, and vim inside another editor's terminal takes `visudo`'s `--` for a file
-  name and saves nothing. The architect writes a rule with `tee`, checks it with `visudo -cf`, and
-  installs it ([setup](../docs/engines/llama.cpp/setup.md#11-allow-the-page-cache-drop)).
-- **Background jobs over SSH.** A `nohup … &` job started by a non-interactive `ssh framework '…'`
-  dies when the command returns, so a session starts it with `setsid nohup … < /dev/null &`. A
-  `pgrep -f` run through `ssh` matches its own command line, so a wait checks the jobs' logs
-  instead ([models](../docs/engines/llama.cpp/models.md#on-the-framework)).
-- **Two Mesas.** ggml's Vulkan image runs Ubuntu's Mesa 26.0, and the host runs 26.2.5. ggml's
-  native Vulkan prebuilt, on the host's Mesa, led the image at prompt processing by 4.5 to 9.5%,
-  likely from the Mesa versions, untested, so a Vulkan result records which Mesa it ran on
-  ([llama-strix-rocm](../docs/findings/llama-strix-rocm.md#raw-speed)).
-- **GTT and VRAM in use.** The GPU's memory in use reads from `mem_info_gtt_used` and
-  `mem_info_vram_used` in `/sys/class/drm/card1/device`, with no root, and a footprint adds it to
-  `MemAvailable`
-  ([llama-strix-rocm](../docs/findings/llama-strix-rocm.md#per-model-the-cold-load-and-its-footprint)).
-
-## References
-
-The spike reads these repositories and never writes to them. Each is a key in the coordinator's
-`references.toml`, with its local checkout in `references.local.toml`:
-
-- `spike-model-hosting`: the Strix Halo runbook and llama.cpp build log, the baseline, and the
-  model-card method.
-- `personal-agents`: the Framework's preparation and its `outpost` admin scripts, the model for the
-  `engines` suite.
-- `dotfiles`: the GB10 setup pattern (`platforms/dgx/system-setup.sh`) and the QSFP link record.
-  Two-node serving belongs to spike-model-layout.
+The experiment's rules, `standards-lab/docs/ai-hosting.md#experiment-rules`, govern every session.
+[`docs/rules.md`](../docs/rules.md) holds the rules this spike keeps beside them: how sessions
+are guided, how benchmarks run, how llama.cpp is pinned, the load tools, and the root grants.

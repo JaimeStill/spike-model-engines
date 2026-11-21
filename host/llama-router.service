@@ -1,15 +1,5 @@
-# Native llama.cpp's router, after personal-agents' "Run it as a service": llama-server in router
-# mode through /opt/llama.cpp/current, so moving to another build never edits the unit, with the
-# llama container's preset (through /opt/llama.cpp/preset, the clone's host/llama-preset), model
-# store (/srv/models as LLAMA_CACHE), and router flags (host/llama.sh). It binds the host's
-# tailnet IPv4 address, read when it starts, on port 8080, so it requires and follows tailscaled;
-# a start without the address fails, and systemd tries again. The binaries' $ORIGIN runpath finds
-# the CUDA runtime unpacked beside them, so no LD_LIBRARY_PATH. systemd reads $$ as a literal $,
-# leaving the substitution to bash.
-#
-# The architect installs it, as a root step, into /etc/systemd/system/llama-router.service and
-# runs systemctl daemon-reload (docs/engines/llama.cpp/setup.md, "GB10, native"); the
-# engines llama-native commands enable, start, stop, and disable it.
+# Native llama.cpp's router: llama-server in router mode under systemd.
+# See docs/engines/llama.cpp/setup.md#1-the-architects-root-steps
 
 [Unit]
 Description=llama.cpp router, native (spike-model-engines)

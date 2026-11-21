@@ -1,2 +1,3 @@
-# Follow the files a script sources, such as host/llama.env, so shellcheck checks their use.
+# Shellcheck's settings.
+# See docs/tools.md#shellchecks-settings
 external-sources=true

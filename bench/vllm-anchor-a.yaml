@@ -1,20 +1,16 @@
-# Anchor cell A': Gemma 4 26B-A4B NVFP4 on vLLM, 1 stream sending 8 requests back to back, each
-# 512 synthetic prompt tokens and exactly 256 output tokens. GuideLLM sends max_completion_tokens
-# with ignore_eos whenever output_tokens is set, so every request generates its full 256. The
-# target is the server's URL, which the architect sets in GUIDELLM__SPEC__BACKEND__TARGET so no
-# address is committed. Run from the repository root (docs/findings/vllm-gb10-container.md).
+# Anchor cell A': Gemma 4 26B-A4B NVFP4 on vLLM, 1 stream sending 8 requests.
+# See docs/bench.md#vllm-anchor-a
 spec:
   backend:
     kind: openai_http
     model: nvidia/Gemma-4-26B-A4B-NVFP4
     request_format: /v1/chat/completions
-    # Gemma 4 reasons only when its chat template is asked to, so every request asks, as gpt-oss
-    # reasons in anchor cell A: the 256 tokens are reasoning first, then the reply.
+    # See docs/bench.md#gemma-4s-reasoning
     extras:
       body:
         chat_template_kwargs:
           enable_thinking: true
-  # The served checkpoint ships its own tokenizer, which cuts the prompt to its 512 tokens.
+  # See docs/bench.md#tokenizers
   tokenizer:
     kind: huggingface_auto
     model: nvidia/Gemma-4-26B-A4B-NVFP4

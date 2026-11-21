@@ -58,3 +58,4 @@ Vulkan image, is in [vllm-strix](../../findings/vllm-strix.md).
   how the pin moves, and the native update, rollback, and walk.
 - [Uninstall](uninstall.md): removing vLLM, deleting models, with hf or by hand, the Framework, and
   removing native vLLM and its root steps.
+- [How the scripts work](scripts.md): what the container's and native vLLM's libraries do and why.

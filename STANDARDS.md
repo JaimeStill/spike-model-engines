@@ -5,6 +5,11 @@ The judgement calls the check can't enforce, one line each, for the standards-re
 
 The architecture pages that apply, in the architecture repository:
 
+- `principles/comments.md`: every comment is one of the five kinds, in scripts and every
+  configuration file (TOML, YAML, `.env`, the rows file, the INI preset, systemd units, sudoers,
+  Dockerfiles, `.gitignore`, `.shellcheckrc`); a script's header is its package documentation, and
+  a configuration file's header is a short description plus `See` lines to the docs/ page that
+  holds its reasoning.
 - `principles/minimal-footprint.md`
 - `principles/rolling-currency.md`
 - `principles/validation-first.md`
@@ -21,8 +26,9 @@ The architecture pages that apply, in the architecture repository:
 ## Docs
 
 - Each engine's guide is a directory, `docs/engines/<engine>/`: a README that indexes it, and
-  `setup.md`, `models.md`, `api.md`, `update.md`, and `uninstall.md`. A host class or hosting
-  method adds a section, not a file.
+  `setup.md`, `models.md`, `api.md`, `update.md`, `uninstall.md`, and `scripts.md`, which holds
+  the reasoning behind the engine's `host/` libraries. A host class or hosting method adds a
+  section, not a file.
 - A guide says how the engine runs now; a finding, under `docs/findings/<task>.md`, says what was
   measured, when, on which engine version and host stack, and stays dated.
 - Every command a session or the architect runs appears in a guide or the finding's method

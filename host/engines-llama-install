@@ -21,14 +21,12 @@ source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/llama.sh"
 # shellcheck source=host/vllm.sh
 source "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/vllm.sh"
 
-# The flavor given, read before llama_flavor resolves it, so the update install points at names it.
 given=${LLAMA_FLAVOR:-}
 llama_flavor
 build=$(llama_build "${1:-}")
 vllm_refuse_running
 engines_refuse_unit llama-router
 engines_refuse_unit vllm-server
-# The update that moves it to what install was asked for: the pin, or the version given.
 update="${given:+LLAMA_FLAVOR=$given }engines llama update${1:+ $1} moves it to ${1:-the pin}"
 
 image=$(llama_image "$build")

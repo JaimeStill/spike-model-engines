@@ -31,7 +31,7 @@ docker image ls ghcr.io/ggml-org/llama.cpp
 
 The first prints the pinned image; the second lists it, and no image of another build. Once
 the model is loaded, the laptop confirms the build the model itself runs ([API](api.md#build)),
-which read `b12063-2cbca389f` when gb10's pin was b12063 (it is now b12464), and reads
+which read `b12063-2cbca389f` when gb10's pin was b12063 (it is now b12602), and reads
 `b11960-8642541b2` at strix-halo's, v0.8.0 (b11960).
 
 `update` also replaces a `llama` container whose preset mount isn't the clone's preset
@@ -163,21 +163,20 @@ where it isn't installed, or after [uninstalling](uninstall.md).
 
 The pins are `host/llama.env`: one b-build per host class, `LLAMA_BUILD_GB10` (cuda13) and
 `LLAMA_BUILD_STRIX_HALO` (rocm and vulkan), which each of the class's flavors names, as
-`server-<flavor>-<build>` in `LLAMA_REPOSITORY`; and `LLAMA_RELEASE`, the semver release whose
-notes ("Nightly build:") name b11960. Both classes' build, b12464, is past that release, and
-unverified: b12100 and later (llama.cpp #31620 and #31639) may not resolve Google's 26B-A4B,
-31B and E4B QAT GGUFs from an `hf-repo` tag (`host/llama.env`). On the laptop, `mise run currency`
-reports a class whose build is older than the newest b-build with the class's server image on
-ghcr.io (`server-cuda13-<build>` for gb10, `server-vulkan-<build>` for strix-halo), not the
-newest release, since llama.cpp publishes images only nightly and on manual runs; a class at that
-build, or past it, reads as current:
+`server-<flavor>-<build>` in `LLAMA_REPOSITORY`; and `LLAMA_RELEASE`, the semver release whose notes
+("Nightly build:") name b11960. Both classes run b12602, past that release
+([Where the pins stand](#where-the-pins-stand)). On the laptop, `mise run currency` reports a class
+whose build is older than the newest b-build with the class's server image on ghcr.io
+(`server-cuda13-<build>` for gb10, `server-vulkan-<build>` for strix-halo), not the newest
+release, since llama.cpp publishes images only nightly and on manual runs; a class at that build,
+or past it, reads as current:
 
 ```sh
 mise run currency
 ```
 
 A line beginning `host/llama.env: llama.cpp (<class>)` means that class's pin is behind, and names
-the newer build and the image it found, as `b12464 -> <build> (server-cuda13)`; a pin held on
+the newer build and the image it found, as `b12602 -> <build> (server-cuda13)`; a pin held on
 purpose is reported like any other. To move a class, edit its build in
 `host/llama.env` (and `LLAMA_RELEASE`, when the build is the one a newer semver release names),
 and the pin this guide quotes to match: the [README](README.md), and the image and its
@@ -185,10 +184,33 @@ and the pin this guide quotes to match: the [README](README.md), and the image a
 Commit and push; then, on each host, `git pull` and `host/engines llama update`, or
 `host/engines llama-native update` where native llama.cpp serves ([Native](#native)).
 
+### Where the pins stand
+
+gb10 (gb10-1; cuda13) and strix-halo (the Framework; rocm and vulkan) both run b12602, the newest
+build with every flavor's server image on ghcr.io (`server-cuda13-`, `server-rocm-` and
+`server-vulkan-b12602`) on 2026-11-21. b12602 is unverified: llama.cpp is inert on both hosts,
+which serve vLLM's rows, and no section has started or served on it.
+
+`host/llama.sh` names each flavor's server image `server-<flavor>-<build>` in `LLAMA_REPOSITORY`,
+and `llama_pin` (`host/llama-release.sh`, which sources `host/llama.env`) reads the class's pin.
+`LLAMA_RELEASE` is the semver release last pinned, v0.8.0, whose notes name b11960; neither class
+runs it now, and `scripts/currency.sh` doesn't compare the pins with it.
+
+b12602 is past b12464, the build spike-model-gateway's priority task moved both classes to (the
+architect's review escalation, spike-model-gateway's docs/findings/priority.md), which ended the
+hold on b12098. llama.cpp #31620 and #31639 (b12100 and later) match an `-hf` quantization tag
+only after `-`, `.` or `/`, and Google's 26B-A4B, 31B and E4B QAT GGUFs (such as
+`gemma-4-26B_q4_0-it.gguf`) put `_` before it, so their sections may not resolve on b12602.
+
+The Framework's re-screen of Gemma 4 26B-A4B waits on llama.cpp #25584, the fix for #29221
+(Vulkan's "tensor not allocated" abort on a 15-slot section's second request), and on #31418
+(Vulkan's batched tensor copy API) (spike-hosting-upgrades' docs/screens/framework/2026-11-04.md
+and docs/screens/gb10-1/2026-11-05.md).
+
 ## Native
 
 Native llama.cpp ([Setup](setup.md#gb10-native)) updates with its own command, from the clone,
-after `git pull`; with no version it moves to gb10's pin, b12464. The walk below ran when that
+after `git pull`; with no version it moves to gb10's pin, b12602. The walk below ran when that
 pin was v0.8.0 (b11960):
 
 ```sh

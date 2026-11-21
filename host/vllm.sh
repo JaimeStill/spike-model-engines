@@ -1,33 +1,20 @@
 #!/usr/bin/env bash
-# The vLLM container, in one place: sourced by the engines-vllm-* commands so install and update
-# start the same container, from the image for the release given and the flavor (vllm_flavor).
-# It runs `vllm serve` (the image's entrypoint) on one row of the rows file (vllm-rows): a model
-# and its server flags, the flavor's default row or the one VLLM_MODEL names for the run. The row
-# names the container too, vllm unless it says otherwise, so a host runs one container per row it
-# serves, each with its own memory fraction, and every command acts on the row's container alone.
-# The model store (/srv/models) is its Hugging Face cache, so the model lands in the same
-# models--<org>--<name> layout llama.cpp's do. It runs as the invoking user, so the store's files
-# stay that user's, and publishes the row's port, 8000 unless it says otherwise, on the host's
-# tailnet IPv4 address only.
+# The vLLM container: sourced by the engines-vllm-* commands, so install and update start the same
+# container, from the image for the release given and the flavor (vllm_flavor). It runs `vllm
+# serve` (the image's entrypoint) on one row of the rows file (vllm-rows): a model and its server
+# flags, the flavor's default row or the one VLLM_MODEL names for the run. The row names the
+# container too, vllm unless it says otherwise, and its port, 8000 unless it says otherwise. The
+# container runs as the invoking user, with the model store (/srv/models) as its Hugging Face
+# cache and the compile cache directory (~/.cache/vllm) as its home, publishing the row's port on
+# the host's tailnet IPv4 address only. A run given VLLM_TRACE=on (host/vllm.env) traces the row.
 #
-# Run as a user the image's /etc/passwd doesn't name, the container has no writable home, so the
-# compile cache directory (~/.cache/vllm on the host) is mounted as its home: vLLM's
-# torch.compile cache, and the Triton and FlashInfer kernels it builds, land there and survive an
-# update. USER is set too, since Python's getpass.getuser() otherwise fails on a uid with no
-# passwd entry. This is what the image's own non-root variant does in its entrypoint. Every
-# container on the host shares the one directory: vLLM keys its compile cache by the model and its
-# configuration, so the rows don't overwrite each other's.
-#
-# A run given VLLM_TRACE=on (host/vllm.env) traces the row: its container exports a span per
-# request to the OpenTelemetry Collector VLLM_TRACE_COLLECTOR names, under the service name
-# vllm-<alias>. It is the same on both flavors and on a row's own image, which all run here.
+# See docs/engines/vllm/scripts.md#the-container
 
 # shellcheck source=host/engines.sh
 source "$(dirname "${BASH_SOURCE[0]}")/engines.sh"
 # shellcheck source=host/vllm.env
 source "$(dirname "${BASH_SOURCE[0]}")/vllm.env"
 
-# The container and the port a row serves from when it names neither (vllm_row).
 VLLM_CONTAINER_DEFAULT=vllm
 VLLM_PORT_DEFAULT=8000
 VLLM_STORE=$ENGINES_STORE
@@ -36,21 +23,6 @@ VLLM_HOME=/home/vllm
 
 VLLM_ROWS_FILE=$(dirname "${BASH_SOURCE[0]}")/$VLLM_ROWS
 
-# Resolves the flavor, the GPU platform vLLM's image is built for, into VLLM_FLAVOR; the image
-# repository vllm_image names into VLLM_REPOSITORY; the docker run options that give the container
-# the GPU into VLLM_DEVICES; and, when VLLM_MODEL names no row for the run, the flavor's default
-# row into VLLM_MODEL. VLLM_FLAVOR, when set, names it: cuda, vLLM's CUDA image on the NVIDIA
-# Container Toolkit's GPU (--gpus all); or rocm, vLLM's ROCm image on the kernel's AMD GPU driver,
-# its compute device and its render nodes (/dev/kfd, /dev/dri), with no --group-add, seccomp, or
-# ptrace options, since the device files are open to every account on the Framework. Unset or
-# empty, it follows the GPU the host has, as llama_flavor does: rocm when any DRM card under
-# /sys/class/drm has AMD's PCI vendor ID, 0x1002, as the Framework's Strix Halo does, and cuda
-# otherwise, as on the GB10s. Reading the vendor ID needs no root and no Docker. Refuses any other
-# flavor, before Docker is read.
-#
-# The rocm flavor's image is the release's default tag, which on v0.34.0 is its only ROCm build,
-# ROCm 10.0 (the same image as its -rocm100 tag): v0.34.0 publishes no ROCm 7.2 build, so the pin
-# names no fallback (host/vllm.env).
 vllm_flavor() {
   if [[ -z ${VLLM_FLAVOR:-} ]]; then
     VLLM_FLAVOR=cuda
@@ -76,37 +48,25 @@ vllm_flavor() {
   esac
 }
 
-# The rows' ids, one a line, in the rows file's order.
 vllm_rows() {
   sed -n 's/^\[\(.*\)\]$/\1/p' "$VLLM_ROWS_FILE"
 }
 
-# Every word of the row given, one a line, in the file's order: its model, its settings, and its
-# server flags. Prints nothing for an id the file has no row for.
 vllm_row_all_words() {
   awk -v id="[$1]" '{ sub(/#.*/, "") } /^\[/ { inrow = ($1 == id); next }
     inrow { for (i = 1; i <= NF; i++) print $i }' "$VLLM_ROWS_FILE"
 }
 
-# A row's settings are its words of the form container=<name>, port=<port>, or
-# image=<repository>, which the suite reads and vllm serve never sees (vllm_row). The pattern
-# matches one.
 VLLM_SETTING_RE='^(container|port|image)='
 
-# The words of the row given, one a line: its model, then its server flags, without its settings.
-# Prints nothing for an id the file has no row for.
 vllm_row_words() {
   vllm_row_all_words "$1" | grep -Ev "$VLLM_SETTING_RE" || true
 }
 
-# The value of the row's setting given (container, port, or image), or nothing when the row names
-# none.
 vllm_row_setting() {
   vllm_row_all_words "$1" | sed -n "s/^$2=//p" | tail -n 1
 }
 
-# The containers every row names, one a line, each once, the default's among them: every vLLM
-# container the suite may have started on a host.
 vllm_containers() {
   local id
   {
@@ -117,8 +77,6 @@ vllm_containers() {
   } | awk 'NF && !seen[$0]++'
 }
 
-# Refuses, as engines_refuse_running does, while any vLLM container (vllm_containers) runs, so
-# llama.cpp, in its container or native, never starts beside one.
 vllm_refuse_running() {
   local name
   for name in $(vllm_containers); do
@@ -126,20 +84,6 @@ vllm_refuse_running() {
   done
 }
 
-# Reads the row VLLM_MODEL names (after vllm_flavor, which sets the flavor's default) into
-# VLLM_ARGS, what the container serves after its image: the row's model, the address and port it
-# listens on, and the row's flags. vllm_run starts the container with VLLM_ARGS, and vllm_running's
-# comparison reads them back from the container's command, so the two can't drift; the port is in
-# the command, so a row whose port changes compares unequal. No element holds a space, so the
-# command joined with spaces reads back unambiguously. Reads the row's settings too: its container
-# into VLLM_CONTAINER and its port into VLLM_PORT, each the default when the row names none; and,
-# when it names an image, that repository into VLLM_REPOSITORY in place of the flavor's, with
-# VLLM_LOCAL set, since such an image is built on the host and never pulled (vllm_pull). When the
-# run is traced (VLLM_TRACE=on), the collector's endpoint ends VLLM_ARGS as --otlp-traces-endpoint,
-# grpc:// over the collector's host and port, so tracing on or off reads back from the command and
-# update moves a row between the two; and VLLM_ALIAS holds the row's alias, its
-# --served-model-name, or its id when it names none, which the service name is built from. Refuses
-# an id with no row, listing the rows, and a VLLM_TRACE other than on or empty.
 vllm_row() {
   local words image
   mapfile -t words < <(vllm_row_words "$VLLM_MODEL")
@@ -148,12 +92,12 @@ vllm_row() {
     vllm_rows | sed 's/^/  /' >&2
     return 1
   fi
-  VLLM_CONTAINER=$(vllm_row_setting "$VLLM_MODEL" container)
+  VLLM_CONTAINER=$(vllm_row_setting "$VLLM_MODEL" container) || return
   VLLM_CONTAINER=${VLLM_CONTAINER:-$VLLM_CONTAINER_DEFAULT}
-  VLLM_PORT=$(vllm_row_setting "$VLLM_MODEL" port)
+  VLLM_PORT=$(vllm_row_setting "$VLLM_MODEL" port) || return
   VLLM_PORT=${VLLM_PORT:-$VLLM_PORT_DEFAULT}
   VLLM_LOCAL=
-  image=$(vllm_row_setting "$VLLM_MODEL" image)
+  image=$(vllm_row_setting "$VLLM_MODEL" image) || return
   if [[ -n $image ]]; then
     VLLM_REPOSITORY=$image
     VLLM_LOCAL=yes
@@ -162,7 +106,8 @@ vllm_row() {
   case ${VLLM_TRACE:-} in
     '') ;;
     on)
-      VLLM_ALIAS=$(printf '%s\n' "${words[@]}" | grep -A1 -x -- --served-model-name | tail -n +2)
+      VLLM_ALIAS=$(printf '%s\n' "${words[@]}" | sed -n '/^--served-model-name$/{n;p;}') ||
+        return
       VLLM_ALIAS=${VLLM_ALIAS:-$VLLM_MODEL}
       VLLM_ARGS+=(--otlp-traces-endpoint "grpc://$VLLM_TRACE_COLLECTOR")
       ;;
@@ -173,35 +118,23 @@ vllm_row() {
   esac
 }
 
-# The row, as "row <id> (<model>)", for messages, after vllm_row.
 vllm_serves() {
   echo "row $VLLM_MODEL (${VLLM_ARGS[0]})"
 }
 
-# The settings the run was given in the environment, VLLM_FLAVOR, VLLM_MODEL, and VLLM_TRACE, as
-# "NAME=value " each, read before vllm_flavor resolves them, so a message can name the command
-# that repeats the run.
 vllm_given() {
   local given=${VLLM_FLAVOR:+VLLM_FLAVOR=$VLLM_FLAVOR }${VLLM_MODEL:+VLLM_MODEL=$VLLM_MODEL }
   echo "$given${VLLM_TRACE:+VLLM_TRACE=$VLLM_TRACE }"
 }
 
-# What a container serves the row as (after vllm_row), from the image given:
-# "<image> <model> <flags...>", in the form vllm_running prints, so a container serving exactly
-# the row compares equal.
 vllm_served() {
   echo "$1 ${VLLM_ARGS[*]}"
 }
 
-# The image for a release, in the repository vllm_flavor resolved, or the row's own (vllm_row):
-# <repository>:<release>.
 vllm_image() {
   echo "$VLLM_REPOSITORY:$1"
 }
 
-# Fetches the image given before the container is started: docker pull for an official image, and
-# for a row's own image (VLLM_LOCAL), which no registry holds, only a check that the host has
-# built it, refusing with the build it needs (host/vllm-rocm-audio/Dockerfile says how).
 vllm_pull() {
   if [[ -z $VLLM_LOCAL ]]; then
     docker pull "$1"
@@ -212,9 +145,6 @@ vllm_pull() {
   fi
 }
 
-# What the container serves, as "<image> <model> <flags...>" (vllm_served's form), or nothing when
-# there is no container. Fails when Docker does, so an unreachable daemon is never read as "not
-# installed". The whole command is read, not only the model, so a changed server flag shows.
 vllm_running() {
   local id
   id=$(docker container ls --all --quiet --filter "name=^$VLLM_CONTAINER\$") || return
@@ -222,21 +152,12 @@ vllm_running() {
     docker container inspect --format '{{.Config.Image}} {{join .Config.Cmd " "}}' "$id"
 }
 
-# The image and the model of what vllm_served or vllm_running printed, as "<image> with <model>",
-# for messages.
 vllm_describe() {
   local image model
   read -r image model _ <<<"$1"
   echo "$image with $model"
 }
 
-# Checks what vllm_run needs before anything is pulled or removed (engines_preflight), and sets
-# VLLM_ADDR to the tailnet address it publishes the row's port on, after vllm_row. Sets
-# VLLM_TRACE_OPTS to the docker run options a traced run (VLLM_TRACE=on) adds, and to none
-# otherwise: the collector's host added to the container's hosts file at its tailnet IPv4 address,
-# since the resolver docker gives a container doesn't know the tailnet's short names, and the
-# service name. The address is looked up here, before update removes the running container, so a
-# collector's host the tailnet doesn't know refuses with the row still serving.
 vllm_preflight() {
   local host addr
   engines_preflight "$VLLM_PORT" && VLLM_ADDR=$ENGINES_ADDR || return
@@ -251,11 +172,6 @@ vllm_preflight() {
   VLLM_TRACE_OPTS=(--add-host "$host:$addr" --env "OTEL_SERVICE_NAME=vllm-$VLLM_ALIAS")
 }
 
-# Starts the row's container from the image given, with the flavor's devices, serving the row on
-# its port, after vllm_flavor, vllm_row, and vllm_preflight, with a traced run's options
-# (VLLM_TRACE_OPTS). The server listens on the row's port inside the container too, so the port
-# reads back from its command. It creates the compile cache directory first, so Docker doesn't
-# create it as root.
 vllm_run() {
   mkdir -p "$VLLM_CACHE_DIR"
   docker run --detach --name "$VLLM_CONTAINER" --restart unless-stopped "${VLLM_DEVICES[@]}" \
@@ -266,11 +182,6 @@ vllm_run() {
     "${VLLM_TRACE_OPTS[@]}" "$1" "${VLLM_ARGS[@]}"
 }
 
-# Removes every vLLM image, in both flavors' official repositories, but the one given (none when
-# given nothing) and any a container on the host was created from, such as another row's, printing
-# each. A row's own image, built on the host, is never removed. An official image no container was
-# created from goes. Needs no flavor. Stops at the first failure, so it never reports an image it
-# did not remove.
 vllm_remove_images() {
   local repository listed refs='' ref used id
   used=$(docker container ls --all --quiet |
