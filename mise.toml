@@ -4,11 +4,12 @@
 task.run_auto_install = false
 
 [tools]
+"github:standards-lab/claude-plugins" = { version = "0.22.0", version_prefix = "marathon/v" }
 jq = "1.8.2"
 shellcheck = "0.11.0"
 
 [tasks.check]
-description = "Shellcheck every tracked shell script; reads no network, writes nothing"
+description = "Shellcheck every tracked shell script and run lint-context and lint-references; reads no network, writes nothing"
 run = "scripts/check.sh"
 
 [tasks.currency]

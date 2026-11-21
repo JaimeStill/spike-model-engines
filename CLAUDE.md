@@ -13,7 +13,8 @@ under "The answer". The repository is managed with the marathon workflow, so sta
   together. Read `context/README.md`, "Rules", and the experiment's rules,
   `standards-lab/docs/ai-hosting.md#experiment-rules`, before any host step.
 - **Standards:** `STANDARDS.md`, with pointers into the architecture repository.
-- **Check:** `mise run check`, which shellchecks every tracked shell script.
+- **Check:** `mise run check`, which shellchecks every tracked shell script and runs lint-context
+  and lint-references.
 - **Currency:** `mise run currency`, which reports every pin behind its latest.
 - **Goals:** the coordinator's roadmap, `standards-lab/roadmap/index.toml`, holds this spike's
   work.

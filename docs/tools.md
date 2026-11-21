@@ -6,11 +6,13 @@ at its section with a `See` line.
 
 ## The check and currency
 
-[`mise.toml`](../mise.toml) pins the laptop's tools, jq and shellcheck, and defines the two tasks:
-`mise run check` shellchecks every tracked shell script, reading no network and writing nothing,
-and `mise run currency` reports every pin behind its latest, exiting nonzero if any. Tasks never
-install a missing tool (`task.run_auto_install = false`); `mise install` is the one step that reads
-the network.
+[`mise.toml`](../mise.toml) pins the laptop's tools, jq, shellcheck, and marathon (whose release
+carries lint-context and lint-references), and defines the two tasks: `mise run check` shellchecks
+every tracked shell script and runs lint-context and lint-references, reading no network and
+writing nothing, and `mise run currency` reports every pin behind its latest, exiting nonzero if
+any. Both lints run before the check fails on either, and a lint missing from PATH fails the check
+with `FAIL: <lint> is not on PATH; run mise install`. Tasks never install a missing tool
+(`task.run_auto_install = false`); `mise install` is the one step that reads the network.
 
 Currency reports every mise tool pinned behind its latest, each host class's llama.cpp build
 (`host/llama.env`) behind the newest b-build with that class's server image on ghcr.io
