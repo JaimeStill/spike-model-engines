@@ -26,8 +26,9 @@ The architecture pages that apply, in the architecture repository:
 ## Docs
 
 - Each engine's guide is a directory, `docs/engines/<engine>/`: a README that indexes it, and
-  `setup.md`, `models.md`, `api.md`, `update.md`, and `uninstall.md`. A host class or hosting
-  method adds a section, not a file.
+  `setup.md`, `models.md`, `api.md`, `update.md`, `uninstall.md`, and `scripts.md`, which holds
+  the reasoning behind the engine's `host/` libraries. A host class or hosting method adds a
+  section, not a file.
 - A guide says how the engine runs now; a finding, under `docs/findings/<task>.md`, says what was
   measured, when, on which engine version and host stack, and stays dated.
 - Every command a session or the architect runs appears in a guide or the finding's method
